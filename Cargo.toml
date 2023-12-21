@@ -15,7 +15,10 @@ rayon = "1.8.0"
 lto = true
 opt-level = 3
 codegen-units = 1
+target-cpu = "native"
 
 [profile.dev]
 opt-level = 3
+codegen-units = 1
+lto = true
 target-cpu = "native"

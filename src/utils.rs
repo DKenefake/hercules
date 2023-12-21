@@ -1,22 +1,11 @@
 use ndarray::Array1;
 use smolprng::{Algorithm, PRNG};
 
-pub fn compute_d(x_0: &Array1<f64>, grad: &Array1<f64>) -> Array1<f64> {
-    // compute the variable importance function
-    let mut d = Array1::<f64>::zeros(x_0.len());
-    for i in 0..x_0.len() {
-        // find the max of the two terms
-        d[i] = f64::max(-x_0[i]*grad[i], (1.0-x_0[i])*grad[i]);
-    }
-    d
-}
-
-pub fn compute_I(d:&Array1<f64>) -> Vec<usize> {
-    // compute the variable selection function
-    d.iter().filter(|x| **x > 0.0).enumerate().map(|(i, _)| i).collect()
-}
-
-pub fn mutate_solution<T: Algorithm>(x: &Array1<f64>, sites:usize, prng: &mut PRNG<T>) -> Array1<f64> {
+pub fn mutate_solution<T: Algorithm>(
+    x: &Array1<f64>,
+    sites: usize,
+    prng: &mut PRNG<T>,
+) -> Array1<f64> {
     // Given a point, x, flip sites number of bits and return the new point, this can include a bit that is already flipped.
     let mut x_1 = x.clone();
 
@@ -42,4 +31,14 @@ pub fn calculate_hamming_distance(x_0: &Array1<f64>, x_1: &Array1<f64>) -> usize
         }
     }
     distance
+}
+
+pub fn is_fractional(x: &Array1<f64>) -> bool {
+    // Given a point, x, determine if it is fractional e.g. not just 0.0f64 or 1.0f64
+    for i in 0..x.len() {
+        if x[i] != 0.0 && x[i] != 1.0 {
+            return true;
+        }
+    }
+    false
 }
