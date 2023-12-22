@@ -9,24 +9,29 @@ The subcomponents of Hurricane can be used independently. For example, the follo
     
 ```rust
 
-extern crate hurricane;
-
 use hurricane::qubo::QUBO;
 use hurricane::qubo_heuristic::{one_step_local_search, get_opt_criteria};
 
 pub fn simple_mixed_search(qubo: &Qubo, x_0: &Array1<f64>, max_steps:usize) -> Array1<f64>{
-
+    /// A simple local search heuristic that uses 1-opt and opt-criteria search
+    
+    // create a mutable copy of the initial point
     let mut x = x_0.clone();
+    // flip the bits to better satisfy the stationary conditions
     let mut x_1 = get_opt_criteria(qubo, &x);
     let mut steps = 0;
-
+    
+    // run the local search until we reach a local minimum or we reach the maximum number of steps
     while x_1 != x && steps <= max_steps {
         x = x_1.clone();
+        // find the lowest energy point in the neighborhood of x (can be x itself)
         x_1 = one_step_local_search(qubo, &x, &(0..qubo.num_x()).collect());
+        // flip the bits to better satisfy the stationary conditions
         x_1 = get_opt_criteria(qubo, &x_1);
+        // increment the number of steps
         steps += 1;
     }
-
+    // return the best point found
     x_1
 }
 ```
