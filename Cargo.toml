@@ -18,7 +18,7 @@ codegen-units = 1
 target-cpu = "native"
 
 [profile.dev]
+lto = true
 opt-level = 3
 codegen-units = 1
-lto = true
 target-cpu = "native"

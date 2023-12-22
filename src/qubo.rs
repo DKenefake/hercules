@@ -1,5 +1,7 @@
 use ndarray::Array1;
 use sprs::{CsMat, TriMat};
+use std::io::BufRead;
+use std::io::Write;
 
 use smolprng::Algorithm;
 use smolprng::PRNG;
@@ -108,5 +110,62 @@ impl Qubo {
         }
 
         w
+    }
+
+    pub fn write_qubo(&self, filename: &str) {
+        let file = std::fs::File::create(filename).unwrap();
+        let mut writer = std::io::BufWriter::new(file);
+
+        writeln!(writer, "{}", self.num_x()).unwrap();
+        for (value, (i, j)) in self.q.iter() {
+            writeln!(writer, "{} {} {}", i, j, value).unwrap();
+        }
+
+        for i in 0..self.num_x() {
+            let value = self.c[i];
+            if value != 0.0 {
+                writeln!(writer, "{} {}", i, value).unwrap();
+            }
+        }
+    }
+
+    pub fn read_qubo(filename: &str) -> Self {
+        // open the file
+        let file = std::fs::File::open(filename).unwrap();
+        let mut reader = std::io::BufReader::new(file);
+
+        // get the number of variables
+        let mut line = String::new();
+        reader.read_line(&mut line).unwrap();
+        let num_x = line.trim().parse::<usize>().unwrap();
+
+        line = String::new();
+        // set up the sparse matrix and dense vector
+        let mut q = TriMat::<f64>::new((num_x, num_x));
+        let mut c = Array1::<f64>::zeros(num_x);
+
+        // read the file
+        while reader.read_line(&mut line).unwrap() > 0 {
+            let row_data: Vec<_> = line.split_whitespace().collect();
+
+            // we add to the column vector if there are only two elements
+            if row_data.len() == 2 {
+                let i = row_data[0].parse::<usize>().unwrap();
+                let value = row_data[1].parse::<f64>().unwrap();
+                c[i] = value;
+            }
+
+            // otherwise we add to the sparse matrix
+            if row_data.len() == 3 {
+                let i = row_data[0].parse::<usize>().unwrap();
+                let j = row_data[1].parse::<usize>().unwrap();
+                let value = row_data[2].parse::<f64>().unwrap();
+                q.add_triplet(i, j, value);
+            }
+
+            line = String::new();
+        }
+
+        Self::new_with_c(q.to_csr(), c)
     }
 }

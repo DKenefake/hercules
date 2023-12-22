@@ -73,7 +73,8 @@ mod tests {
         let mut prng = PRNG {
             generator: JsfLarge::default(),
         };
-        let p = Qubo::make_random_qubo(500, &mut prng, 0.1);
+
+        let p = Qubo::make_random_qubo(1000, &mut prng, 0.01);
 
         let starting_points = initial_points::generate_random_starting_points(&p, 5, &mut prng);
         // let local_sols = qubo_heuristics::multi_simple_local_search(&p, &starting_points);
@@ -91,7 +92,7 @@ mod tests {
         let mut prng = PRNG {
             generator: JsfLarge::default(),
         };
-        let p = Qubo::make_random_qubo(500, &mut prng, 0.1);
+        let p = Qubo::make_random_qubo(500, &mut prng, 0.01);
         let alpha = p.alpha();
         println!("{:?}", alpha);
     }
@@ -100,7 +101,7 @@ mod tests {
         let mut prng = PRNG {
             generator: JsfLarge::default(),
         };
-        let p = Qubo::make_random_qubo(500, &mut prng, 0.1);
+        let p = Qubo::make_random_qubo(500, &mut prng, 0.01);
         let rho = p.rho();
         println!("{:?}", rho);
     }
@@ -110,8 +111,10 @@ mod tests {
         let mut prng = PRNG {
             generator: JsfLarge::default(),
         };
-        let p = Qubo::make_random_qubo(500, &mut prng, 0.1);
-        let mut x_0 = Array1::zeros(p.num_x());
+
+        let p = Qubo::make_random_qubo(1000, &mut prng, 0.01);
+        let k = prng.gen_f32();
+        let mut x_0 = initial_points::generate_random_binary_point(&p, &mut prng, 0.5);
         for _ in 0..100 {
             x_0 = local_search_utils::get_opt_criteria(&p, &x_0);
             println!("{:?}", p.eval(&x_0));
@@ -123,7 +126,8 @@ mod tests {
         let mut prng = PRNG {
             generator: JsfLarge::default(),
         };
-        let p = Qubo::make_random_qubo(500, &mut prng, 0.1);
+
+        let p = Qubo::make_random_qubo(1000, &mut prng, 0.01);
         let mut x_0 = Array1::ones(p.num_x()) * p.alpha();
 
         x_0 = local_search::simple_opt_criteria_search(&p, &x_0, 100);
@@ -136,8 +140,9 @@ mod tests {
         let mut prng = PRNG {
             generator: JsfLarge::default(),
         };
-        let p = Qubo::make_random_qubo(500, &mut prng, 0.1);
-        let mut xs = initial_points::generate_random_starting_points(&p, 1000, &mut prng);
+
+        let p = Qubo::make_random_qubo(1000, &mut prng, 0.01);
+        let mut xs = initial_points::generate_random_starting_points(&p, 10, &mut prng);
 
         xs = local_search::multi_simple_opt_criteria_search(&p, &xs);
 
@@ -154,7 +159,8 @@ mod tests {
         let mut prng = PRNG {
             generator: JsfLarge::default(),
         };
-        let p = Qubo::make_random_qubo(500, &mut prng, 0.1);
+
+        let p = Qubo::make_random_qubo(1000, &mut prng, 0.01);
         let mut xs = vec![
             Array1::ones(p.num_x()) * p.alpha(),
             Array1::ones(p.num_x()) * p.rho(),
@@ -174,7 +180,8 @@ mod tests {
         let mut prng = PRNG {
             generator: JsfLarge::default(),
         };
-        let p = Qubo::make_random_qubo(500, &mut prng, 0.1);
+
+        let p = Qubo::make_random_qubo(1000, &mut prng, 0.01);
         let mut xs = Vec::new();
         for i in 0..1000 {
             xs.push(Array1::ones(p.num_x()) * (i as f64) / 1000.0);
@@ -194,8 +201,9 @@ mod tests {
         let mut prng = PRNG {
             generator: JsfLarge::default(),
         };
-        let p = Qubo::make_random_qubo(500, &mut prng, 0.1);
-        let mut xs = initial_points::generate_random_starting_points(&p, 100, &mut prng);
+
+        let p = Qubo::make_random_qubo(1000, &mut prng, 0.01);
+        let mut xs = initial_points::generate_random_starting_points(&p, 10, &mut prng);
 
         xs = xs
             .par_iter()
@@ -221,4 +229,39 @@ mod tests {
     //     println!("{:?}", x);
     //     println!("{:?}", p.eval(&x));
     // }
+
+    #[test]
+    fn write_qubo() {
+        let mut prng = PRNG {
+            generator: JsfLarge::default(),
+        };
+
+        let p = Qubo::make_random_qubo(10, &mut prng, 0.1);
+        Qubo::write_qubo(&p, "test.qubo");
+    }
+
+    #[test]
+    fn read_qubo() {
+        let mut prng = PRNG {
+            generator: JsfLarge::default(),
+        };
+
+        let p = Qubo::make_random_qubo(10, &mut prng, 0.1);
+        Qubo::write_qubo(&p, "test_read.qubo");
+
+        let q = Qubo::read_qubo("test_read.qubo");
+
+        assert_eq!(p.q, q.q);
+        assert_eq!(p.c, q.c);
+    }
+
+    #[test]
+    fn large_scale_write_qubo() {
+        let mut prng = PRNG {
+            generator: JsfLarge::default(),
+        };
+
+        let p = Qubo::make_random_qubo(1000, &mut prng, 0.01);
+        Qubo::write_qubo(&p, "test_large.qubo");
+    }
 }
