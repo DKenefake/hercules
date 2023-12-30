@@ -34,8 +34,6 @@ use smolprng::{PRNG, JsfLarge};
 
 // A simple local search heuristic that uses 1-opt and opt-criteria search
 pub fn simple_mixed_search(qubo: &Qubo, x_0: &Array1<f64>, max_steps:usize) -> Array1<f64>{
-    
-    
     // create a mutable copy of the initial point
     let mut x = x_0.clone();
     // flip the bits to better satisfy the stationary conditions
@@ -80,8 +78,3 @@ let min_obj = x_sols
 ```
 
 This is actually a quite effective simple local search heuristic, and can be used as a starting point for more complex heuristics. Here, we can solve a randomly generated sparse 1000x1000 QUBO problem to within 0.5% of the optimal solution in about half second on a laptop. 
-
-
-
-
-

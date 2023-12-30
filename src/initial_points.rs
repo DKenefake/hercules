@@ -1,4 +1,4 @@
-//! Initial points, is there general code that can be used to create starting points for the algorithms you wirte.
+//! Initial points, is there general code that can be used to create starting points for the algorithms you write.
 //!
 //! Provides a set of initial points that can be used to start the algorithms, these include:
 //! - Random points
@@ -81,7 +81,7 @@ pub fn generate_central_starting_points(qubo: &Qubo) -> Array1<f64> {
     Array1::<f64>::zeros(qubo.num_x()) + 0.5f64
 }
 
-/// Generates a starting poing based on the alpha heuristic, from the paper boros2007, which is the optimal solution to
+/// Generates a starting point based on the alpha heuristic, from the paper boros2007, which is the optimal solution to
 /// the relaxed QUBO, given x_i = x_j for all i, j.
 ///
 /// Example:
@@ -100,7 +100,7 @@ pub fn generate_alpha_starting_point(qubo: &Qubo) -> Array1<f64> {
     Array1::<f64>::zeros(qubo.num_x()) + qubo.alpha()
 }
 
-/// Generates a starting poing based on the rho heuristic, from the paper boros2007, which is the optimal solution to
+/// Generates a starting point based on the rho heuristic, from the paper boros2007, which is the optimal solution to
 /// the relaxed QUBO, given x_i = x_j for all i, j.
 ///
 /// Example:

@@ -11,7 +11,7 @@ use ndarray::Array1;
 
 /// Auxiliary function to calculate the optimal criteria for each variable
 ///
-/// This is essentially a helper function that calculates the gains of fliping bits for each variable and then flips in
+/// This is essentially a helper function that calculates the gains of flipping bits for each variable and then flips in
 /// the direction that gives the best gain.
 pub fn get_opt_criteria(qubo: &Qubo, x: &Array1<f64>) -> Array1<f64> {
     // calculate the optimal criteria for each variable, given the point x

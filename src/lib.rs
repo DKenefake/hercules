@@ -28,6 +28,13 @@ mod tests {
         Qubo::make_random_qubo(50, &mut prng, 0.01)
     }
 
+    fn get_min_obj(p: &Qubo, xs: &Vec<Array1<f64>>) -> f64 {
+        xs.par_iter()
+            .map(|x| p.eval(&x))
+            .min_by(|a, b| a.partial_cmp(b).unwrap())
+            .unwrap()
+    }
+
     #[test]
     fn qubo_init() {
         let eye = CsMat::eye(3);
@@ -90,7 +97,7 @@ mod tests {
 
         let local_sols = starting_points
             .par_iter()
-            .map(|x| local_search::simple_local_search(&p, &x, 500 as usize))
+            .map(|x| local_search::simple_local_search(&p, &x, 500usize))
             .collect::<Vec<Array1<f64>>>();
         let mut local_objs = local_sols.iter().map(|x| p.eval(x)).collect::<Vec<f64>>();
         local_objs.sort_by(|a, b| a.partial_cmp(b).unwrap());
@@ -144,11 +151,7 @@ mod tests {
 
         xs = local_search::multi_simple_opt_criteria_search(&p, &xs);
 
-        let min_obj = xs
-            .iter()
-            .map(|x| p.eval(&x))
-            .min_by(|a, b| a.partial_cmp(b).unwrap())
-            .unwrap();
+        let min_obj = get_min_obj(&p, &xs);
         println!("{:?}", min_obj);
     }
 
@@ -161,11 +164,7 @@ mod tests {
         ];
 
         xs = local_search::multi_simple_opt_criteria_search(&p, &xs);
-        let min_obj = xs
-            .iter()
-            .map(|x| p.eval(&x))
-            .min_by(|a, b| a.partial_cmp(b).unwrap())
-            .unwrap();
+        let min_obj = get_min_obj(&p, &xs);
         println!("{:?}", min_obj);
     }
 
@@ -178,11 +177,7 @@ mod tests {
         }
 
         xs = local_search::multi_simple_opt_criteria_search(&p, &xs);
-        let min_obj = xs
-            .iter()
-            .map(|x| p.eval(&x))
-            .min_by(|a, b| a.partial_cmp(b).unwrap())
-            .unwrap();
+        let min_obj = get_min_obj(&p, &xs);
         println!("{:?}", min_obj);
     }
 
@@ -199,11 +194,7 @@ mod tests {
             .par_iter()
             .map(|x| local_search::simple_mixed_search(&p, &x, 1000))
             .collect();
-        let min_obj = xs
-            .iter()
-            .map(|x| p.eval(&x))
-            .min_by(|a, b| a.partial_cmp(b).unwrap())
-            .unwrap();
+        let min_obj = get_min_obj(&p, &xs);
         println!("{:?}", min_obj);
     }
 

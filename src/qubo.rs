@@ -10,9 +10,12 @@ use std::io::Write;
 use smolprng::Algorithm;
 use smolprng::PRNG;
 
+// TODO: Figure out how to render the math expressions in the documentation
+
 /// The QUBO struct, which contains the QUBO matrix and the linear coefficients.
 ///
 /// \min_x 0.5 x^T Q x + c^T x
+
 pub struct Qubo {
     /// The Hessian of the QUBO problem
     pub q: CsMat<f64>,
