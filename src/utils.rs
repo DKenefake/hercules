@@ -1,7 +1,6 @@
 //! This is the general Utils module, which contains functions that are used by multiple algorithms and there is not a
 //! better place to put them as of yet.
 
-
 use ndarray::Array1;
 use smolprng::{Algorithm, PRNG};
 

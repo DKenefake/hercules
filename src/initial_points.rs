@@ -12,6 +12,20 @@ use ndarray::Array1;
 use smolprng::{Algorithm, PRNG};
 
 /// Generates a vector of random starting points, that is binary, meaning that it will return an array of floats
+///
+/// Example:
+/// ``` rust
+/// use hurricane::qubo::Qubo;
+/// use smolprng::{PRNG, JsfLarge};
+/// use hurricane::initial_points;
+///
+/// let mut prng = PRNG {
+///  generator: JsfLarge::default(),
+/// };
+///
+/// let p = Qubo::make_random_qubo(10, &mut prng, 0.5);
+/// let x_0 = initial_points::generate_random_starting_point(&p, &mut prng);
+/// ```
 pub fn generate_random_starting_point<T: Algorithm>(
     qubo: &Qubo,
     prng: &mut PRNG<T>,
@@ -26,35 +40,99 @@ pub fn generate_random_starting_point<T: Algorithm>(
 
 /// Generates a vector of random starting points, that is fractional, meaning that it will return a vector of arrays
 /// that are not just 0.0 or 1.0, but also numbers between.
+///
+/// Example:
+/// ``` rust
+/// use hurricane::qubo::Qubo;
+/// use smolprng::{PRNG, JsfLarge};
+/// use hurricane::initial_points;
+///
+/// let mut prng = PRNG {
+///   generator: JsfLarge::default(),
+/// };
+/// let p = Qubo::make_random_qubo(10, &mut prng, 0.5);
+/// let x_0 = initial_points::generate_random_starting_points(&p, 10, &mut prng);
+/// ```
 pub fn generate_random_starting_points<T: Algorithm>(
     qubo: &Qubo,
     num_points: usize,
     prng: &mut PRNG<T>,
 ) -> Vec<Array1<f64>> {
     (0..num_points)
-        .iter()
         .map(|_| generate_random_starting_point(qubo, prng))
         .collect()
 }
 
 /// Generates a starting point of exactly 0.5 for each variable.
+///
+/// Example:
+/// ``` rust
+/// use hurricane::qubo::Qubo;
+/// use smolprng::{PRNG, JsfLarge};
+/// use hurricane::initial_points;
+///
+/// let mut prng = PRNG {
+///    generator: JsfLarge::default(),
+/// };
+/// let p = Qubo::make_random_qubo(10, &mut prng, 0.5);
+/// let x_0 = initial_points::generate_central_starting_points(&p);
+/// ```
 pub fn generate_central_starting_points(qubo: &Qubo) -> Array1<f64> {
     Array1::<f64>::zeros(qubo.num_x()) + 0.5f64
 }
 
 /// Generates a starting poing based on the alpha heuristic, from the paper boros2007, which is the optimal solution to
 /// the relaxed QUBO, given x_i = x_j for all i, j.
+///
+/// Example:
+/// ``` rust
+/// use hurricane::qubo::Qubo;
+/// use smolprng::{PRNG, JsfLarge};
+/// use hurricane::initial_points;
+///
+/// let mut prng = PRNG {
+///    generator: JsfLarge::default(),
+/// };
+/// let p = Qubo::make_random_qubo(10, &mut prng, 0.5);
+/// let x_0 = initial_points::generate_alpha_starting_point(&p);
+/// ```
 pub fn generate_alpha_starting_point(qubo: &Qubo) -> Array1<f64> {
     Array1::<f64>::zeros(qubo.num_x()) + qubo.alpha()
 }
 
 /// Generates a starting poing based on the rho heuristic, from the paper boros2007, which is the optimal solution to
 /// the relaxed QUBO, given x_i = x_j for all i, j.
+///
+/// Example:
+/// ``` rust
+/// use hurricane::qubo::Qubo;
+/// use smolprng::{PRNG, JsfLarge};
+/// use hurricane::initial_points;
+///
+/// let mut prng = PRNG {
+///    generator: JsfLarge::default(),
+/// };
+/// let p = Qubo::make_random_qubo(10, &mut prng, 0.5);
+/// let x_0 = initial_points::generate_rho_starting_point(&p);
+/// ```
 pub fn generate_rho_starting_point(qubo: &Qubo) -> Array1<f64> {
     Array1::<f64>::zeros(qubo.num_x()) + qubo.rho()
 }
 
 /// Generates a random binary point, where each variable has a probability of being 1.0 equal to sparsity.
+///
+/// Example:
+/// ``` rust
+/// use hurricane::qubo::Qubo;
+/// use smolprng::{PRNG, JsfLarge};
+/// use hurricane::initial_points;
+///
+/// let mut prng = PRNG {
+///    generator: JsfLarge::default(),
+/// };
+/// let p = Qubo::make_random_qubo(10, &mut prng, 0.5);
+/// let x_0 = initial_points::generate_random_binary_point(&p, &mut prng, 0.5);
+/// ```
 pub fn generate_random_binary_point<T: Algorithm>(
     qubo: &Qubo,
     prng: &mut PRNG<T>,

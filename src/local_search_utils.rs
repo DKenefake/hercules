@@ -83,7 +83,7 @@ pub fn one_flip_objective(qubo: &Qubo, x_0: &Array1<f64>) -> (f64, Array1<f64>) 
 /// of the possible bit flips.
 /// This takes O(n|Q|) + O(n) time, where |Q| is the number of non-zero elements in the QUBO matrix.
 pub fn one_step_local_search(qubo: &Qubo, x_0: &Array1<f64>, subset: &Vec<usize>) -> Array1<f64> {
-    let current_obj = qubo.eval(&x_0);
+    let current_obj = qubo.eval(x_0);
 
     let y = 1.0f64 - x_0;
     let mut objs = Array1::<f64>::zeros(qubo.num_x());

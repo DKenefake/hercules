@@ -5,6 +5,9 @@ edition = "2021"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
+[lib]
+doctest = false
+
 [dependencies]
 sprs = "0.11.1"
 ndarray = "0.15.6"
@@ -18,7 +21,7 @@ codegen-units = 1
 target-cpu = "native"
 
 [profile.dev]
-lto = true
-opt-level = 3
-codegen-units = 1
+lto = false
+opt-level = 1
+codegen-units = 32
 target-cpu = "native"
