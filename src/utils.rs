@@ -1,12 +1,16 @@
+//! This is the general Utils module, which contains functions that are used by multiple algorithms and there is not a
+//! better place to put them as of yet.
+
+
 use ndarray::Array1;
 use smolprng::{Algorithm, PRNG};
 
+/// Given a point, x, flip sites number of bits and return the new point, this can include a bit that is already flipped.
 pub fn mutate_solution<T: Algorithm>(
     x: &Array1<f64>,
     sites: usize,
     prng: &mut PRNG<T>,
 ) -> Array1<f64> {
-    // Given a point, x, flip sites number of bits and return the new point, this can include a bit that is already flipped.
     let mut x_1 = x.clone();
 
     for _ in 0..sites {
@@ -17,13 +21,13 @@ pub fn mutate_solution<T: Algorithm>(
     x_1
 }
 
+/// Flips every bit in a point.
 pub fn invert(x: &Array1<f64>) -> Array1<f64> {
-    // Given a point, x, flip all bits and return the new point.
     1.0f64 - x
 }
 
+/// Computes the hamming distance two points.
 pub fn calculate_hamming_distance(x_0: &Array1<f64>, x_1: &Array1<f64>) -> usize {
-    // Given two points, x_0 and x_1, calculate the hamming distance between them.
     let mut distance = 0;
     for i in 0..x_0.len() {
         if x_0[i] != x_1[i] {
@@ -33,8 +37,8 @@ pub fn calculate_hamming_distance(x_0: &Array1<f64>, x_1: &Array1<f64>) -> usize
     distance
 }
 
+/// Given a point, x, determine if it is fractional e.g. not just 0.0f64 or 1.0f64
 pub fn is_fractional(x: &Array1<f64>) -> bool {
-    // Given a point, x, determine if it is fractional e.g. not just 0.0f64 or 1.0f64
     for i in 0..x.len() {
         if x[i] != 0.0 && x[i] != 1.0 {
             return true;

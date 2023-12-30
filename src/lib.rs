@@ -1,14 +1,21 @@
+#![crate_name = "hurricane"]
+#![doc = include_str!("../README.md")]
+#![allow(non_snake_case)]
+#![allow(clippy::let_and_return)]
+#![allow(dead_code)]
+#![warn(missing_docs)]
+
 use ndarray::Array1;
 use rayon::prelude::*;
 use smolprng::*;
 use sprs::CsMat;
 
-mod initial_points;
-mod local_search;
-mod local_search_utils;
-mod qubo;
-mod qubo_heuristics;
-mod utils;
+pub mod initial_points;
+pub mod local_search;
+pub mod local_search_utils;
+pub mod qubo;
+pub mod qubo_heuristics;
+pub mod utils;
 
 #[cfg(test)]
 mod tests {

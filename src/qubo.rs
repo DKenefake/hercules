@@ -1,3 +1,7 @@
+//! This module contains the QUBO struct and associated methods
+//!
+//! The QUBO struct uses a sparse representation of the QUBO matrix, and is stored in CSR order, it is not assumed to be symmetrical.
+
 use ndarray::Array1;
 use sprs::{CsMat, TriMat};
 use std::io::BufRead;
@@ -6,12 +10,15 @@ use std::io::Write;
 use smolprng::Algorithm;
 use smolprng::PRNG;
 
+/// The QUBO struct, which contains the QUBO matrix and the linear coefficients.
 pub struct Qubo {
     pub q: CsMat<f64>,
     pub c: Array1<f64>,
 }
 
+/// Implimentation of the QUBO struct
 impl Qubo {
+    /// Generate a new QUBO struct from a sparse matrix, assumed that the linear coefficents are zero
     pub fn new(q: CsMat<f64>) -> Self {
         let num_vars = q.cols();
         Self {
@@ -20,12 +27,17 @@ impl Qubo {
         }
     }
 
+    /// Generate a new QUBO struct from a sparse matrix and a dense vector of linear coefficents
     pub fn new_with_c(q: CsMat<f64>, c: Array1<f64>) -> Self {
         Self { q, c }
     }
 
+    /// Generate a random QUBO struct with a given number of variables, sparsity, and PRNG. This function is determanistic.
     pub fn make_random_qubo<T: Algorithm>(num_x: usize, prng: &mut PRNG<T>, sparsity: f64) -> Self {
+        // generate an empty sparse matrix in Triplet format
         let mut q = TriMat::<f64>::new((num_x, num_x));
+
+        // given a probability of sparsity, add a random uniform variable [-.5, .5] to the sparse matrix at element (i,j)
         for i in 0..num_x {
             for j in i..num_x {
                 if prng.gen_f64() < sparsity {
@@ -34,7 +46,7 @@ impl Qubo {
             }
         }
 
-        // generate random c
+        // generate a dense vector of random uniform variables [-.5, .5] for the linear coefficents
         let mut c = Array1::<f64>::zeros(num_x);
         for i in 0..num_x {
             c[i] = prng.gen_f64() - 0.5f64;
@@ -43,29 +55,33 @@ impl Qubo {
         Self::new_with_c(q.to_csr(), c)
     }
 
+    /// Given an initial point, x, calculate the objective function value of the QUBO
     pub fn eval(&self, x: &Array1<f64>) -> f64 {
         let temp = &self.q * x;
-        return 0.5 * x.dot(&temp) + self.c.dot(x);
+        0.5 * x.dot(&temp) + self.c.dot(x)
     }
 
+    /// Return the number of variables in the QUBO
     pub fn num_x(&self) -> usize {
         self.q.cols()
     }
 
+    /// Given an initial point, x, calculate the gradient of the QUBO (at that point)
     pub fn eval_grad(&self, x: &Array1<f64>) -> Array1<f64> {
         // takes the gradient of the QUBO at x, does not assume that the QUBO is symmetric
         0.5 * (&self.q * x + &self.q.transpose_view() * x) + &self.c
     }
 
+    /// Computes the optimal solution of the relaxed QUBO problem where x* = \alpha. From Boros2007.
+    ///
+    /// Assuming all variables take the same value, find the minimizing value of alpha
+    /// \alpha = \argmax_{\lambda \in [0, 1]} \lambda(\sum_i c_i + \lambda \sum_i \sum_j q_{ij}
     pub fn alpha(&self) -> f64 {
-        // Assuming all variables take the same value, find the minimizing value of alpha
-        // \alpha = \argmax_{\lambda \in [0, 1]} \lambda(\sum_i c_i + \lambda \sum_i \sum_j q_{ij}
-
         // find sum of all elements of q, get index of non zero elements
         let q_sum = self.q.data().iter().sum::<f64>();
         let c_sum = self.c.sum();
 
-        // in the cas of q_sum == 0
+        // in the case of q_sum == 0
         if q_sum == 0.0 {
             return match c_sum > 0.0 {
                 true => 1.0,
@@ -73,11 +89,14 @@ impl Qubo {
             };
         }
 
+        // solve for the optimal solution of the 1D relaxed QUBO problem
         let alpha = -0.5 * c_sum / q_sum;
 
+        // return the optimal solution within bounds
         alpha.clamp(0.0, 1.0)
     }
 
+    /// Computes computes rho, the starting point heuristic from Boros2007
     pub fn rho(&self) -> f64 {
         /// rho expression from boros2007
         let q_plus: f64 = self.q.data().iter().filter(|x| **x > 0.0).sum();
@@ -92,6 +111,9 @@ impl Qubo {
         rho
     }
 
+    /// Computes the complexity of the QUBO problem.
+    ///
+    /// The complexity is defined as the number of non-zero elements in the QUBO matrix plus the number of non-zero elements in the linear coefficients.
     pub fn complexity(&self) -> Array1<usize> {
         /// complexity expression from boros2007
         let mut w = Array1::<usize>::zeros(self.num_x());
@@ -112,6 +134,7 @@ impl Qubo {
         w
     }
 
+    /// Writes the QUBO to a file in the ORL problem format
     pub fn write_qubo(&self, filename: &str) {
         let file = std::fs::File::create(filename).unwrap();
         let mut writer = std::io::BufWriter::new(file);
@@ -129,6 +152,7 @@ impl Qubo {
         }
     }
 
+    /// Reads a QUBO from a file in the ORL problem format
     pub fn read_qubo(filename: &str) -> Self {
         // open the file
         let file = std::fs::File::open(filename).unwrap();
