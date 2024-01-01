@@ -1,9 +1,13 @@
 #![crate_name = "hurricane"]
-#![doc = include_str!("../README.md")]
-#![allow(non_snake_case)]
-#![allow(clippy::let_and_return)]
-#![allow(dead_code)]
-#![warn(missing_docs)]
+#![doc = include_str!("../README.md")] // imports the readme as the front page of the documentation
+#![warn(clippy::all, clippy::pedantic, clippy::cargo, clippy::nursery)]
+#![allow(non_snake_case)] // some of the variable names are taken from papers, and are not snake case
+#![allow(clippy::let_and_return)] // in many instances we are recreating equations as written in papers, and helps with readability
+#![allow(dead_code)] // this is a library module, so until all the tests are implemented this will needlessly warn
+#![allow(clippy::must_use_candidate)] // somewhat of a nuisance introduced by clippy::pedantic
+#![allow(clippy::doc_markdown)] // breaks some of the documentation written in latex
+#![allow(clippy::match_bool)] // I just think this is fine, I think having all possible actions shown in one place simplifies view
+#![allow(clippy::module_name_repetitions)] // some names are just repeated, and that is fine
 
 pub mod initial_points;
 pub mod local_search;
@@ -11,6 +15,8 @@ pub mod local_search_utils;
 pub mod qubo;
 pub mod utils;
 
+/// This is the test module. Very few of the tests are actually assert style tests, as we are likely to not hit the same
+/// local minima when running the tests (and not break them) every time we change the seed of the prng and order of operations.
 #[cfg(test)]
 mod tests {
     use crate::qubo::Qubo;

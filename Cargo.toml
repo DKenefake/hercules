@@ -8,8 +8,8 @@ description = "A Heuristics toolbox for QUBO in Rust"
 repository = "https://github.com/DKenefake/hurricane/"
 readme = "README.md"
 homepage = "https://github.com/DKenefake/hurricane/"
-keywords = ["QUBO"]
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+keywords = ["QUBO", "Heuristics", "Optimization"]
+categories = ["science", "mathematics"]
 
 [lib]
 #doctest = false
@@ -24,13 +24,12 @@ rayon = "1.8.0"
 lto = true
 opt-level = 3
 codegen-units = 1
-target-cpu = "native"
+
 
 [profile.dev]
 lto = false
 opt-level = 1
 codegen-units = 32
-target-cpu = "native"
 
 
 [profile.bench]

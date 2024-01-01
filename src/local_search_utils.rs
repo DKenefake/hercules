@@ -82,6 +82,10 @@ pub fn one_flip_objective(qubo: &Qubo, x_0: &Array1<f64>) -> (f64, Array1<f64>) 
 /// Performs a single gain local search, which is to say that it will flip a single bit and return the best solution out of all
 /// of the possible bit flips.
 /// This takes O(n|Q|) + O(n) time, where |Q| is the number of non-zero elements in the QUBO matrix.
+///
+/// # Panics
+///
+/// Will panic is the subset of variables is zero.
 pub fn one_step_local_search(qubo: &Qubo, x_0: &Array1<f64>, subset: &Vec<usize>) -> Array1<f64> {
     let current_obj = qubo.eval(x_0);
 
@@ -89,7 +93,7 @@ pub fn one_step_local_search(qubo: &Qubo, x_0: &Array1<f64>, subset: &Vec<usize>
     let mut objs = Array1::<f64>::zeros(qubo.num_x());
 
     // calculate the objective function for each variable in our selected subset and each term in the delta formula
-    for i in subset.iter() {
+    for i in subset{
         let mut x = x_0.clone();
         x[*i] = y[*i];
         objs[*i] = qubo.eval(&x);

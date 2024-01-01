@@ -16,6 +16,10 @@ use rayon::iter::{IntoParallelRefIterator, ParallelIterator};
 /// Performs a single step of local search, which is to say that it will flip a single bit and return the best solution out of all
 /// of the possible bit flips.
 /// This takes O(n|Q|) + O(n) time, where |Q| is the number of non-zero elements in the QUBO matrix.
+///
+/// # Panics
+///
+/// Will panic is there are not any selected variables.
 pub fn one_step_local_search_improved(
     qubo: &Qubo,
     x_0: &Array1<f64>,
@@ -36,12 +40,12 @@ pub fn one_step_local_search_improved(
 
     let best_obj = objs[best_neighbor];
 
-    let mut x_1 = x_0.clone();
-    x_1[best_neighbor] = 1.0 - x_1[best_neighbor];
-
-    match best_obj < 0.0 {
-        true => x_1,
-        false => x_0.clone(),
+    if best_obj < 0.0f64 {
+        let mut x_1 = x_0.clone();
+        x_1[best_neighbor] = 1.0 - x_1[best_neighbor];
+        x_1
+    } else {
+        x_0.clone()
     }
 }
 

@@ -54,7 +54,7 @@ impl Qubo {
     /// let c = Array1::<f64>::zeros(10);
     /// let p = Qubo::new_with_c(q, c);
     /// ```
-    pub fn new_with_c(q: CsMat<f64>, c: Array1<f64>) -> Self {
+    pub const fn new_with_c(q: CsMat<f64>, c: Array1<f64>) -> Self {
         Self { q, c }
     }
 
@@ -236,7 +236,7 @@ impl Qubo {
     pub fn complexity(&self) -> Array1<usize> {
         let mut w = Array1::<usize>::zeros(self.num_x());
 
-        for (value, (i, j)) in self.q.iter() {
+        for (value, (i, j)) in &self.q {
             if *value != 0.0f64 {
                 w[i] += 1;
                 w[j] += 1;
@@ -265,19 +265,23 @@ impl Qubo {
     /// let p = Qubo::make_random_qubo(50, &mut prng, 0.01);
     /// p.write_qubo("test.qubo");
     /// ```
+    ///
+    /// # Panics
+    ///
+    /// Will panics if it is not possible to write to the file.
     pub fn write_qubo(&self, filename: &str) {
         let file = std::fs::File::create(filename).unwrap();
         let mut writer = std::io::BufWriter::new(file);
 
         writeln!(writer, "{}", self.num_x()).unwrap();
-        for (value, (i, j)) in self.q.iter() {
-            writeln!(writer, "{} {} {}", i, j, value).unwrap();
+        for (value, (i, j)) in &self.q {
+            writeln!(writer, "{i} {j} {value}").unwrap();
         }
 
         for i in 0..self.num_x() {
             let value = self.c[i];
             if value != 0.0 {
-                writeln!(writer, "{} {}", i, value).unwrap();
+                writeln!(writer, "{i} {value}").unwrap();
             }
         }
     }
@@ -290,6 +294,10 @@ impl Qubo {
     ///
     /// let p = Qubo::read_qubo("test.qubo");
     /// ```
+    ///
+    /// # Panics
+    ///
+    /// Will panic if there is not a file at the given filename in the .qubo format.
     pub fn read_qubo(filename: &str) -> Self {
         // open the file
         let file = std::fs::File::open(filename).unwrap();
