@@ -1,10 +1,10 @@
 # Hurricane: QUBO Heuristic Solver Toolkit
 
-Hurricane is a Rust library for (heuristically) solving Quadratic Unconstrained Binary Optimization (QUBO) problems. Hurricane is designed to be used as a library, for the implementation and testing of QUBO heuristics.
+Hurricane is a Rust library for (heuristically) solving Quadratic Unconstrained Binary Optimization (QUBO) problems. Hurricane is designed to be used as a library for implementing and testing QUBO heuristics. It is mostly a sideproject for me during my PhD, so please be understanding of this.
 
 ## What is this library for?
 
-Hurricane is designed to be a simple, easy-to-use library for solving QUBO problems. It is not necessarily designed to be a high-performance solver, but rather a tool for quickly prototyping and testing new heuristics. That being said, Hurricane is designed to be fast, and is written in Rust, a high-performance systems programming language.
+Hurricane is designed as a simple, easy-to-use library for solving QUBO problems. It is not necessarily designed to be a state-of-the-art tool but a toolkit for quickly prototyping and testing new heuristics. That said, Hurricane is designed to be fast and written in Rust, a high-performance systems programming language.
 
 ## Progress
 
@@ -21,7 +21,7 @@ Hurricane is currently in the early stages of development. The following feature
 
 ## A Simple Example: Mixing two local search heuristics
 
-The subcomponents of Hurricane can be used independently. For example, the following code shows how to make a new local search function based on 1-opt and gain search. Where each iteration of the algorithm is defined as finding the lowest energy point in the neighborhood of the current point, and then doing a large scale flipping operation based flipping all bits based on the gains of the function. This allows for a simple, easy to understand, and easy to implement local search algorithms (amongst other ideas).
+The subcomponents of Hurricane can be used independently. For example, the following code shows how to make a new local search function based on 1-opt and gain search. Each iteration of the algorithm is defined as finding the lowest energy point in the neighborhood of the current point and then doing a large-scale flipping operation, flipping all bits based on the gains of the function. This allows for simple, easy-to-understand, and easy-to-implement local search algorithms (amongst other ideas).
     
 ```rust no_run
 use hurricane::qubo::Qubo;
@@ -36,7 +36,7 @@ use smolprng::{PRNG, JsfLarge};
 pub fn simple_mixed_search(qubo: &Qubo, x_0: &Array1<f64>, max_steps:usize) -> Array1<f64>{
     // create a mutable copy of the initial point
     let mut x = x_0.clone();
-    // flip the bits to better satisfy the stationary conditions
+    // flip the bits maximize the 1D gains
     let mut x_1 = get_gain_criteria(qubo, &x);
     let mut steps = 0;
     
