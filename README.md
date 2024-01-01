@@ -32,7 +32,7 @@ use rayon::prelude::*;
 use hurricane::initial_points;
 use smolprng::{PRNG, JsfLarge};
 
-// A simple local search heuristic that uses 1-opt and opt-criteria search
+// A simple local search heuristic that uses 1-opt and gain-criteria search
 pub fn simple_mixed_search(qubo: &Qubo, x_0: &Array1<f64>, max_steps:usize) -> Array1<f64>{
     // create a mutable copy of the initial point
     let mut x = x_0.clone();
