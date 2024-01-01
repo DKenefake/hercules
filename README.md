@@ -13,7 +13,7 @@ Hurricane is currently in the early stages of development. The following feature
 - [x] QUBO data structure
 - [x] QUBO problem generation
 - [x] 1-opt heuristic
-- [x] Opt-Cond heuristic (based on boros2007)
+- [x] Gain heuristic (based on boros2007)
 - [ ] Tabu search
 - [ ] Discrete Particle Swarm Optimization
 - [ ] Simulated Annealing
@@ -21,7 +21,7 @@ Hurricane is currently in the early stages of development. The following feature
 
 ## A Simple Example: Mixing two local search heuristics
 
-The subcomponents of Hurricane can be used independently. For example, the following code shows how to make a new local search function based on 1-opt and opt-criteria search. Where each iteration of the algorithm is defined as finding the lowest energy point in the neighborhood of the current point, and then doing a large scale flipping operation based on trying to approximately satisfy the stationary conditions of the problem. This allows for a simple, easy to understand, and easy to implement local search algorithms (amongst other ideas).
+The subcomponents of Hurricane can be used independently. For example, the following code shows how to make a new local search function based on 1-opt and gain search. Where each iteration of the algorithm is defined as finding the lowest energy point in the neighborhood of the current point, and then doing a large scale flipping operation based flipping all bits based on the gains of the function. This allows for a simple, easy to understand, and easy to implement local search algorithms (amongst other ideas).
     
 ```rust no_run
 use hurricane::qubo::Qubo;
@@ -37,7 +37,7 @@ pub fn simple_mixed_search(qubo: &Qubo, x_0: &Array1<f64>, max_steps:usize) -> A
     // create a mutable copy of the initial point
     let mut x = x_0.clone();
     // flip the bits to better satisfy the stationary conditions
-    let mut x_1 = get_opt_criteria(qubo, &x);
+    let mut x_1 = get_gain_criteria(qubo, &x);
     let mut steps = 0;
     
     // run the local search until we reach a local minimum or we reach the maximum number of steps
@@ -46,7 +46,7 @@ pub fn simple_mixed_search(qubo: &Qubo, x_0: &Array1<f64>, max_steps:usize) -> A
         // find the lowest energy point in the neighborhood of x (can be x itself)
         x_1 = one_step_local_search(qubo, &x, &(0..qubo.num_x()).collect());
         // flip the bits to better satisfy the stationary conditions
-        x_1 = get_opt_criteria(qubo, &x_1);
+        x_1 = get_gain_criteria(qubo, &x_1);
         // increment the number of steps
         steps += 1;
     }

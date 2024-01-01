@@ -3,10 +3,10 @@
 //! This module contains all of the implemented local search algorithms, which are:
 //! - One step local search
 //! - Simple local search
-//! - Simple opt criteria search
+//! - Simple gain criteria search
 //! - Simple mixed search
 //! - Multi simple local search
-//! - Multi simple opt criteria search
+//! - Multi simple gain criteria search
 
 use crate::local_search_utils;
 use crate::qubo::Qubo;
@@ -70,40 +70,40 @@ pub fn multi_simple_local_search(qubo: &Qubo, xs: &Vec<Array1<f64>>) -> Vec<Arra
         .collect()
 }
 
-/// Given a QUBO and a fractional or integral initial point, run a opt search until the point converges or the step limit is hit.
-pub fn simple_opt_criteria_search(qubo: &Qubo, x_0: &Array1<f64>, max_steps: usize) -> Array1<f64> {
+/// Given a QUBO and a fractional or integral initial point, run a gain search until the point converges or the step limit is hit.
+pub fn simple_gain_criteria_search(qubo: &Qubo, x_0: &Array1<f64>, max_steps: usize) -> Array1<f64> {
     let mut x = x_0.clone();
-    let mut x_1 = local_search_utils::get_opt_criteria(qubo, &x);
+    let mut x_1 = local_search_utils::get_gain_criteria(qubo, &x);
     let mut steps = 0;
 
     while x_1 != x && steps <= max_steps {
         x = x_1.clone();
-        x_1 = local_search_utils::get_opt_criteria(qubo, &x);
+        x_1 = local_search_utils::get_gain_criteria(qubo, &x);
         steps += 1;
     }
 
     x_1
 }
 
-/// Given a QUBO and a vector of initial points, run opt searches on each initial point and return all of the solutions.
-pub fn multi_simple_opt_criteria_search(qubo: &Qubo, xs: &Vec<Array1<f64>>) -> Vec<Array1<f64>> {
+/// Given a QUBO and a vector of initial points, run gain searches on each initial point and return all of the solutions.
+pub fn multi_simple_gain_criteria_search(qubo: &Qubo, xs: &Vec<Array1<f64>>) -> Vec<Array1<f64>> {
     // Given a vector of initial points, run simple local search on each of them
     xs.par_iter()
-        .map(|x| simple_opt_criteria_search(qubo, x, 1000))
+        .map(|x| simple_gain_criteria_search(qubo, x, 1000))
         .collect()
 }
 
 /// Given a QUBO and a fractional or integral initial point, run a mixed search until the point converges or the step limit is hit.
 pub fn simple_mixed_search(qubo: &Qubo, x_0: &Array1<f64>, max_steps: usize) -> Array1<f64> {
     let mut x = x_0.clone();
-    let mut x_1 = local_search_utils::get_opt_criteria(qubo, &x);
+    let mut x_1 = local_search_utils::get_gain_criteria(qubo, &x);
     let mut steps = 0;
     let vars = (0..qubo.num_x()).collect();
 
     while x_1 != x && steps <= max_steps {
         x = x_1.clone();
         x_1 = one_step_local_search_improved(qubo, &x, &vars);
-        x_1 = local_search_utils::get_opt_criteria(qubo, &x_1);
+        x_1 = local_search_utils::get_gain_criteria(qubo, &x_1);
         steps += 1;
     }
 

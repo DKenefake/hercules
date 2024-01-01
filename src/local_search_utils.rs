@@ -4,17 +4,17 @@
 //!
 //! These include:
 //! - 1-opt local search
-//! - 1-step Opt criteria local search
+//! - 1-step gain criteria local search
 
 use crate::qubo::Qubo;
 use ndarray::Array1;
 
-/// Auxiliary function to calculate the optimal criteria for each variable
+/// Auxiliary function to calculate the gains from flipping each variable
 ///
 /// This is essentially a helper function that calculates the gains of flipping bits for each variable and then flips in
 /// the direction that gives the best gain.
-pub fn get_opt_criteria(qubo: &Qubo, x: &Array1<f64>) -> Array1<f64> {
-    // calculate the optimal criteria for each variable, given the point x
+pub fn get_gain_criteria(qubo: &Qubo, x: &Array1<f64>) -> Array1<f64> {
+    // calculate the gain criteria for each variable, given the point x
     // if the gradient is negative, then the optimal criteria is 1.0 for x_1
     // if the gradient is positive, then the optimal criteria is 0.0 for x_1
 
@@ -79,7 +79,7 @@ pub fn one_flip_objective(qubo: &Qubo, x_0: &Array1<f64>) -> (f64, Array1<f64>) 
     (obj_0, objs)
 }
 
-/// Performs a single 1-opt local search, which is to say that it will flip a single bit and return the best solution out of all
+/// Performs a single gain local search, which is to say that it will flip a single bit and return the best solution out of all
 /// of the possible bit flips.
 /// This takes O(n|Q|) + O(n) time, where |Q| is the number of non-zero elements in the QUBO matrix.
 pub fn one_step_local_search(qubo: &Qubo, x_0: &Array1<f64>, subset: &Vec<usize>) -> Array1<f64> {

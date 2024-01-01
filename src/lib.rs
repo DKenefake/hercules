@@ -126,7 +126,7 @@ mod tests {
 
         let mut x_0 = initial_points::generate_random_binary_point(&p, &mut prng, 0.5);
         for _ in 0..100 {
-            x_0 = local_search_utils::get_opt_criteria(&p, &x_0);
+            x_0 = local_search_utils::get_gain_criteria(&p, &x_0);
             println!("{:?}", p.eval(&x_0));
         }
     }
@@ -136,7 +136,7 @@ mod tests {
         let p = make_solver_qubo();
         let mut x_0 = Array1::ones(p.num_x()) * p.alpha();
 
-        x_0 = local_search::simple_opt_criteria_search(&p, &x_0, 100);
+        x_0 = local_search::simple_gain_criteria_search(&p, &x_0, 100);
 
         println!("{:?}", p.eval(&x_0));
     }
@@ -149,7 +149,7 @@ mod tests {
         };
         let mut xs = initial_points::generate_random_starting_points(&p, 10, &mut prng);
 
-        xs = local_search::multi_simple_opt_criteria_search(&p, &xs);
+        xs = local_search::multi_simple_gain_criteria_search(&p, &xs);
 
         let min_obj = get_min_obj(&p, &xs);
         println!("{:?}", min_obj);
@@ -163,7 +163,7 @@ mod tests {
             Array1::ones(p.num_x()) * p.rho(),
         ];
 
-        xs = local_search::multi_simple_opt_criteria_search(&p, &xs);
+        xs = local_search::multi_simple_gain_criteria_search(&p, &xs);
         let min_obj = get_min_obj(&p, &xs);
         println!("{:?}", min_obj);
     }
@@ -176,7 +176,7 @@ mod tests {
             xs.push(Array1::ones(p.num_x()) * (i as f64) / 1000.0);
         }
 
-        xs = local_search::multi_simple_opt_criteria_search(&p, &xs);
+        xs = local_search::multi_simple_gain_criteria_search(&p, &xs);
         let min_obj = get_min_obj(&p, &xs);
         println!("{:?}", min_obj);
     }
