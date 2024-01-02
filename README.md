@@ -1,6 +1,6 @@
 # Hurricane: QUBO Heuristic Solver Toolkit
 
-Hurricane is a Rust library for (heuristically) solving Quadratic Unconstrained Binary Optimization (QUBO) problems. Hurricane is designed to be used as a library for implementing and testing QUBO heuristics. It is mostly a sideproject for me during my PhD, so please be understanding of this.
+Hurricane is a Rust library for (heuristically) solving Quadratic Unconstrained Binary Optimization (QUBO) problems. Hurricane is designed to be used as a library for implementing and testing QUBO heuristics. It is mostly a side project for me during my PhD, so please be understanding of this.
 
 ## What is this library for?
 
