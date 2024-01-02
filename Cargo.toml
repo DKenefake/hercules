@@ -20,6 +20,12 @@ ndarray = "0.15.6"
 smolprng = "0.1.5"
 rayon = "1.8.0"
 
+[doc]
+rustdocflags = [ "--html-in-header", "docs-header.html" ]
+
+[package.metadata.docs.rs]
+rustdoc-args = [ "--html-in-header", "docs-header.html" ]
+
 [profile.release]
 lto = true
 opt-level = 3

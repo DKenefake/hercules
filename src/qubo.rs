@@ -12,9 +12,9 @@ use smolprng::PRNG;
 
 // TODO: Figure out how to render the math expressions in the documentation
 
-/// The QUBO struct, which contains the QUBO matrix and the linear coefficients.
+/// The QUBO struct, which contains the QUBO matrix and the linear coefficients. With the following form:
 ///
-/// \min_x 0.5 x^T Q x + c^T x
+/// $$ \min_x 0.5 x^T Q x + c^Tx $$
 
 pub struct Qubo {
     /// The Hessian of the QUBO problem
