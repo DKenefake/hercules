@@ -19,7 +19,7 @@ Hurricane is currently in the early stages of development. The following feature
 - [ ] Simulated Annealing
 - [ ] Parallel Tempering
 
-## Simple: Read and solve Example
+## Simple: Read and solve QUBO example
 
 This can be used to generate get and generate high quality (depending on the search heuristic) solutions to the QUBO problem being considered. For example, the following code shows how to use the gain criteria search to find a local minimum of a QUBO problem.
 
