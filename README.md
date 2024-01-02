@@ -19,9 +19,28 @@ Hurricane is currently in the early stages of development. The following feature
 - [ ] Simulated Annealing
 - [ ] Parallel Tempering
 
-## A Simple Example: Mixing two local search heuristics
+## Simple: Read and solve Example
 
-The subcomponents of Hurricane can be used independently. For example, the following code shows how to make a new local search function based on 1-opt and gain search. Each iteration of the algorithm is defined as finding the lowest energy point in the neighborhood of the current point and then doing a large-scale flipping operation, flipping all bits based on the gains of the function. This allows for simple, easy-to-understand, and easy-to-implement local search algorithms (amongst other ideas).
+This can be used to generate get and generate high quality (depending on the search heuristic) solutions to the QUBO problem being considered. For example, the following code shows how to use the gain criteria search to find a local minimum of a QUBO problem.
+
+```rust no_run
+use hurricane::qubo::Qubo;
+use hurricane::local_search::simple_gain_criteria_search;
+use hurricane::initial_points::generate_central_starting_points;
+
+// read in a QUBO problem from a file
+let p = Qubo::read_qubo("test.qubo");
+
+// generate an initial point of 0.5 for each variable
+let x_0 = generate_central_starting_points(&p);
+
+// use the gain criteria search to find a local minimum with an upper bound of 1000 iterations
+let x_1 = simple_gain_criteria_search(&p, &x_0, 1000);
+```
+
+## Advanced: Mixing two local search heuristics
+
+The subcomponents of Hurricane can be used independently and interchangeably allowing us to create new heuristics on the fly. For example, the following code shows how to make a new local search function based on 1-opt and gain search. Each iteration of the algorithm is defined as finding the lowest energy point in the neighborhood of the current point and then doing a large-scale flipping operation, flipping bits based on the gains of the function. This allows for simple, easy-to-understand, and easy-to-implement local search algorithms (amongst other ideas).
     
 ```rust no_run
 use hurricane::qubo::Qubo;
