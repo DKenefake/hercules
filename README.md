@@ -1,14 +1,14 @@
-# Hurricane: QUBO Heuristic Solver Toolkit
+# Hercules: QUBO Heuristic Solver Toolkit
 
-Hurricane is a Rust library for (heuristically) solving Quadratic Unconstrained Binary Optimization (QUBO) problems. Hurricane is designed to be used as a library for implementing and testing QUBO heuristics. It is mostly a side project for me during my PhD, so please be understanding of this.
+Hercules is a Rust library for (heuristically) solving Quadratic Unconstrained Binary Optimization (QUBO) problems. Hercules is designed to be used as a library for implementing and testing QUBO heuristics. It is mostly a side project for me during my PhD, so please be understanding of this.
 
 ## What is this library for?
 
-Hurricane is designed as a simple, easy-to-use library for solving QUBO problems. It is not necessarily designed to be a state-of-the-art tool but a toolkit for quickly prototyping and testing new heuristics. That said, Hurricane is designed to be fast and written in Rust, a high-performance systems programming language.
+Hercules is designed as a simple, easy-to-use library for solving QUBO problems. It is not necessarily designed to be a state-of-the-art tool but a toolkit for quickly prototyping and testing new heuristics. That said, Hercules is designed to be fast and written in Rust, a high-performance systems programming language.
 
 ## Progress
 
-Hurricane is currently in the early stages of development. The following features are currently implemented:
+Hercules is currently in the early stages of development. The following features are currently implemented:
 
 - [x] QUBO data structure
 - [x] QUBO problem generation
@@ -24,9 +24,9 @@ Hurricane is currently in the early stages of development. The following feature
 This can be used to generate get and generate high quality (depending on the search heuristic) solutions to the QUBO problem being considered. For example, the following code shows how to use the gain criteria search to find a local minimum of a QUBO problem.
 
 ```rust no_run
-use hurricane::qubo::Qubo;
-use hurricane::local_search::simple_gain_criteria_search;
-use hurricane::initial_points::generate_central_starting_points;
+use hercules::qubo::Qubo;
+use hercules::local_search::simple_gain_criteria_search;
+use hercules::initial_points::generate_central_starting_points;
 
 // read in a QUBO problem from a file
 let p = Qubo::read_qubo("test.qubo");
@@ -40,15 +40,15 @@ let x_1 = simple_gain_criteria_search(&p, &x_0, 1000);
 
 ## Advanced: Mixing two local search heuristics
 
-The subcomponents of Hurricane can be used independently and interchangeably allowing us to create new heuristics on the fly. For example, the following code shows how to make a new local search function based on 1-opt and gain search. Each iteration of the algorithm is defined as finding the lowest energy point in the neighborhood of the current point and then doing a large-scale flipping operation, flipping bits based on the gains of the function. This allows for simple, easy-to-understand, and easy-to-implement local search algorithms (amongst other ideas).
+The subcomponents of Hercules can be used independently and interchangeably allowing us to create new heuristics on the fly. For example, the following code shows how to make a new local search function based on 1-opt and gain search. Each iteration of the algorithm is defined as finding the lowest energy point in the neighborhood of the current point and then doing a large-scale flipping operation, flipping bits based on the gains of the function. This allows for simple, easy-to-understand, and easy-to-implement local search algorithms (amongst other ideas).
     
 ```rust no_run
-use hurricane::qubo::Qubo;
-use hurricane::local_search::*;
-use hurricane::local_search_utils::*;
+use hercules::qubo::Qubo;
+use hercules::local_search::*;
+use hercules::local_search_utils::*;
 use ndarray::Array1;
 use rayon::prelude::*;
-use hurricane::initial_points;
+use hercules::initial_points;
 use smolprng::{PRNG, JsfLarge};
 
 // A simple local search heuristic that uses 1-opt and gain-criteria search
