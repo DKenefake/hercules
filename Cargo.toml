@@ -1,13 +1,13 @@
 [package]
-name = "hurricane"
+name = "hercules"
 version = "0.1.0"
 edition = "2021"
 authors = ["Dustin Kenefake"]
 license = "BSD-3-Clause"
 description = "A Heuristics toolbox for QUBO in Rust"
-repository = "https://github.com/DKenefake/hurricane/"
+repository = "https://github.com/DKenefake/hercules/"
 readme = "README.md"
-homepage = "https://github.com/DKenefake/hurricane/"
+homepage = "https://github.com/DKenefake/hercules/"
 keywords = ["QUBO", "Heuristics", "Optimization"]
 categories = ["science", "mathematics"]
 
