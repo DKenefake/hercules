@@ -75,7 +75,11 @@ pub fn multi_simple_local_search(qubo: &Qubo, xs: &Vec<Array1<f64>>) -> Vec<Arra
 }
 
 /// Given a QUBO and a fractional or integral initial point, run a gain search until the point converges or the step limit is hit.
-pub fn simple_gain_criteria_search(qubo: &Qubo, x_0: &Array1<f64>, max_steps: usize) -> Array1<f64> {
+pub fn simple_gain_criteria_search(
+    qubo: &Qubo,
+    x_0: &Array1<f64>,
+    max_steps: usize,
+) -> Array1<f64> {
     let mut x = x_0.clone();
     let mut x_1 = local_search_utils::get_gain_criteria(qubo, &x);
     let mut steps = 0;

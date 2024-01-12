@@ -6,7 +6,8 @@
 #![allow(dead_code)] // this is a library module, so until all the tests are implemented this will needlessly warn
 #![allow(clippy::must_use_candidate)] // somewhat of a nuisance introduced by clippy::pedantic
 #![allow(clippy::doc_markdown)] // breaks some of the documentation written in latex
-#![allow(clippy::match_bool)] // I just think this is fine, I think having all possible actions shown in one place simplifies view
+#![allow(clippy::match_bool)]
+// I just think this is fine, I think having all possible actions shown in one place simplifies view
 #![allow(clippy::module_name_repetitions)] // some names are just repeated, and that is fine
 
 pub mod initial_points;

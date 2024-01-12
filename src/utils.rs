@@ -13,7 +13,8 @@ pub fn mutate_solution<T: Algorithm>(
     let mut x_1 = x.clone();
 
     for _ in 0..sites {
-        #[allow(clippy::cast_possible_truncation)] // the max value that sparse matrices are addressable is usize::MAX
+        #[allow(clippy::cast_possible_truncation)]
+        // the max value that sparse matrices are addressable is usize::MAX
         let i = prng.gen_u64() as usize % x_1.len();
         x_1[i] = 1.0 - x_1[i];
     }
@@ -30,7 +31,8 @@ pub fn invert(x: &Array1<f64>) -> Array1<f64> {
 pub fn calculate_hamming_distance(x_0: &Array1<f64>, x_1: &Array1<f64>) -> usize {
     let mut distance = 0;
     for i in 0..x_0.len() {
-        #[allow(clippy::float_cmp)] // This is a false positive, as we are checking for fractional values
+        #[allow(clippy::float_cmp)]
+        // This is a false positive, as we are checking for fractional values
         if x_0[i] != x_1[i] {
             distance += 1;
         }
@@ -41,7 +43,8 @@ pub fn calculate_hamming_distance(x_0: &Array1<f64>, x_1: &Array1<f64>) -> usize
 /// Given a point, x, determine if it is fractional e.g. not just 0.0f64 or 1.0f64
 pub fn is_fractional(x: &Array1<f64>) -> bool {
     for i in 0..x.len() {
-        #[allow(clippy::float_cmp)] // This is a false positive, as we are checking for fractional values
+        #[allow(clippy::float_cmp)]
+        // This is a false positive, as we are checking for fractional values
         if x[i] != 0.0f64 && x[i] != 1.0f64 {
             return true;
         }

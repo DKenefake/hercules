@@ -93,7 +93,7 @@ pub fn one_step_local_search(qubo: &Qubo, x_0: &Array1<f64>, subset: &Vec<usize>
     let mut objs = Array1::<f64>::zeros(qubo.num_x());
 
     // calculate the objective function for each variable in our selected subset and each term in the delta formula
-    for i in subset{
+    for i in subset {
         let mut x = x_0.clone();
         x[*i] = y[*i];
         objs[*i] = qubo.eval(&x);
