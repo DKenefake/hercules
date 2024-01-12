@@ -28,7 +28,7 @@ impl Qubo {
     ///
     /// Example to create a QUBO from a sparse Q matrix:
     /// ```rust
-    /// use hurricane::qubo::Qubo;
+    /// use hercules::qubo::Qubo;
     /// use sprs::CsMat;
     ///
     /// let q = CsMat::<f64>::eye(10);
@@ -46,7 +46,7 @@ impl Qubo {
     ///
     /// Example to create a QUBO from a sparse Q matrix and a dense c vector:
     /// ```rust
-    /// use hurricane::qubo::Qubo;
+    /// use hercules::qubo::Qubo;
     /// use sprs::CsMat;
     /// use ndarray::Array1;
     ///
@@ -62,7 +62,7 @@ impl Qubo {
     ///
     /// Example to create a random QUBO with 10 variables and a sparsity of 0.5:
     /// ```rust
-    /// use hurricane::qubo::Qubo;
+    /// use hercules::qubo::Qubo;
     /// use smolprng::*;
     ///
     /// let mut prng = PRNG {
@@ -99,7 +99,7 @@ impl Qubo {
     ///
     /// Example of calculating the objective function value of a QUBO:
     /// ```rust
-    /// use hurricane::qubo::Qubo;
+    /// use hercules::qubo::Qubo;
     /// use ndarray::Array1;
     /// use sprs::CsMat;
     ///
@@ -119,7 +119,7 @@ impl Qubo {
     ///
     /// Example of getting the number of variables in a QUBO:
     /// ```rust
-    /// use hurricane::qubo::Qubo;
+    /// use hercules::qubo::Qubo;
     /// use ndarray::Array1;
     /// use sprs::CsMat;
     ///
@@ -137,7 +137,7 @@ impl Qubo {
     ///
     /// Example of calculating the gradient of a QUBO:
     /// ```rust
-    /// use hurricane::qubo::Qubo;
+    /// use hercules::qubo::Qubo;
     /// use ndarray::Array1;
     /// use sprs::CsMat;
     ///
@@ -160,7 +160,7 @@ impl Qubo {
     ///
     /// Example of calculating the optimal solution of the relaxed QUBO problem:
     /// ```rust
-    /// use hurricane::qubo::Qubo;
+    /// use hercules::qubo::Qubo;
     /// use ndarray::Array1;
     /// use sprs::CsMat;
     ///
@@ -194,7 +194,7 @@ impl Qubo {
     ///
     /// Example of calculating rho:
     /// ```rust
-    /// use hurricane::qubo::Qubo;
+    /// use hercules::qubo::Qubo;
     /// use ndarray::Array1;
     /// use sprs::CsMat;
     ///
@@ -223,7 +223,7 @@ impl Qubo {
     ///
     /// Example of calculating the complexity of a QUBO:
     /// ```rust
-    /// use hurricane::qubo::Qubo;
+    /// use hercules::qubo::Qubo;
     /// use ndarray::Array1;
     /// use sprs::CsMat;
     ///
@@ -256,7 +256,7 @@ impl Qubo {
     ///
     /// Example of writing a QUBO to a file:
     /// ```rust
-    /// use hurricane::qubo::Qubo;
+    /// use hercules::qubo::Qubo;
     /// use smolprng::{PRNG, JsfLarge};
     ///
     /// let mut prng = PRNG {
@@ -290,7 +290,7 @@ impl Qubo {
     ///
     /// Example of reading a QUBO from a file:
     /// ```rust
-    /// use hurricane::qubo::Qubo;
+    /// use hercules::qubo::Qubo;
     ///
     /// let p = Qubo::read_qubo("test.qubo");
     /// ```

@@ -15,9 +15,9 @@ use smolprng::{Algorithm, PRNG};
 ///
 /// Example:
 /// ``` rust
-/// use hurricane::qubo::Qubo;
+/// use hercules::qubo::Qubo;
 /// use smolprng::{PRNG, JsfLarge};
-/// use hurricane::initial_points;
+/// use hercules::initial_points;
 ///
 /// let mut prng = PRNG {
 ///  generator: JsfLarge::default(),
@@ -43,9 +43,9 @@ pub fn generate_random_starting_point<T: Algorithm>(
 ///
 /// Example:
 /// ``` rust
-/// use hurricane::qubo::Qubo;
+/// use hercules::qubo::Qubo;
 /// use smolprng::{PRNG, JsfLarge};
-/// use hurricane::initial_points;
+/// use hercules::initial_points;
 ///
 /// let mut prng = PRNG {
 ///   generator: JsfLarge::default(),
@@ -67,9 +67,9 @@ pub fn generate_random_starting_points<T: Algorithm>(
 ///
 /// Example:
 /// ``` rust
-/// use hurricane::qubo::Qubo;
+/// use hercules::qubo::Qubo;
 /// use smolprng::{PRNG, JsfLarge};
-/// use hurricane::initial_points;
+/// use hercules::initial_points;
 ///
 /// let mut prng = PRNG {
 ///    generator: JsfLarge::default(),
@@ -86,9 +86,9 @@ pub fn generate_central_starting_points(qubo: &Qubo) -> Array1<f64> {
 ///
 /// Example:
 /// ``` rust
-/// use hurricane::qubo::Qubo;
+/// use hercules::qubo::Qubo;
 /// use smolprng::{PRNG, JsfLarge};
-/// use hurricane::initial_points;
+/// use hercules::initial_points;
 ///
 /// let mut prng = PRNG {
 ///    generator: JsfLarge::default(),
@@ -105,9 +105,9 @@ pub fn generate_alpha_starting_point(qubo: &Qubo) -> Array1<f64> {
 ///
 /// Example:
 /// ``` rust
-/// use hurricane::qubo::Qubo;
+/// use hercules::qubo::Qubo;
 /// use smolprng::{PRNG, JsfLarge};
-/// use hurricane::initial_points;
+/// use hercules::initial_points;
 ///
 /// let mut prng = PRNG {
 ///    generator: JsfLarge::default(),
@@ -123,9 +123,9 @@ pub fn generate_rho_starting_point(qubo: &Qubo) -> Array1<f64> {
 ///
 /// Example:
 /// ``` rust
-/// use hurricane::qubo::Qubo;
+/// use hercules::qubo::Qubo;
 /// use smolprng::{PRNG, JsfLarge};
-/// use hurricane::initial_points;
+/// use hercules::initial_points;
 ///
 /// let mut prng = PRNG {
 ///    generator: JsfLarge::default(),
