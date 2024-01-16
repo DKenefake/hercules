@@ -1,6 +1,7 @@
 //! This is the general Utils module, which contains functions that are used by multiple algorithms and there is not a
 //! better place to put them as of yet.
 
+use crate::qubo::Qubo;
 use ndarray::Array1;
 use smolprng::{Algorithm, PRNG};
 
@@ -50,4 +51,29 @@ pub fn is_fractional(x: &Array1<f64>) -> bool {
         }
     }
     false
+}
+
+pub fn make_binary_point<T: Algorithm>(num_dim: usize, prng: &mut PRNG<T>) -> Array1<f64> {
+    let mut x = Array1::<f64>::zeros(num_dim);
+    for i in 0..x.len() {
+        if prng.gen_f64() > 0.5 {
+            x[i] = 1.0;
+        }
+    }
+    x
+}
+
+pub fn get_best_point(qubo: &Qubo, points: &Vec<Array1<f64>>) -> Array1<f64> {
+    let mut best_point = points[0].clone();
+    let mut best_obj = qubo.eval(&best_point);
+
+    for point in points {
+        let obj = qubo.eval(point);
+        if obj < best_obj {
+            best_obj = obj;
+            best_point = point.clone();
+        }
+    }
+
+    best_point
 }

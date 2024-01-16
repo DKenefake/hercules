@@ -120,3 +120,29 @@ pub fn one_step_local_search(qubo: &Qubo, x_0: &Array1<f64>, subset: &Vec<usize>
         false => x_0.clone(),
     }
 }
+
+pub fn contract_point(x_0: &Array1<f64>, x_1: &Array1<f64>, num_contract: usize) -> Array1<f64> {
+    // contract the point x_0 to the subset of variables
+    let mut x_1 = x_1.clone();
+    let mut flipped = 0;
+
+    for i in 0..x_0.len() {
+        if x_0[i] != x_1[i] {
+            flipped = flipped + 1;
+
+            if x_0[i] != x_1[i] {
+                if x_0[i] == 1.0 {
+                    x_1[i] = 0.0;
+                } else {
+                    x_1[i] = 1.0;
+                }
+            }
+
+            if flipped > num_contract {
+                break;
+            }
+        }
+    }
+
+    x_1
+}

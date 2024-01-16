@@ -9,9 +9,12 @@
 //! - Multi simple gain criteria search
 
 use crate::local_search_utils;
+use crate::local_search_utils::contract_point;
 use crate::qubo::Qubo;
+use crate::utils::{get_best_point, make_binary_point};
 use ndarray::Array1;
 use rayon::iter::{IntoParallelRefIterator, ParallelIterator};
+use smolprng::{Algorithm, PRNG};
 
 /// Performs a single step of local search, which is to say that it will flip a single bit and return the best solution out of all
 /// of the possible bit flips.
@@ -116,4 +119,47 @@ pub fn simple_mixed_search(qubo: &Qubo, x_0: &Array1<f64>, max_steps: usize) -> 
     }
 
     x_1
+}
+
+/// Performs a particle swarm search on a QUBO.
+pub fn particle_swarm_search<T: Algorithm>(
+    qubo: &Qubo,
+    num_particles: usize,
+    max_steps: usize,
+    prng: &mut PRNG<T>,
+) -> Array1<f64> {
+    // initialize the particles
+    let num_dim = qubo.num_x();
+
+    // generate random starting points
+    let mut particles: Vec<_> = (0..num_particles)
+        .map(|_| make_binary_point(num_dim, prng))
+        .collect();
+
+    // select all variables
+    let selected_vars = (0..num_dim).collect();
+
+    // say at each particular point that we will contract 10% of the variables
+    let num_contract = qubo.num_x() / 10 + 1;
+
+    // loop over the number of iterations
+    for _ in 0..max_steps {
+        // apply local search to each particle
+        particles = particles
+            .iter()
+            .map(|x| one_step_local_search_improved(qubo, x, &selected_vars))
+            .collect();
+
+        // find the best particle
+        let best_particle = get_best_point(qubo, &particles);
+
+        // contract the particles towards the best particle
+        particles = particles
+            .iter()
+            .map(|x| contract_point(&best_particle, x, num_contract))
+            .collect();
+    }
+
+    // find the best particle
+    get_best_point(qubo, &particles)
 }

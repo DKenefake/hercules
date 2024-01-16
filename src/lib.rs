@@ -32,7 +32,7 @@ mod tests {
             generator: JsfLarge::default(),
         };
 
-        Qubo::make_random_qubo(50, &mut prng, 0.01)
+        Qubo::make_random_qubo(150, &mut prng, 0.1)
     }
 
     fn get_min_obj(p: &Qubo, xs: &Vec<Array1<f64>>) -> f64 {
@@ -203,6 +203,18 @@ mod tests {
             .collect();
         let min_obj = get_min_obj(&p, &xs);
         println!("{:?}", min_obj);
+    }
+
+    #[test]
+    fn test_particle_swarm() {
+        let p = make_solver_qubo();
+        let mut prng = PRNG {
+            generator: JsfLarge::default(),
+        };
+
+        let x = local_search::particle_swarm_search(&p, 150, 1000, &mut prng);
+
+        println!("{:?}", p.eval(&x));
     }
 
     #[test]
