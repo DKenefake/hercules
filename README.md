@@ -15,7 +15,7 @@ Hercules is currently in the early stages of development. The following features
 - [x] 1-opt heuristic
 - [x] Gain heuristic (based on boros2007)
 - [ ] Tabu search
-- [ ] Discrete Particle Swarm Optimization
+- [x] Discrete Particle Swarm Optimization
 - [ ] Simulated Annealing
 - [ ] Parallel Tempering
 
