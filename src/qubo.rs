@@ -203,6 +203,7 @@ impl Qubo {
     /// let rho = p.rho();
     /// ```
     pub fn rho(&self) -> f64 {
+        // calculate the terms q+,q-,c+,and c- from boros2007
         let q_plus: f64 = self.q.data().iter().filter(|x| **x > 0.0).sum();
         let q_minus: f64 = self.q.data().iter().filter(|x| **x < 0.0).sum();
         let c_plus: f64 = self.c.iter().filter(|x| **x > 0.0).sum();
@@ -232,8 +233,10 @@ impl Qubo {
     /// let complexity = p.complexity(); //(Array of size 3)
     /// ```
     pub fn complexity(&self) -> Array1<usize> {
+        // set up a zeroed buffer
         let mut w = Array1::<usize>::zeros(self.num_x());
 
+        // for each nonzero Q_ij, increment the corresponding w_i and w_j
         for (value, (i, j)) in &self.q {
             if *value != 0.0f64 {
                 w[i] += 1;
@@ -241,6 +244,7 @@ impl Qubo {
             }
         }
 
+        // for each nonzero c_i, increment the corresponding w_i
         for (i, value) in self.c.iter().enumerate() {
             if *value != 0.0f64 {
                 w[i] += 1;
@@ -268,14 +272,19 @@ impl Qubo {
     ///
     /// Will panics if it is not possible to write to the file.
     pub fn write_qubo(&self, filename: &str) {
+        // open the file, create file writter
         let file = std::fs::File::create(filename).unwrap();
         let mut writer = std::io::BufWriter::new(file);
 
+        // write the number of variables
         writeln!(writer, "{}", self.num_x()).unwrap();
+
+        // for every nonzero Q_ij, write the indices and the value
         for (value, (i, j)) in &self.q {
             writeln!(writer, "{i} {j} {value}").unwrap();
         }
 
+        // for every nonzero c_i, write the index and the value
         for i in 0..self.num_x() {
             let value = self.c[i];
             if value != 0.0 {
@@ -330,6 +339,7 @@ impl Qubo {
                 q.add_triplet(i, j, value);
             }
 
+            // reset the line
             line = String::new();
         }
 

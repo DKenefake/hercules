@@ -10,68 +10,11 @@
 //! - Simple Particle Swarm Search
 
 use crate::local_search_utils;
-use crate::local_search_utils::contract_point;
 use crate::qubo::Qubo;
 use crate::utils::{get_best_point, make_binary_point};
 use ndarray::Array1;
 use rayon::iter::{IntoParallelRefIterator, ParallelIterator};
 use smolprng::{Algorithm, PRNG};
-
-/// Performs a single step of local search, which is to say that it will flip a single bit and return the best solution out of all
-/// of the possible bit flips.
-/// This takes O(n|Q|) + O(n) time, where |Q| is the number of non-zero elements in the QUBO matrix.
-///
-/// # Panics
-///
-/// Will panic is there are not any selected variables.
-///
-/// Example:
-/// ``` rust
-/// use hercules::qubo::Qubo;
-/// use smolprng::{PRNG, JsfLarge};
-/// use hercules::{initial_points, utils};
-/// use hercules::local_search;
-///
-/// // generate a random QUBO
-/// let mut prng = PRNG {
-///    generator: JsfLarge::default(),
-/// };
-/// let p = Qubo::make_random_qubo(10, &mut prng, 0.5);
-///
-/// // generate a random point inside with x in {0, 1}^10 with
-/// let x_0 = utils::make_binary_point(p.num_x(), &mut prng);
-///
-/// // perform a single step of local search
-/// let x_1 = local_search::one_step_local_search_improved(&p, &x_0, &vec![0, 1, 2, 3, 4, 5, 6, 7, 8, 9]);
-/// ```
-pub fn one_step_local_search_improved(
-    qubo: &Qubo,
-    x_0: &Array1<f64>,
-    selected_vars: &Vec<usize>,
-) -> Array1<f64> {
-    // Do a neighborhood search of up to one bit flip and returns the best solution
-    // found, this can include the original solution, out of the selected variables.
-
-    let (_, objs) = local_search_utils::one_flip_objective(qubo, x_0);
-
-    let best_neighbor = objs
-        .iter()
-        .enumerate()
-        .filter(|(i, _)| selected_vars.contains(i))
-        .min_by(|(_, a), (_, b)| a.partial_cmp(b).unwrap())
-        .unwrap()
-        .0;
-
-    let best_obj = objs[best_neighbor];
-
-    if best_obj < 0.0f64 {
-        let mut x_1 = x_0.clone();
-        x_1[best_neighbor] = 1.0 - x_1[best_neighbor];
-        x_1
-    } else {
-        x_0.clone()
-    }
-}
 
 /// Given a QUBO and an integral initial point, run simple local search until the point converges or the step limit is hit.
 ///
@@ -103,7 +46,7 @@ pub fn simple_local_search(qubo: &Qubo, x_0: &Array1<f64>, max_steps: usize) -> 
     while x_1 != x && steps <= max_steps {
         x = x_1.clone();
         // apply the local search to the selected variables
-        x_1 = one_step_local_search_improved(qubo, &x, &variables);
+        x_1 = local_search_utils::one_step_local_search_improved(qubo, &x, &variables);
         steps += 1;
     }
 
@@ -243,7 +186,7 @@ pub fn simple_mixed_search(qubo: &Qubo, x_0: &Array1<f64>, max_steps: usize) -> 
 
     while x_1 != x && steps <= max_steps {
         x = x_1.clone();
-        x_1 = one_step_local_search_improved(qubo, &x, &vars);
+        x_1 = local_search_utils::one_step_local_search_improved(qubo, &x, &vars);
         x_1 = local_search_utils::get_gain_criteria(qubo, &x_1);
         steps += 1;
     }
@@ -294,7 +237,7 @@ pub fn particle_swarm_search<T: Algorithm>(
         // apply local search to each particle
         particles = particles
             .par_iter()
-            .map(|x| one_step_local_search_improved(qubo, x, &selected_vars))
+            .map(|x| local_search_utils::one_step_local_search_improved(qubo, x, &selected_vars))
             .collect();
 
         // find the best particle
@@ -303,10 +246,54 @@ pub fn particle_swarm_search<T: Algorithm>(
         // contract the particles towards the best particle
         particles = particles
             .iter()
-            .map(|x| contract_point(&best_particle, x, num_contract))
+            .map(|x| local_search_utils::contract_point(&best_particle, x, num_contract))
             .collect();
     }
 
     // find the best particle
     get_best_point(qubo, &particles)
+}
+
+/// Performs a random search on a QUBO, where points are randomly generated and the best point is returned. This to
+/// create a baseline to compare other algorithms against just random guesses.
+///
+/// Example:
+/// ``` rust
+/// use hercules::qubo::Qubo;
+/// use smolprng::{PRNG, JsfLarge};
+/// use hercules::{initial_points, utils};
+/// use hercules::local_search;
+///
+/// // generate a random QUBO
+/// let mut prng = PRNG {
+///   generator: JsfLarge::default(),
+/// };
+/// let p = Qubo::make_random_qubo(10, &mut prng, 0.5);
+///
+/// // perform random search with 1000 points
+/// let x_sol = local_search::random_search(&p, 1000, &mut prng);
+/// ```
+pub fn random_search<T: Algorithm>(
+    qubo: &Qubo,
+    num_points: usize,
+    prng: &mut PRNG<T>,
+) -> Array1<f64> {
+    // set up an initial best point and objective
+    let mut best_point = make_binary_point(qubo.num_x(), prng);
+    let mut best_objective = qubo.eval(&best_point);
+
+    // loop over the number of points
+    for _ in 0..num_points {
+        // generate a new point and evaluate it
+        let new_point = make_binary_point(qubo.num_x(), prng);
+        let new_obj = qubo.eval(&new_point);
+
+        // if the new point is better, update the best point
+        if new_obj <= best_objective {
+            best_point = new_point;
+            best_objective = new_obj;
+        }
+    }
+
+    best_point
 }

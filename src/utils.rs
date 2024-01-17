@@ -185,8 +185,10 @@ pub fn gen_binary_point_from_dist<T: Algorithm>(
     prng: &mut PRNG<T>,
     dist: &Array1<f64>,
 ) -> Array1<f64> {
+    // generate a zeroed buffer
     let mut x = Array1::<f64>::zeros(dist.len());
 
+    // for each variable, set it to either 0 or 1, based on the dist array
     for i in 0..x.len() {
         if prng.gen_f64() < dist[i] {
             x[i] = 1.0;
@@ -222,9 +224,11 @@ pub fn gen_binary_point_from_dist<T: Algorithm>(
 /// let best_point = utils::get_best_point(&p, &points);
 /// ```
 pub fn get_best_point(qubo: &Qubo, points: &Vec<Array1<f64>>) -> Array1<f64> {
+    // set the first point as the best point
     let mut best_point = points[0].clone();
     let mut best_obj = qubo.eval(&best_point);
 
+    // search thru the points and find the best one
     for point in points {
         let obj = qubo.eval(point);
         if obj < best_obj {

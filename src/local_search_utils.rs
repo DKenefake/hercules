@@ -9,6 +9,62 @@
 use crate::qubo::Qubo;
 use ndarray::Array1;
 
+/// Performs a single step of local search, which is to say that it will flip a single bit and return the best solution out of all
+/// of the possible bit flips.
+/// This takes O(n|Q|) + O(n) time, where |Q| is the number of non-zero elements in the QUBO matrix.
+///
+/// # Panics
+///
+/// Will panic is there are not any selected variables.
+///
+/// Example:
+/// ``` rust
+/// use hercules::qubo::Qubo;
+/// use smolprng::{PRNG, JsfLarge};
+/// use hercules::{initial_points, utils};
+/// use hercules::local_search_utils;
+///
+/// // generate a random QUBO
+/// let mut prng = PRNG {
+///    generator: JsfLarge::default(),
+/// };
+/// let p = Qubo::make_random_qubo(10, &mut prng, 0.5);
+///
+/// // generate a random point inside with x in {0, 1}^10 with
+/// let x_0 = utils::make_binary_point(p.num_x(), &mut prng);
+///
+/// // perform a single step of local search
+/// let x_1 = local_search_utils::one_step_local_search_improved(&p, &x_0, &vec![0, 1, 2, 3, 4, 5, 6, 7, 8, 9]);
+/// ```
+pub fn one_step_local_search_improved(
+    qubo: &Qubo,
+    x_0: &Array1<f64>,
+    selected_vars: &Vec<usize>,
+) -> Array1<f64> {
+    // Do a neighborhood search of up to one bit flip and returns the best solution
+    // found, this can include the original solution, out of the selected variables.
+
+    let (_, objs) = one_flip_objective(qubo, x_0);
+
+    let best_neighbor = objs
+        .iter()
+        .enumerate()
+        .filter(|(i, _)| selected_vars.contains(i))
+        .min_by(|(_, a), (_, b)| a.partial_cmp(b).unwrap())
+        .unwrap()
+        .0;
+
+    let best_obj = objs[best_neighbor];
+
+    if best_obj < 0.0f64 {
+        let mut x_1 = x_0.clone();
+        x_1[best_neighbor] = 1.0 - x_1[best_neighbor];
+        x_1
+    } else {
+        x_0.clone()
+    }
+}
+
 /// Auxiliary function to calculate the gains from flipping each variable
 ///
 /// This is essentially a helper function that calculates the gains of flipping bits for each variable and then flips in
