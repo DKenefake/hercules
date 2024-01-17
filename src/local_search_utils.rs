@@ -121,6 +121,35 @@ pub fn one_step_local_search(qubo: &Qubo, x_0: &Array1<f64>, subset: &Vec<usize>
     }
 }
 
+/// This is a helper function for the basic particle swarm algorithm. It takes two points, x_0 and x_1, and sets up to num_contract
+/// variables to be the same between the two points, and then returns the new point.
+///
+/// Example
+/// ``` rust
+/// use hercules::qubo::Qubo;
+/// use smolprng::{PRNG, JsfLarge};
+/// use hercules::{initial_points, utils};
+/// use hercules::local_search_utils;
+///
+/// // generate a random QUBO
+/// let mut prng = PRNG {
+///    generator: JsfLarge::default(),
+/// };
+/// let p = Qubo::make_random_qubo(10, &mut prng, 0.5);
+///
+/// // generate random points inside with x in {0, 1}^10
+/// let mut x_0 = utils::make_binary_point(p.num_x(), &mut prng);
+/// let mut x_1 = utils::make_binary_point(p.num_x(), &mut prng);
+///
+/// let mut x_s = vec![x_0, x_1];
+///
+/// // find the point with the best objective
+/// let x_best = utils::get_best_point(&p, &x_s);
+///
+/// // contract the point x_0 up to 4 bits
+/// x_s[0] = local_search_utils::contract_point(&x_best, &x_s[0], 4);
+/// x_s[1] = local_search_utils::contract_point(&x_best, &x_s[1], 4);
+/// ```
 pub fn contract_point(x_0: &Array1<f64>, x_1: &Array1<f64>, num_contract: usize) -> Array1<f64> {
     // contract the point x_0 to the subset of variables
     let mut x_1 = x_1.clone();

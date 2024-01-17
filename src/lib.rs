@@ -32,7 +32,7 @@ mod tests {
             generator: JsfLarge::default(),
         };
 
-        Qubo::make_random_qubo(150, &mut prng, 0.1)
+        Qubo::make_random_qubo(200, &mut prng, 0.1)
     }
 
     fn get_min_obj(p: &Qubo, xs: &Vec<Array1<f64>>) -> f64 {
@@ -40,6 +40,12 @@ mod tests {
             .map(|x| p.eval(&x))
             .min_by(|a, b| a.partial_cmp(b).unwrap())
             .unwrap()
+    }
+
+    fn make_test_prng() -> PRNG<JsfLarge> {
+        PRNG {
+            generator: JsfLarge::default(),
+        }
     }
 
     #[test]
@@ -74,9 +80,7 @@ mod tests {
 
     #[test]
     fn test_mutate() {
-        let mut prng = PRNG {
-            generator: JsfLarge::default(),
-        };
+        let mut prng = make_test_prng();
         let x_0 = Array1::from_vec(vec![1.0, 0.0, 1.0]);
         let target = Array1::from_vec(vec![0.0, 0.0, 1.0]);
         let x_1 = utils::mutate_solution(&x_0, 1, &mut prng);
@@ -96,9 +100,7 @@ mod tests {
     #[test]
     fn test_gen_random() {
         let p = make_solver_qubo();
-        let mut prng = PRNG {
-            generator: JsfLarge::default(),
-        };
+        let mut prng = make_test_prng();
 
         let starting_points = initial_points::generate_random_starting_points(&p, 5, &mut prng);
 
@@ -127,9 +129,7 @@ mod tests {
     #[test]
     fn test_opt_criteria() {
         let p = make_solver_qubo();
-        let mut prng = PRNG {
-            generator: JsfLarge::default(),
-        };
+        let mut prng = make_test_prng();
 
         let mut x_0 = initial_points::generate_random_binary_point(&p, &mut prng, 0.5);
         for _ in 0..100 {
@@ -151,9 +151,8 @@ mod tests {
     #[test]
     fn test_multi_opt_heuristics() {
         let p = make_solver_qubo();
-        let mut prng = PRNG {
-            generator: JsfLarge::default(),
-        };
+        let mut prng = make_test_prng();
+
         let mut xs = initial_points::generate_random_starting_points(&p, 10, &mut prng);
 
         xs = local_search::multi_simple_gain_criteria_search(&p, &xs);
@@ -191,9 +190,7 @@ mod tests {
     #[test]
     fn test_mixed_search() {
         let p = make_solver_qubo();
-        let mut prng = PRNG {
-            generator: JsfLarge::default(),
-        };
+        let mut prng = make_test_prng();
 
         let mut xs = initial_points::generate_random_starting_points(&p, 10, &mut prng);
 
@@ -208,9 +205,7 @@ mod tests {
     #[test]
     fn test_particle_swarm() {
         let p = make_solver_qubo();
-        let mut prng = PRNG {
-            generator: JsfLarge::default(),
-        };
+        let mut prng = make_test_prng();
 
         let x = local_search::particle_swarm_search(&p, 150, 1000, &mut prng);
 
@@ -219,9 +214,7 @@ mod tests {
 
     #[test]
     fn write_qubo() {
-        let mut prng = PRNG {
-            generator: JsfLarge::default(),
-        };
+        let mut prng = make_test_prng();
 
         let p = Qubo::make_random_qubo(10, &mut prng, 0.1);
         Qubo::write_qubo(&p, "test.qubo");
@@ -229,9 +222,7 @@ mod tests {
 
     #[test]
     fn read_qubo() {
-        let mut prng = PRNG {
-            generator: JsfLarge::default(),
-        };
+        let mut prng = make_test_prng();
 
         let p = Qubo::make_random_qubo(10, &mut prng, 0.1);
         Qubo::write_qubo(&p, "test_read.qubo");
@@ -244,9 +235,7 @@ mod tests {
 
     #[test]
     fn large_scale_write_qubo() {
-        let mut prng = PRNG {
-            generator: JsfLarge::default(),
-        };
+        let mut prng = make_test_prng();
 
         let p = Qubo::make_random_qubo(1000, &mut prng, 0.01);
         Qubo::write_qubo(&p, "test_large.qubo");
