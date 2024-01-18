@@ -117,13 +117,13 @@ mod tests {
     fn test_alpha() {
         let p = make_solver_qubo();
         let alpha = p.alpha();
-        println!("{:?}", alpha);
+        println!("{alpha}");
     }
     #[test]
     fn test_rho() {
         let p = make_solver_qubo();
         let rho = p.rho();
-        println!("{:?}", rho);
+        println!("{rho}");
     }
 
     #[test]
@@ -171,7 +171,7 @@ mod tests {
 
         xs = local_search::multi_simple_gain_criteria_search(&p, &xs);
         let min_obj = get_min_obj(&p, &xs);
-        println!("{:?}", min_obj);
+        println!("{min_obj:?}");
     }
 
     #[test]
@@ -184,7 +184,7 @@ mod tests {
 
         xs = local_search::multi_simple_gain_criteria_search(&p, &xs);
         let min_obj = get_min_obj(&p, &xs);
-        println!("{:?}", min_obj);
+        println!("{min_obj:?}");
     }
 
     #[test]
@@ -199,7 +199,7 @@ mod tests {
             .map(|x| local_search::simple_mixed_search(&p, &x, 1000))
             .collect();
         let min_obj = get_min_obj(&p, &xs);
-        println!("{:?}", min_obj);
+        println!("{min_obj:?}");
     }
 
     #[test]
@@ -207,7 +207,7 @@ mod tests {
         let p = make_solver_qubo();
         let mut prng = make_test_prng();
 
-        let x = local_search::particle_swarm_search(&p, 150, 1000, &mut prng);
+        let x = local_search::particle_swarm_search(&p, 50, 1000, &mut prng);
 
         println!("{:?}", p.eval(&x));
     }
@@ -239,5 +239,29 @@ mod tests {
 
         let p = Qubo::make_random_qubo(1000, &mut prng, 0.01);
         Qubo::write_qubo(&p, "test_large.qubo");
+    }
+
+    #[test]
+    fn compare_methods() {
+        let mut prng = make_test_prng();
+        let p = Qubo::make_random_qubo(1000, &mut prng, 0.01);
+
+        let x_0 = initial_points::generate_random_binary_point(&p, &mut prng, 0.5);
+        let max_iter = p.num_x();
+
+        let x_pso = local_search::particle_swarm_search(&p, 100, max_iter, &mut prng);
+        let x_mixed = local_search::simple_mixed_search(&p, &x_0, max_iter);
+        let x_gain = local_search::simple_gain_criteria_search(&p, &x_0, max_iter);
+        let x_opt = local_search::simple_local_search(&p, &x_0, max_iter);
+        let x_rand = local_search::random_search(&p, 100, &mut prng);
+
+        println!(
+            "PSO: {:?}, MIXED: {:?}, GAIN: {:?}, 1OPT: {:?}, Rand: {:?} ",
+            p.eval(&x_pso),
+            p.eval(&x_mixed),
+            p.eval(&x_gain),
+            p.eval(&x_opt),
+            p.eval(&x_rand)
+        );
     }
 }

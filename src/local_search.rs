@@ -40,7 +40,7 @@ use smolprng::{Algorithm, PRNG};
 pub fn simple_local_search(qubo: &Qubo, x_0: &Array1<f64>, max_steps: usize) -> Array1<f64> {
     let mut x = x_0.clone();
     let variables = (0..qubo.num_x()).collect();
-    let mut x_1 = local_search_utils::one_step_local_search(qubo, &x, &variables);
+    let mut x_1 = local_search_utils::one_step_local_search_improved(qubo, &x, &variables);
     let mut steps = 0;
 
     while x_1 != x && steps <= max_steps {
