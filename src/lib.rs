@@ -10,11 +10,28 @@
 // I just think this is fine, I think having all possible actions shown in one place simplifies view
 #![allow(clippy::module_name_repetitions)] // some names are just repeated, and that is fine
 
+use pyo3::prelude::*;
+
 pub mod initial_points;
 pub mod local_search;
 pub mod local_search_utils;
+pub mod python_interopt;
 pub mod qubo;
 pub mod utils;
+
+// imports to generate the python interface
+use pyo3::prelude::*;
+use python_interopt::*;
+
+/// Gives python access to the rust interface
+#[pymodule]
+fn hercules(_py: Python<'_>, m: &PyModule) -> PyResult<()> {
+    m.add_function(wrap_pyfunction!(sum_as_string, m)?)?;
+    m.add_function(wrap_pyfunction!(pso_from_file, m)?)?;
+    m.add_function(wrap_pyfunction!(gls_from_file, m)?)?;
+
+    Ok(())
+}
 
 /// This is the test module. Very few of the tests are actually assert style tests, as we are likely to not hit the same
 /// local minima when running the tests (and not break them) every time we change the seed of the prng and order of operations.
