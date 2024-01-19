@@ -29,7 +29,7 @@ fn hercules(_py: Python<'_>, m: &PyModule) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(sum_as_string, m)?)?;
     m.add_function(wrap_pyfunction!(pso_from_file, m)?)?;
     m.add_function(wrap_pyfunction!(gls_from_file, m)?)?;
-
+    m.add_function(wrap_pyfunction!(mls_from_file, m)?)?;
     Ok(())
 }
 
