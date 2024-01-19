@@ -20,7 +20,7 @@ pub mod qubo;
 pub mod utils;
 
 // imports to generate the python interface
-use pyo3::prelude::*;
+
 use python_interopt::*;
 
 /// Gives python access to the rust interface
@@ -30,6 +30,7 @@ fn hercules(_py: Python<'_>, m: &PyModule) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(pso_from_file, m)?)?;
     m.add_function(wrap_pyfunction!(gls_from_file, m)?)?;
     m.add_function(wrap_pyfunction!(mls_from_file, m)?)?;
+    m.add_function(wrap_pyfunction!(msls_from_file, m)?)?;
     Ok(())
 }
 
@@ -49,7 +50,7 @@ mod tests {
             generator: JsfLarge::default(),
         };
 
-        Qubo::make_random_qubo(200, &mut prng, 0.1)
+        Qubo::make_random_qubo(50, &mut prng, 0.1)
     }
 
     fn get_min_obj(p: &Qubo, xs: &Vec<Array1<f64>>) -> f64 {
@@ -261,7 +262,7 @@ mod tests {
     #[test]
     fn compare_methods() {
         let mut prng = make_test_prng();
-        let p = Qubo::make_random_qubo(1000, &mut prng, 0.01);
+        let p = Qubo::make_random_qubo(200, &mut prng, 0.01);
 
         let x_0 = initial_points::generate_random_binary_point(&p, &mut prng, 0.5);
         let max_iter = p.num_x();

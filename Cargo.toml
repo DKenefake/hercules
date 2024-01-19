@@ -33,13 +33,9 @@ lto = true
 opt-level = 3
 codegen-units = 1
 
-
 [profile.dev]
-lto = false
-opt-level = 0
-codegen-units = 32
+codegen-units = 256
 debug = true
-
 
 [profile.bench]
 opt-level = 3

@@ -97,3 +97,29 @@ let min_obj = x_sols
 ```
 
 This is actually a quite effective simple local search heuristic, and can be used as a starting point for more complex heuristics. Here, we can solve a randomly generated sparse 1000x1000 QUBO problem to within 0.5% of the optimal solution in about half second on a laptop. 
+
+## Python Interface: Using Hercules from Python
+
+Hercules can be used from Python using the Py03 crate. This is currently a work in progress, and a standalone package is not currently available. This can be built via maturin via the ``maturin develop`` command.  However, the following code shows how to use Hercules from Python. Currenlty, it only solves problems that can be read from a file, but this will be expanded in the future.
+
+```python
+import hercules
+import random
+import time
+
+# set a random seed
+random.seed(time.time())
+
+# create a random initial point
+x_0 = [random.randint(0, 1) for i in range(1000)]
+
+# solve the QUBO problem, by reading from a file and solving it from the initial point x_0, for 30 iterations
+x_soln, obj = hercules.mls_from_file('test_large.qubo', x_0, 30)
+
+# print the objective value of the solution
+print('Solution: ', obj)
+```
+
+
+
+
