@@ -31,6 +31,12 @@ fn hercules(_py: Python<'_>, m: &PyModule) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(gls_from_file, m)?)?;
     m.add_function(wrap_pyfunction!(mls_from_file, m)?)?;
     m.add_function(wrap_pyfunction!(msls_from_file, m)?)?;
+    m.add_function(wrap_pyfunction!(pso, m)?)?;
+    m.add_function(wrap_pyfunction!(gls, m)?)?;
+    m.add_function(wrap_pyfunction!(mls, m)?)?;
+    m.add_function(wrap_pyfunction!(msls, m)?)?;
+    m.add_function(wrap_pyfunction!(read_qubo, m)?)?;
+    m.add_function(wrap_pyfunction!(write_qubo, m)?)?;
     Ok(())
 }
 

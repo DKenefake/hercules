@@ -100,9 +100,10 @@ This is actually a quite effective simple local search heuristic, and can be use
 
 ## Python Interface: Using Hercules from Python
 
-Hercules can be used from Python using the Py03 crate. This is currently a work in progress, and a standalone package is not currently available. This can be built via maturin via the ``maturin develop`` command.  However, the following code shows how to use Hercules from Python. Currenlty, it only solves problems that can be read from a file, but this will be expanded in the future.
+Hercules can be used from Python using the Py03 crate. This is currently a work in progress, and a standalone package is not currently available. This can be built via maturin via the ``maturin develop`` command.  However, the following code shows how to use Hercules from Python.
 
 Here we can use the python interface to use the simple mixed search heuristic we developed above to solve a randomly generated QUBO problem. This is a 1000x1000 QUBO problem with 1000 nonzero entries, and we solve it from a random initial point for 50 iterations. This takes about the same about of time as the pure Rust version, and we get the same solution.
+
 ```python
 import hercules
 import random
@@ -111,18 +112,23 @@ import time
 # set a random seed
 random.seed(time.time())
 
+# read in the qubo problem
+problem = hercules.read_qubo('test_large.qubo')
+num_x = problem[-1]
+
 # create a random initial point
-x_0 = [random.randint(0, 1) for i in range(1000)]
+x_0 = [random.randint(0, 1) for i in range(num_x)]
 
 # start timing
 start = time.time()
 
-# solve the QUBO problem, by reading from a file and solving it from the initial point x_0, for 30 iterations
-x_soln, obj = hercules.mls_from_file('test_large.qubo', x_0, 50)
+# solve the QUBO problem via the mixed local search heuristic with, initial point x_0, for 50 iterations
+x_soln, obj = hercules.mls(problem, x_0, 50)
 
 # stop timing
 end = time.time()
 
 # print the objective value of the solution
 print('Solution: ', obj, ' in ', end - start, ' seconds')
+
 ```

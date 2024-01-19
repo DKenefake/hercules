@@ -56,6 +56,37 @@ impl Qubo {
         Self { q, c }
     }
 
+    /// Generate a QUBO struct from the list format
+    ///
+    /// Example to create a QUBO from a list of tuples:
+    /// ```rust
+    /// use hercules::qubo::Qubo;
+    /// use ndarray::Array1;
+    ///
+    /// let x = vec![0,1,2];
+    /// let y = vec![0,1,2];
+    /// let q = vec![1.0,1.0,1.0];
+    /// let c = vec![0.0,0.0,0.0];
+    /// let p = Qubo::from_vec(x, y, q, c);
+    /// ```
+    pub fn from_vec(i: Vec<usize>, j: Vec<usize>, q: Vec<f64>, c: Vec<f64>, num_x: usize) -> Self {
+        // set up the sparse matrix and dense vector
+        let mut q_mat = TriMat::<f64>::new((num_x, num_x));
+        let mut c_vec = Array1::<f64>::zeros(num_x);
+
+        // read the file
+        for (k, v) in q.iter().enumerate() {
+            q_mat.add_triplet(i[k], j[k], *v);
+        }
+
+        // set up the linear component
+        for (k, v) in c.iter().enumerate() {
+            c_vec[k] = *v;
+        }
+
+        Self::new_with_c(q_mat.to_csr(), c_vec)
+    }
+
     /// Generate a random QUBO struct with a given number of variables, sparsity, and PRNG. This function is deterministic.
     ///
     /// Example to create a random QUBO with 10 variables and a sparsity of 0.5:
