@@ -12,13 +12,15 @@ keywords = ["QUBO", "Heuristics", "Optimization"]
 categories = ["science", "mathematics"]
 
 [lib]
-#doctest = false
+name = "hercules"
+crate-type = ["cdylib"]
 
 [dependencies]
 sprs = "0.11.1"
 ndarray = "0.15.6"
 smolprng = "0.1.5"
 rayon = "1.8.0"
+pyo3 = { version = "0.20.2", features = ["extension-module"] }
 
 [doc]
 rustdocflags = [ "--html-in-header", "docs-header.html" ]
@@ -34,8 +36,9 @@ codegen-units = 1
 
 [profile.dev]
 lto = false
-opt-level = 1
+opt-level = 0
 codegen-units = 32
+debug = true
 
 
 [profile.bench]
