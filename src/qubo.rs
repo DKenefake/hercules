@@ -67,7 +67,8 @@ impl Qubo {
     /// let y = vec![0,1,2];
     /// let q = vec![1.0,1.0,1.0];
     /// let c = vec![0.0,0.0,0.0];
-    /// let p = Qubo::from_vec(x, y, q, c);
+    /// let num_x = 3;
+    /// let p = Qubo::from_vec(x, y, q, c, 3);
     /// ```
     pub fn from_vec(i: Vec<usize>, j: Vec<usize>, q: Vec<f64>, c: Vec<f64>, num_x: usize) -> Self {
         // set up the sparse matrix and dense vector
