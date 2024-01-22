@@ -96,7 +96,7 @@ let min_obj = x_sols
     .unwrap();
 ```
 
-This is actually a quite effective simple local search heuristic, and can be used as a starting point for more complex heuristics. Here, we can solve a randomly generated sparse 1000x1000 QUBO problem to within 0.5% of the optimal solution in about half second on a laptop. 
+This is actually a quite effective simple local search heuristic, and can be used as a starting point for more complex heuristics. Here, we can solve a randomly generated sparse 1000x1000 QUBO problem to within 0.5% of the optimal solution in about 15 ms on a laptop. 
 
 ## Python Interface: Using Hercules from Python
 
