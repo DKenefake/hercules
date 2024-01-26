@@ -357,7 +357,7 @@ pub fn read_qubo(filename: String) -> PyResult<QuboData> {
     let mut i = Vec::new();
     let mut j = Vec::new();
     let mut q = Vec::new();
-    let c = p.c.clone().to_vec();
+    let c = p.c.to_vec();
     let num_x = p.num_x();
 
     for (k, v) in p.q.iter() {

@@ -15,6 +15,7 @@ use pyo3::prelude::*;
 pub mod initial_points;
 pub mod local_search;
 pub mod local_search_utils;
+pub mod persistence;
 pub mod python_interopt;
 pub mod qubo;
 pub mod utils;
@@ -45,11 +46,12 @@ fn hercules(_py: Python<'_>, m: &PyModule) -> PyResult<()> {
 #[cfg(test)]
 mod tests {
     use crate::qubo::Qubo;
-    use crate::{initial_points, local_search, local_search_utils, utils};
+    use crate::{initial_points, local_search, local_search_utils, persistence, utils};
     use ndarray::Array1;
     use rayon::prelude::*;
     use smolprng::*;
     use sprs::CsMat;
+    use std::collections::HashMap;
 
     fn make_solver_qubo() -> Qubo {
         let mut prng = PRNG {
@@ -287,5 +289,47 @@ mod tests {
             p.eval(&x_opt),
             p.eval(&x_rand)
         );
+    }
+
+    #[test]
+    fn test_grad_bounds_1() {
+        let eye = CsMat::eye(3);
+        let c = Array1::from_vec(vec![1.0, 2.0, 3.0]);
+        let p = Qubo::new_with_c(eye, c);
+        assert_eq!(persistence::grad_bounds(&p, 0, &HashMap::new()), (1.0, 2.0));
+        assert_eq!(persistence::grad_bounds(&p, 1, &HashMap::new()), (2.0, 3.0));
+        assert_eq!(persistence::grad_bounds(&p, 2, &HashMap::new()), (3.0, 4.0));
+    }
+
+    #[test]
+    fn test_grad_bounds_2() {
+        let eye = CsMat::eye(3);
+        let c = Array1::from_vec(vec![1.0, 2.0, 3.0]);
+        let p = Qubo::new_with_c(eye, c);
+
+        let mut fixed_vars = HashMap::new();
+        fixed_vars.insert(0, 1.0);
+        // fixed_vars.insert(1, 1.0);
+        fixed_vars.insert(2, 1.0);
+
+        assert_eq!(persistence::grad_bounds(&p, 0, &fixed_vars), (2.0, 2.0));
+        assert_eq!(persistence::grad_bounds(&p, 1, &fixed_vars), (2.0, 3.0));
+        assert_eq!(persistence::grad_bounds(&p, 2, &fixed_vars), (4.0, 4.0));
+    }
+    #[test]
+    fn test_persistence() {
+        //build the problem
+        let eye = CsMat::eye(3);
+        let c = Array1::from_vec(vec![1.0, 2.0, 3.0]);
+        let p = Qubo::new_with_c(eye, c);
+        let persist = persistence::compute_iterative_persistence(&p, &HashMap::new(), 3);
+
+        assert!(persist.contains_key(&0));
+        assert!(persist.contains_key(&1));
+        assert!(persist.contains_key(&2));
+
+        assert!(persist[&0].eq(&0.0));
+        assert!(persist[&1].eq(&0.0));
+        assert!(persist[&2].eq(&0.0));
     }
 }
