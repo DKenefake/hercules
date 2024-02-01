@@ -38,6 +38,7 @@ fn hercules(_py: Python<'_>, m: &PyModule) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(msls, m)?)?;
     m.add_function(wrap_pyfunction!(read_qubo, m)?)?;
     m.add_function(wrap_pyfunction!(write_qubo, m)?)?;
+    m.add_function(wrap_pyfunction!(get_persistance, m)?)?;
     Ok(())
 }
 

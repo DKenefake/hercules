@@ -17,8 +17,12 @@ pub fn compute_iterative_persistence(
     let iters = min(iter_lim, qubo.num_x());
 
     // simply loop over the number of iters, TODO: check if an early return is possible
-    for i in 0..iter_lim {
-        new_persistent = compute_persistent(qubo, &new_persistent);
+    for i in 0..iters {
+        let incoming_persistent = compute_persistent(qubo, &new_persistent);
+        if new_persistent == incoming_persistent {
+            break;
+        }
+        new_persistent = incoming_persistent;
     }
 
     new_persistent
@@ -32,6 +36,11 @@ pub fn compute_persistent(qubo: &Qubo, persistent: &HashMap<usize, f64>) -> Hash
 
     // iterate over all the variables in the QUBO
     for i in 0..qubo.num_x() {
+
+        if persistent.contains_key(&i) {
+            continue;
+        }
+
         // find the bounds of the gradient in each direction
         let (lower, upper) = grad_bounds(qubo, i, persistent);
 
