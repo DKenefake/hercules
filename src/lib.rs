@@ -12,6 +12,7 @@
 
 use pyo3::prelude::*;
 
+mod constraint;
 pub mod initial_points;
 pub mod local_search;
 pub mod local_search_utils;
@@ -19,6 +20,7 @@ pub mod persistence;
 pub mod python_interopt;
 pub mod qubo;
 pub mod utils;
+mod variable_reduction;
 
 // imports to generate the python interface
 
@@ -38,7 +40,7 @@ fn hercules(_py: Python<'_>, m: &PyModule) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(msls, m)?)?;
     m.add_function(wrap_pyfunction!(read_qubo, m)?)?;
     m.add_function(wrap_pyfunction!(write_qubo, m)?)?;
-    m.add_function(wrap_pyfunction!(get_persistance, m)?)?;
+    m.add_function(wrap_pyfunction!(get_persistence, m)?)?;
     Ok(())
 }
 

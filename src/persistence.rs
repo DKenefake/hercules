@@ -1,5 +1,5 @@
-use std::cmp::min;
 use crate::qubo::Qubo;
+use std::cmp::min;
 use std::collections::HashMap;
 
 /// This function takes a QUBO and a set of persistent variables and returns a new set of persistent variables by repeatedly re
@@ -9,14 +9,13 @@ pub fn compute_iterative_persistence(
     persistent: &HashMap<usize, f64>,
     iter_lim: usize,
 ) -> HashMap<usize, f64> {
-
     // make a copy of the passed persistence variable
     let mut new_persistent = persistent.clone();
 
-    // the number of reqired iterations is always below the number of variables
+    // the number of required iterations is always below the number of variables
     let iters = min(iter_lim, qubo.num_x());
 
-    // simply loop over the number of iters, TODO: check if an early return is possible
+    // simply loop over the number of iters
     for i in 0..iters {
         let incoming_persistent = compute_persistent(qubo, &new_persistent);
         if new_persistent == incoming_persistent {
@@ -36,7 +35,6 @@ pub fn compute_persistent(qubo: &Qubo, persistent: &HashMap<usize, f64>) -> Hash
 
     // iterate over all the variables in the QUBO
     for i in 0..qubo.num_x() {
-
         if persistent.contains_key(&i) {
             continue;
         }

@@ -1,14 +1,14 @@
 //! Acts as the interface to rust code from python. Currently only supports reading the QUBO from a file, and running the one of the search algorithms.
 
-use std::collections::HashMap;
 use crate::qubo::Qubo;
+use std::collections::HashMap;
 
 use ndarray::Array1;
 use pyo3::prelude::*;
 
 use crate::local_search;
-use smolprng::{JsfLarge, PRNG};
 use crate::persistence::compute_iterative_persistence;
+use smolprng::{JsfLarge, PRNG};
 
 // type alias for the qubo data object from python
 type QuboData = (Vec<usize>, Vec<usize>, Vec<f64>, Vec<f64>, usize);
@@ -390,9 +390,11 @@ pub fn write_qubo(problem: QuboData, filename: String) -> PyResult<()> {
     Ok(())
 }
 
-
 #[pyfunction]
-pub fn get_persistance(problem: QuboData, fixed: HashMap<usize, f64>) -> PyResult<HashMap<usize, f64>> {
+pub fn get_persistence(
+    problem: QuboData,
+    fixed: HashMap<usize, f64>,
+) -> PyResult<HashMap<usize, f64>> {
     // read in the QUBO from file
     let p = Qubo::from_vec(problem.0, problem.1, problem.2, problem.3, problem.4);
 
