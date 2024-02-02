@@ -20,7 +20,6 @@ pub mod persistence;
 pub mod python_interopt;
 pub mod qubo;
 pub mod utils;
-mod variable_reduction;
 
 // imports to generate the python interface
 
