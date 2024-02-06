@@ -12,6 +12,7 @@
 
 use pyo3::prelude::*;
 
+mod branchbound;
 mod constraint;
 pub mod initial_points;
 pub mod local_search;
@@ -48,7 +49,9 @@ fn hercules(_py: Python<'_>, m: &PyModule) -> PyResult<()> {
 #[cfg(test)]
 mod tests {
     use crate::qubo::Qubo;
-    use crate::{initial_points, local_search, local_search_utils, persistence, utils};
+    use crate::{
+        branchbound, initial_points, local_search, local_search_utils, persistence, utils,
+    };
     use ndarray::Array1;
     use rayon::prelude::*;
     use smolprng::*;
@@ -333,5 +336,23 @@ mod tests {
         assert!(persist[&0].eq(&0.0));
         assert!(persist[&1].eq(&0.0));
         assert!(persist[&2].eq(&0.0));
+    }
+
+    #[test]
+    pub fn branch_bound() {
+        let mut prng = make_test_prng();
+        let eye = CsMat::eye(3);
+        let c = Array1::from_vec(vec![-1.0, -2.0, -3.0]);
+        let p = Qubo::new_with_c(eye, c);
+
+        let guess = local_search::particle_swarm_search(&p, 100, 1000, &mut prng);
+        let mut solver =
+            branchbound::BBSolver::new(p, branchbound::SolverOptions { max_time: 10.0 });
+        solver.warm_start(guess);
+        solver.solve();
+        println!("{:?}", solver.best_solution);
+        println!("{:?}", solver.best_solution_value);
+        println!("{:?}", solver.nodes_visited);
+        println!("{:?}", solver.nodes_processed);
     }
 }

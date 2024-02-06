@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-enum ConstraintType {
+pub enum ConstraintType {
     AtLeastOne,
     ExactlyOne,
     NoMoreThanOne,

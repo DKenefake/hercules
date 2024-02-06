@@ -16,7 +16,7 @@ pub fn compute_iterative_persistence(
     let iters = min(iter_lim, qubo.num_x());
 
     // simply loop over the number of iters
-    for i in 0..iters {
+    for _ in 0..iters {
         let incoming_persistent = compute_persistent(qubo, &new_persistent);
         if new_persistent == incoming_persistent {
             break;
