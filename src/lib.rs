@@ -348,7 +348,7 @@ mod tests {
 
         let guess = local_search::particle_swarm_search(&p, 100, 1000, &mut prng);
         let mut solver =
-            branchbound::BBSolver::new(p, branchbound::SolverOptions { max_time: 10.0 });
+            branchbound::BBSolver::new(p, branchbound::SolverOptions { max_time: 10.0, seed: 123456789usize });
         solver.warm_start(guess);
         solver.solve();
         println!("{:?}", solver.best_solution);
