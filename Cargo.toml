@@ -21,6 +21,7 @@ ndarray = "0.15.6"
 smolprng = "0.1.5"
 rayon = "1.8.0"
 pyo3 = { version = "0.20.2", features = ["extension-module"] }
+clarabel = "0.6.0"
 
 [doc]
 rustdocflags = [ "--html-in-header", "docs-header.html" ]
@@ -29,14 +30,14 @@ rustdocflags = [ "--html-in-header", "docs-header.html" ]
 rustdoc-args = [ "--html-in-header", "docs-header.html" ]
 
 [profile.release]
-lto = true
-opt-level = 3
-codegen-units = 1
+lto = false
+opt-level = 0
+codegen-units = 128
 
 [profile.dev]
-codegen-units = 1
-opt-level = 3
-lto = true
+codegen-units = 128
+opt-level = 0
+lto = false
 
 [profile.bench]
 opt-level = 3
