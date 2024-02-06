@@ -41,6 +41,7 @@ fn hercules(_py: Python<'_>, m: &PyModule) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(read_qubo, m)?)?;
     m.add_function(wrap_pyfunction!(write_qubo, m)?)?;
     m.add_function(wrap_pyfunction!(get_persistence, m)?)?;
+    m.add_function(wrap_pyfunction!(solve_branch_bound, m)?)?;
     Ok(())
 }
 

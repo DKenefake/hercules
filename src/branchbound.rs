@@ -37,6 +37,13 @@ pub struct SolverOptions {
     pub max_time: f64,
 }
 
+enum BranchStrategy {
+    First,
+    MostViolated,
+    Random,
+}
+
+
 /// Wrapper to help convert the QUBO to the format required by Clarabel.rs
 pub struct ClarabelWrapper {
     pub q: CscMatrix,
@@ -85,15 +92,15 @@ impl BBSolver {
 
     /// The main solve function of the B&B algorithm
     pub fn solve(&mut self) -> (Array1<f64>, f64) {
+
+        // compute an initial set of persistent variables
+        let initial_persistent = compute_iterative_persistence(&self.qubo, &HashMap::new(), self.qubo.num_x());
+
         // create the root node
         let root_node = QuboBBNode {
-            lower_bound: 0.0,
+            lower_bound: f64::NEG_INFINITY,
             solution: Array1::zeros(self.qubo.num_x()),
-            fixed_variables: compute_iterative_persistence(
-                &self.qubo,
-                &HashMap::new(),
-                self.qubo.num_x(),
-            ),
+            fixed_variables: initial_persistent,
         };
 
         // set the start time
@@ -153,7 +160,14 @@ impl BBSolver {
         // if the solution is complete, then we can update the best solution if better
         // we can also prune the node, as there are no more variables to fix
         if node.fixed_variables.len() == self.qubo.num_x() {
-            let solution_value = self.qubo.eval(&node.solution);
+
+            // generate the solution vector
+            let mut solution = Array1::zeros(self.qubo.num_x());
+            for (&index, &value) in node.fixed_variables.iter() {
+                solution[index] = value;
+            }
+
+            let solution_value = self.qubo.eval(&solution);
             if solution_value < self.best_solution_value {
                 self.best_solution = node.solution.clone();
                 self.best_solution_value = solution_value;
@@ -218,6 +232,9 @@ impl BBSolver {
 
         zero_branch.fixed_variables.insert(branch_id, 0.0);
         one_branch.fixed_variables.insert(branch_id, 1.0);
+
+        zero_branch.solution[branch_id] = 0.0;
+        one_branch.solution[branch_id] = 1.0;
 
         return (zero_branch, one_branch);
     }

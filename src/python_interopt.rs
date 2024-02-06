@@ -2,13 +2,17 @@
 
 use crate::qubo::Qubo;
 use std::collections::HashMap;
+use std::time;
 
 use ndarray::Array1;
+use pyo3::exceptions::socket::timeout;
 use pyo3::prelude::*;
 
 use crate::local_search;
 use crate::persistence::compute_iterative_persistence;
 use smolprng::{JsfLarge, PRNG};
+
+use crate::branchbound::*;
 
 // type alias for the qubo data object from python
 type QuboData = (Vec<usize>, Vec<usize>, Vec<f64>, Vec<f64>, usize);
@@ -401,4 +405,32 @@ pub fn get_persistence(
     let new_fixed = compute_iterative_persistence(&p, &fixed, p.num_x());
 
     Ok(new_fixed)
+}
+
+#[pyfunction]
+pub fn solve_branch_bound(
+    problem: QuboData,
+    timeout: f64,
+    warm_start: Option<Vec<f64>>
+) -> PyResult<(Vec<f64>, f64, f64, usize, usize)> {
+    // read in the QUBO from file
+    let p = Qubo::from_vec(problem.0, problem.1, problem.2, problem.3, problem.4);
+    let options = SolverOptions{max_time: timeout};
+    let mut solver = BBSolver::new(p, options);
+
+    match warm_start {
+        Some(x) => {
+            solver.warm_start(Array1::<f64>::from(x));
+        },
+        None => {}
+    };
+
+    let (x, obj) = solver.solve();
+
+    let time_elapse = time::SystemTime::now()
+        .duration_since(time::SystemTime::UNIX_EPOCH)
+        .unwrap()
+        .as_secs_f64() - solver.time_start;
+
+    Ok((x.to_vec(), obj, time_elapse, solver.nodes_visited, solver.nodes_processed))
 }
