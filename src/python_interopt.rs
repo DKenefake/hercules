@@ -5,7 +5,6 @@ use std::collections::HashMap;
 use std::time;
 
 use ndarray::Array1;
-use pyo3::exceptions::socket::timeout;
 use pyo3::prelude::*;
 
 use crate::local_search;
@@ -411,11 +410,17 @@ pub fn get_persistence(
 pub fn solve_branch_bound(
     problem: QuboData,
     timeout: f64,
-    warm_start: Option<Vec<f64>>
+    warm_start: Option<Vec<f64>>,
+    seed: Option<usize>,
 ) -> PyResult<(Vec<f64>, f64, f64, usize, usize)> {
     // read in the QUBO from file
     let p = Qubo::from_vec(problem.0, problem.1, problem.2, problem.3, problem.4);
-    let options = SolverOptions{max_time: timeout};
+
+    let options = match seed{
+        Some(val) => SolverOptions{max_time: timeout, seed: val},
+        None => SolverOptions{max_time: timeout, seed: 12345679usize}
+    };
+
     let mut solver = BBSolver::new(p, options);
 
     match warm_start {

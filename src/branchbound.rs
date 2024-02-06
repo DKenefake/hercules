@@ -8,8 +8,8 @@ use clarabel::algebra::*;
 use clarabel::solver::*;
 use sprs::{CsMat, TriMat};
 
-/// Bare bones implimentation of B&B. Currently requires the QUBO to be symmetrical and convex.
-/// Currently, the determanistic solver is solved via Clarabel.rs.
+/// Bare bones implementation of B&B. Currently requires the QUBO to be symmetrical and convex.
+/// Currently, the deterministic solver is solved via Clarabel.rs.
 
 /// Struct the describes the branch and bound tree nodes
 #[derive(Clone)]
@@ -35,6 +35,7 @@ pub struct BBSolver {
 /// Options for the B&B solver for run time
 pub struct SolverOptions {
     pub max_time: f64,
+    pub seed: usize,
 }
 
 enum BranchStrategy {
@@ -135,12 +136,7 @@ impl BBSolver {
             let branch_id = self.make_branch(&node);
 
             // generate the branches
-            let (mut zero_branch, mut one_branch) = self.branch(node, branch_id);
-
-            zero_branch.lower_bound = lower_bound;
-            zero_branch.solution = solution.clone();
-            one_branch.lower_bound = lower_bound;
-            one_branch.solution = solution;
+            let (zero_branch, one_branch) = self.branch(node, branch_id, lower_bound, solution);
 
             // add the branches to the list of nodes
             self.nodes.push(zero_branch);
@@ -167,9 +163,11 @@ impl BBSolver {
                 solution[index] = value;
             }
 
+            // evaluate the solution against the best solution we have so far
+            // if we have a better solution update it
             let solution_value = self.qubo.eval(&solution);
             if solution_value < self.best_solution_value {
-                self.best_solution = node.solution.clone();
+                self.best_solution = solution;
                 self.best_solution_value = solution_value;
             }
             return true;
@@ -226,15 +224,27 @@ impl BBSolver {
     }
 
     /// Actually branches the node into two new nodes
-    pub fn branch(&self, node: QuboBBNode, branch_id: usize) -> (QuboBBNode, QuboBBNode) {
+    pub fn branch(&self, node: QuboBBNode, branch_id: usize, lower_bound:f64, solution: Array1<f64>) -> (QuboBBNode, QuboBBNode) {
+        // make two new nodes, one with the variable set to 0 and the other set to 1
         let mut zero_branch = node.clone();
         let mut one_branch = node;
 
+        // add fixed variables
         zero_branch.fixed_variables.insert(branch_id, 0.0);
         one_branch.fixed_variables.insert(branch_id, 1.0);
 
+        // set fixed variables
         zero_branch.solution[branch_id] = 0.0;
         one_branch.solution[branch_id] = 1.0;
+
+        // apply iterative persistence to the fixed variables every time we branch
+        zero_branch.fixed_variables = compute_iterative_persistence(&self.qubo, &zero_branch.fixed_variables, self.qubo.num_x());
+        one_branch.fixed_variables = compute_iterative_persistence(&self.qubo, &one_branch.fixed_variables, self.qubo.num_x());
+
+        zero_branch.lower_bound = lower_bound;
+        zero_branch.solution = solution.clone();
+        one_branch.lower_bound = lower_bound;
+        one_branch.solution = solution;
 
         return (zero_branch, one_branch);
     }
