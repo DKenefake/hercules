@@ -49,6 +49,7 @@ fn hercules(_py: Python<'_>, m: &PyModule) -> PyResult<()> {
 /// local minima when running the tests (and not break them) every time we change the seed of the prng and order of operations.
 #[cfg(test)]
 mod tests {
+    use crate::branchbound::BranchStrategy;
     use crate::qubo::Qubo;
     use crate::{
         branchbound, initial_points, local_search, local_search_utils, persistence, utils,
@@ -347,8 +348,14 @@ mod tests {
         let p = Qubo::new_with_c(eye, c);
 
         let guess = local_search::particle_swarm_search(&p, 100, 1000, &mut prng);
-        let mut solver =
-            branchbound::BBSolver::new(p, branchbound::SolverOptions { max_time: 10.0, seed: 123456789usize });
+        let mut solver = branchbound::BBSolver::new(
+            p,
+            branchbound::SolverOptions {
+                max_time: 10.0,
+                seed: 123456789usize,
+                branch_strategy: BranchStrategy::FirstNotFixed,
+            },
+        );
         solver.warm_start(guess);
         solver.solve();
         println!("{:?}", solver.best_solution);

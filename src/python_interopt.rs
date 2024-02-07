@@ -412,13 +412,28 @@ pub fn solve_branch_bound(
     timeout: f64,
     warm_start: Option<Vec<f64>>,
     seed: Option<usize>,
+    branch_strategy: Option<String>,
 ) -> PyResult<(Vec<f64>, f64, f64, usize, usize)> {
     // read in the QUBO from file
     let p = Qubo::from_vec(problem.0, problem.1, problem.2, problem.3, problem.4);
 
-    let options = match seed{
-        Some(val) => SolverOptions{max_time: timeout, seed: val},
-        None => SolverOptions{max_time: timeout, seed: 12345679usize}
+    let mut options = SolverOptions {
+        max_time: timeout,
+        seed: 12345679usize,
+        branch_strategy: BranchStrategy::FirstNotFixed,
+    };
+
+    options.seed = seed.unwrap_or(12345679usize);
+
+    options.branch_strategy = match branch_strategy {
+        Some(val) => match val.as_str() {
+            "first_not_fixed" => BranchStrategy::FirstNotFixed,
+            "most_violated" => BranchStrategy::MostViolated,
+            "random" => BranchStrategy::Random,
+            "worst" => BranchStrategy::WorstApproximation,
+            _ => BranchStrategy::FirstNotFixed,
+        },
+        None => BranchStrategy::FirstNotFixed,
     };
 
     let mut solver = BBSolver::new(p, options);
@@ -426,7 +441,7 @@ pub fn solve_branch_bound(
     match warm_start {
         Some(x) => {
             solver.warm_start(Array1::<f64>::from(x));
-        },
+        }
         None => {}
     };
 
@@ -435,7 +450,14 @@ pub fn solve_branch_bound(
     let time_elapse = time::SystemTime::now()
         .duration_since(time::SystemTime::UNIX_EPOCH)
         .unwrap()
-        .as_secs_f64() - solver.time_start;
+        .as_secs_f64()
+        - solver.time_start;
 
-    Ok((x.to_vec(), obj, time_elapse, solver.nodes_visited, solver.nodes_processed))
+    Ok((
+        x.to_vec(),
+        obj,
+        time_elapse,
+        solver.nodes_visited,
+        solver.nodes_processed,
+    ))
 }
