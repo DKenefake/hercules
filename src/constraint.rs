@@ -60,8 +60,8 @@ impl Constraint {
             ConstraintType::NoMoreThanOne => self.no_more_then_one_inference(free, fixed_value),
             ConstraintType::ExactlyOne => self.exactly_one_inference(free, fixed_value),
             ConstraintType::AtLeastOne => self.at_least_one_inference(free, fixed_value),
-            ConstraintType::GreaterThan => None,
-            ConstraintType::LessThan => None,
+            ConstraintType::GreaterThan => self.greater_than_inference(persistent),
+            ConstraintType::LessThan => self.less_than_inference(persistent),
         }
     }
 
@@ -172,5 +172,59 @@ impl Constraint {
             true => None,
             false => Some((free_var, 1.0)),
         };
+    }
+
+    pub fn greater_than_inference(&self, persistent: &HashMap<usize, f64>) -> Option<(usize, f64)> {
+        // examines the constraint x_i >= x_j, to see if we can make a logical implication
+
+        if persistent.contains_key(&self.x_i) {
+            // we have x_i defined so we can check if we can make an inference on x_j
+            let x_i_value = *persistent.get(&self.x_i).unwrap();
+
+            // if x_i is 0, then x_j must be 0
+            if x_i_value == 0.0 {
+                return Some((self.x_j, 0.0));
+            }
+        }
+
+        if persistent.contains_key(&self.x_j) {
+            // we have x_j defined, so we can check if we can make an inference on x_i
+            let x_j_value = *persistent.get(&self.x_j).unwrap();
+
+            // if x_i is 0, then x_j must be 0
+            if x_j_value == 1.0 {
+                return Some((self.x_i, 1.0));
+            }
+        }
+
+        // if we can't make any inferences, then return None
+        None
+    }
+
+    pub fn less_than_inference(&self, persistent: &HashMap<usize, f64>) -> Option<(usize, f64)> {
+        // examines the constraint x_i <= x_j, to see if we can make a logical implication
+
+        if persistent.contains_key(&self.x_i) {
+            // we have x_i defined, so we can check if we can make an inference on x_j
+            let x_i_value = *persistent.get(&self.x_i).unwrap();
+
+            // if x_i is 0, then x_j must be 0
+            if x_i_value == 1.0 {
+                return Some((self.x_j, 1.0));
+            }
+        }
+
+        if persistent.contains_key(&self.x_j) {
+            // we have x_j defined, so we can check if we can make an inference on x_i
+            let x_j_value = *persistent.get(&self.x_j).unwrap();
+
+            // if x_i is 0, then x_j must be 0
+            if x_j_value == 0.0 {
+                return Some((self.x_i, 0.0));
+            }
+        }
+
+        // if we can't make any inferences, then return None
+        None
     }
 }

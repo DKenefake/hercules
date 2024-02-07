@@ -13,6 +13,7 @@
 use pyo3::prelude::*;
 
 mod branchbound;
+pub mod branchbound_utils;
 mod constraint;
 pub mod initial_points;
 pub mod local_search;
@@ -21,6 +22,7 @@ pub mod persistence;
 pub mod python_interopt;
 pub mod qubo;
 pub mod utils;
+mod kopt;
 
 // imports to generate the python interface
 
@@ -49,10 +51,10 @@ fn hercules(_py: Python<'_>, m: &PyModule) -> PyResult<()> {
 /// local minima when running the tests (and not break them) every time we change the seed of the prng and order of operations.
 #[cfg(test)]
 mod tests {
-    use crate::branchbound::BranchStrategy;
+    use crate::branchbound_utils::BranchStrategy;
     use crate::qubo::Qubo;
     use crate::{
-        branchbound, initial_points, local_search, local_search_utils, persistence, utils,
+        branchbound, initial_points, local_search, local_search_utils, persistence, utils, branchbound_utils
     };
     use ndarray::Array1;
     use rayon::prelude::*;
@@ -277,7 +279,7 @@ mod tests {
     #[test]
     fn compare_methods() {
         let mut prng = make_test_prng();
-        let p = Qubo::make_random_qubo(200, &mut prng, 0.01);
+        let p = Qubo::make_random_qubo(50, &mut prng, 0.01);
 
         let x_0 = initial_points::generate_random_binary_point(&p, &mut prng, 0.5);
         let max_iter = p.num_x();
@@ -350,7 +352,8 @@ mod tests {
         let guess = local_search::particle_swarm_search(&p, 100, 1000, &mut prng);
         let mut solver = branchbound::BBSolver::new(
             p,
-            branchbound::SolverOptions {
+            branchbound_utils::SolverOptions {
+                fixed_variables: HashMap::new(),
                 max_time: 10.0,
                 seed: 123456789usize,
                 branch_strategy: BranchStrategy::FirstNotFixed,

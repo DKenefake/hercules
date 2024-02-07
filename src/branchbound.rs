@@ -3,23 +3,13 @@ use ndarray::Array1;
 use std::collections::HashMap;
 use std::time;
 
-use crate::local_search_utils;
+use crate::branchbound_utils::{
+    best_approximation, first_not_fixed, most_violated, random, worst_approximation,
+    BranchStrategy, ClarabelWrapper, QuboBBNode, SolverOptions,
+};
 use crate::persistence::compute_iterative_persistence;
-use clarabel::algebra::*;
 use clarabel::solver::*;
-use smolprng::{JsfLarge, PRNG};
-use sprs::{CsMat, TriMat};
-
-/// Bare bones implementation of B&B. Currently requires the QUBO to be symmetrical and convex.
-/// Currently, the deterministic solver is solved via Clarabel.rs.
-
-/// Struct the describes the branch and bound tree nodes
-#[derive(Clone)]
-pub struct QuboBBNode {
-    pub lower_bound: f64,
-    pub solution: Array1<f64>,
-    pub fixed_variables: HashMap<usize, f64>,
-}
+use sprs::TriMat;
 
 /// Struct for the B&B Solver
 pub struct BBSolver {
@@ -29,45 +19,9 @@ pub struct BBSolver {
     pub nodes: Vec<QuboBBNode>,
     pub nodes_processed: usize,
     pub nodes_visited: usize,
-    pub nodes_objective_evales: usize,
     pub time_start: f64,
     pub clarabel_wrapper: ClarabelWrapper,
     pub options: SolverOptions,
-}
-
-/// Options for the B&B solver for run time
-pub struct SolverOptions {
-    pub branch_strategy: BranchStrategy,
-    pub max_time: f64,
-    pub seed: usize,
-}
-
-pub enum BranchStrategy {
-    FirstNotFixed,
-    MostViolated,
-    Random,
-    WorstApproximation,
-}
-
-/// Wrapper to help convert the QUBO to the format required by Clarabel.rs
-pub struct ClarabelWrapper {
-    pub q: CscMatrix,
-    pub c: Array1<f64>,
-}
-
-impl ClarabelWrapper {
-    pub fn new(qubo: &Qubo) -> ClarabelWrapper {
-        let q_new = ClarabelWrapper::make_cb_form(&(qubo.q));
-        ClarabelWrapper {
-            q: q_new,
-            c: qubo.c.clone(),
-        }
-    }
-
-    pub fn make_cb_form(p0: &CsMat<f64>) -> CscMatrix {
-        let (t, y, u) = p0.to_csc().into_raw_storage();
-        CscMatrix::new(p0.rows(), p0.cols(), t, y, u)
-    }
 }
 
 impl BBSolver {
@@ -84,7 +38,6 @@ impl BBSolver {
             nodes: Vec::new(),
             nodes_processed: 0,
             nodes_visited: 0,
-            nodes_objective_evales: 0,
             time_start: 0.0,
             clarabel_wrapper: wrapper,
             options,
@@ -99,16 +52,18 @@ impl BBSolver {
 
     /// The main solve function of the B&B algorithm
     pub fn solve(&mut self) -> (Array1<f64>, f64) {
-        // compute an initial set of persistent variables
-        let initial_persistent =
-            compute_iterative_persistence(&self.qubo, &HashMap::new(), self.qubo.num_x());
+        // compute an initial set of persistent variables with the fixed variables
+        let mut initial_fixed = self.options.fixed_variables.clone();
+
+        initial_fixed = compute_iterative_persistence(&self.qubo, &initial_fixed, self.qubo.num_x());
 
         // create the root node
         let root_node = QuboBBNode {
             lower_bound: f64::NEG_INFINITY,
             solution: Array1::zeros(self.qubo.num_x()),
-            fixed_variables: initial_persistent,
+            fixed_variables: initial_fixed,
         };
+
         // add the root node to the list of nodes
         self.nodes.push(root_node);
 
@@ -120,7 +75,7 @@ impl BBSolver {
 
         // until we have hit a termination condition, we will keep iterating
         while !(*self).termination_condition() {
-            // get next node, if it exists
+            // get the next node, if it exists
             let next_node = self.get_next_node();
 
             // there are no more nodes to process, so we are done iterating
@@ -131,7 +86,7 @@ impl BBSolver {
             // unwrap the node
             let node = next_node.unwrap();
 
-            // as we are processing the node we increment the number of nodes processed
+            // as we are processing the node, we increment the number of nodes processed
             self.nodes_processed += 1;
 
             // We now need to solve the node to generate the lower bound and solution
@@ -173,12 +128,11 @@ impl BBSolver {
             if solution_value < self.best_solution_value {
                 self.best_solution = solution;
                 self.best_solution_value = solution_value;
-                self.nodes_objective_evales += 1;
             }
             return true;
         }
 
-        // if we can not remove the node, then we return false as we cannot provably prune it yet
+        // if we cannot remove the node, then we return false as we cannot provably prune it yet
         return false;
     }
 
@@ -230,114 +184,14 @@ impl BBSolver {
     }
 
     /// Branch Selection Strategy - Currently selects the first variable that is not fixed
-    pub fn make_branch(&mut self, node: &QuboBBNode) -> usize {
+    pub fn make_branch(&self, node: &QuboBBNode) -> usize {
         return match self.options.branch_strategy {
-            BranchStrategy::FirstNotFixed => self.first_not_fixed(node),
-            BranchStrategy::MostViolated => self.most_violated(node),
-            BranchStrategy::Random => self.random(node),
-            BranchStrategy::WorstApproximation => self.worst_approximation(node),
+            BranchStrategy::FirstNotFixed => first_not_fixed(self, node),
+            BranchStrategy::MostViolated => most_violated(self, node),
+            BranchStrategy::Random => random(self, node),
+            BranchStrategy::WorstApproximation => worst_approximation(self, node),
+            BranchStrategy::BestApproximation => best_approximation(self, node),
         };
-    }
-
-    pub fn first_not_fixed(&self, node: &QuboBBNode) -> usize {
-        // scan thru the variables and find the first one that is not fixed
-        for i in 0..self.qubo.num_x() {
-            if !node.fixed_variables.contains_key(&i) {
-                return i;
-            }
-        }
-        panic!("No variable to branch on");
-    }
-
-    pub fn most_violated(&self, node: &QuboBBNode) -> usize {
-        let mut most_violated = 1.0;
-        let mut index_most_violated = 0;
-
-        for i in 0..self.qubo.num_x() {
-            if !node.fixed_variables.contains_key(&i) {
-                let violation = (node.solution[i] - 0.5).abs();
-
-                if violation <= most_violated {
-                    most_violated = violation;
-                    index_most_violated = i;
-                }
-            }
-        }
-
-        index_most_violated
-    }
-
-    pub fn random(&self, node: &QuboBBNode) -> usize {
-        // generate a prng
-        let mut prng = PRNG {
-            generator: JsfLarge::from(self.options.seed as u64 + self.nodes_visited as u64),
-        };
-
-        // generate a random index in the list of variables
-        let index = (prng.gen_u64() % self.qubo.num_x() as u64) as usize;
-
-        // scan thru the variables and find the first one that is not fixed starting at the random point
-        for i in index..self.qubo.num_x() {
-            if !node.fixed_variables.contains_key(&i) {
-                return i;
-            }
-        }
-
-        // scane thru the variables and find the first one that is not fixed starting at the beginning
-        for i in 0..index {
-            if !node.fixed_variables.contains_key(&i) {
-                return i;
-            }
-        }
-
-        panic!("No Variable to branch on")
-    }
-
-    /// Branches on the variable that has an estimated worst result, pushing up the lower bound as fast as possible
-    pub fn worst_approximation(&mut self, node: &QuboBBNode) -> usize {
-        let mut zero_buffer = node.solution.clone();
-        let mut one_buffer = node.solution.clone();
-
-        // fix all the nonfixed variables
-        for i in 0..self.qubo.num_x() {
-            if node.fixed_variables.contains_key(&i) {
-                zero_buffer[i] = *node.fixed_variables.get(&i).unwrap();
-                one_buffer[i] = *node.fixed_variables.get(&i).unwrap();
-            } else {
-                zero_buffer[i] = 0.0;
-                one_buffer[i] = 1.0;
-            }
-        }
-
-        // find the objective change when flipping each variable to either 0 or 1
-        let (_, flips_zero) = local_search_utils::one_flip_objective(&self.qubo, &zero_buffer);
-        let (_, flips_one) = local_search_utils::one_flip_objective(&self.qubo, &one_buffer);
-
-        // counts as effectively 4 objective evaluate
-        self.nodes_objective_evales += 4;
-
-        // tracking variables for the worst approximation
-        let mut worst_approximation = f64::NEG_INFINITY;
-        let mut index_worst_approximation = 0;
-
-        // scan thru the variables and find the worst gain
-        for i in 0..self.qubo.num_x() {
-            // if it is a fixed node, then skip it
-            if node.fixed_variables.contains_key(&i) {
-                continue;
-            }
-
-            // find the minimum of the two objective changes
-            let min_obj_gain = flips_zero[i].min(flips_one[i]);
-
-            // if it is the highest growing variable, then update the tracking variables
-            if min_obj_gain > worst_approximation {
-                worst_approximation = min_obj_gain;
-                index_worst_approximation = i;
-            }
-        }
-
-        index_worst_approximation
     }
 
     /// Actually branches the node into two new nodes

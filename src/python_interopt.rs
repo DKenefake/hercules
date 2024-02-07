@@ -12,6 +12,7 @@ use crate::persistence::compute_iterative_persistence;
 use smolprng::{JsfLarge, PRNG};
 
 use crate::branchbound::*;
+use crate::branchbound_utils::{BranchStrategy, SolverOptions};
 
 // type alias for the qubo data object from python
 type QuboData = (Vec<usize>, Vec<usize>, Vec<f64>, Vec<f64>, usize);
@@ -418,6 +419,7 @@ pub fn solve_branch_bound(
     let p = Qubo::from_vec(problem.0, problem.1, problem.2, problem.3, problem.4);
 
     let mut options = SolverOptions {
+        fixed_variables: HashMap::new(),
         max_time: timeout,
         seed: 12345679usize,
         branch_strategy: BranchStrategy::FirstNotFixed,
@@ -431,6 +433,7 @@ pub fn solve_branch_bound(
             "most_violated" => BranchStrategy::MostViolated,
             "random" => BranchStrategy::Random,
             "worst" => BranchStrategy::WorstApproximation,
+            "best" => BranchStrategy::BestApproximation,
             _ => BranchStrategy::FirstNotFixed,
         },
         None => BranchStrategy::FirstNotFixed,
