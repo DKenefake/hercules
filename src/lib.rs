@@ -16,13 +16,13 @@ mod branchbound;
 pub mod branchbound_utils;
 mod constraint;
 pub mod initial_points;
+mod kopt;
 pub mod local_search;
 pub mod local_search_utils;
 pub mod persistence;
 pub mod python_interopt;
 pub mod qubo;
 pub mod utils;
-mod kopt;
 
 // imports to generate the python interface
 
@@ -44,6 +44,7 @@ fn hercules(_py: Python<'_>, m: &PyModule) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(write_qubo, m)?)?;
     m.add_function(wrap_pyfunction!(get_persistence, m)?)?;
     m.add_function(wrap_pyfunction!(solve_branch_bound, m)?)?;
+    m.add_function(wrap_pyfunction!(convex_symmetric_form, m)?)?;
     Ok(())
 }
 
@@ -54,7 +55,8 @@ mod tests {
     use crate::branchbound_utils::BranchStrategy;
     use crate::qubo::Qubo;
     use crate::{
-        branchbound, initial_points, local_search, local_search_utils, persistence, utils, branchbound_utils
+        branchbound, branchbound_utils, initial_points, local_search, local_search_utils,
+        persistence, utils,
     };
     use ndarray::Array1;
     use rayon::prelude::*;

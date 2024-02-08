@@ -1,6 +1,5 @@
 use crate::qubo::Qubo;
 use ndarray::Array1;
-use std::collections::HashMap;
 use std::time;
 
 use crate::branchbound_utils::{
@@ -55,7 +54,11 @@ impl BBSolver {
         // compute an initial set of persistent variables with the fixed variables
         let mut initial_fixed = self.options.fixed_variables.clone();
 
-        initial_fixed = compute_iterative_persistence(&self.qubo, &initial_fixed, self.qubo.num_x());
+        initial_fixed =
+            compute_iterative_persistence(&self.qubo, &initial_fixed, self.qubo.num_x());
+
+        // debug print() the number of fixed variables
+        println!("Number of fixed variables: {}", initial_fixed.len());
 
         // create the root node
         let root_node = QuboBBNode {

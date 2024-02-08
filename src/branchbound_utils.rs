@@ -1,5 +1,4 @@
 use crate::branchbound::BBSolver;
-use crate::local_search_utils;
 use crate::qubo::Qubo;
 use clarabel::algebra::CscMatrix;
 use ndarray::Array1;
@@ -90,7 +89,6 @@ pub fn random(solver: &BBSolver, node: &QuboBBNode) -> usize {
 
 /// Branches on the variable that has an estimated worst result, pushing up the lower bound as fast as possible
 pub fn worst_approximation(solver: &BBSolver, node: &QuboBBNode) -> usize {
-
     let (zero_flip, one_flip) = compute_strong_branch(solver, node);
 
     // tracking variables for the worst approximation
@@ -119,13 +117,11 @@ pub fn worst_approximation(solver: &BBSolver, node: &QuboBBNode) -> usize {
 
 /// Branches on the variable that has an estimated best result,keeping the lower bound as low as possible
 pub fn best_approximation(solver: &BBSolver, node: &QuboBBNode) -> usize {
-
     let (zero_flip, one_flip) = compute_strong_branch(solver, node);
 
     // tracking variables for the worst approximation
     let mut worst_approximation = f64::INFINITY;
     let mut index_best_approximation = 0;
-
 
     // scan through the variables and find the worst gain
     for i in 0..solver.qubo.num_x() {
@@ -147,17 +143,16 @@ pub fn best_approximation(solver: &BBSolver, node: &QuboBBNode) -> usize {
     index_best_approximation
 }
 
-pub fn compute_strong_branch(solver: &BBSolver, node: &QuboBBNode) -> (Array1<f64>, Array1<f64>){
-
+pub fn compute_strong_branch(solver: &BBSolver, node: &QuboBBNode) -> (Array1<f64>, Array1<f64>) {
     let mut base_solution = Array1::zeros(solver.qubo.num_x());
     let mut delta_zero = Array1::zeros(solver.qubo.num_x());
     let mut delta_one = Array1::zeros(solver.qubo.num_x());
 
-    for i in 0..solver.qubo.num_x(){
+    for i in 0..solver.qubo.num_x() {
         // fill in the current vector
-        if node.fixed_variables.contains_key(&i){
+        if node.fixed_variables.contains_key(&i) {
             base_solution[i] = *node.fixed_variables.get(&i).unwrap();
-        }else{
+        } else {
             base_solution[i] = node.solution[i];
         }
 
@@ -171,20 +166,22 @@ pub fn compute_strong_branch(solver: &BBSolver, node: &QuboBBNode) -> (Array1<f6
     let q_x = &solver.qubo.q * &base_solution;
     let x_q = &solver.qubo.q.transpose_view() * &base_solution;
 
-
     // build the result vectors
     let mut zero_result = Array1::zeros(solver.qubo.num_x());
     let mut one_result = Array1::zeros(solver.qubo.num_x());
 
     // compute the deltas in the objective compared to the current solution
-    for i in 0..solver.qubo.num_x(){
-        zero_result[i] = 0.5*(delta_zero[i]*delta_zero[i]*q_jj[i] + delta_zero[i]*(x_q[i] + q_x[i] + 2.0*solver.qubo.c[i]));
-        one_result[i] = 0.5*(delta_one[i]*delta_one[i]*q_jj[i] + delta_one[i]*(x_q[i] + q_x[i] + 2.0*solver.qubo.c[i]));
+    for i in 0..solver.qubo.num_x() {
+        zero_result[i] = 0.5
+            * delta_zero[i]
+            * (delta_zero[i] * q_jj[i] + x_q[i] + q_x[i] + 2.0 * solver.qubo.c[i]);
+        one_result[i] = 0.5
+            * delta_one[i]
+            * (delta_one[i] * q_jj[i] + x_q[i] + q_x[i] + 2.0 * solver.qubo.c[i]);
     }
 
     (zero_result, one_result)
 }
-
 
 /// Wrapper to help convert the QUBO to the format required by Clarabel.rs
 pub struct ClarabelWrapper {

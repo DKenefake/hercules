@@ -3,6 +3,8 @@
 //! The QUBO struct uses a sparse representation of the QUBO matrix, and is stored in CSR order, it is not assumed to be symmetrical.
 
 use ndarray::Array1;
+use ndarray_linalg::*;
+
 use sprs::{CsMat, TriMat};
 use std::io::BufRead;
 use std::io::Write;
@@ -13,7 +15,7 @@ use smolprng::PRNG;
 /// The QUBO struct, which contains the QUBO matrix and the linear coefficients. With the following form:
 ///
 /// $$ \min_{x\in \{0,1\}^n} 0.5 x^T Q x + c^Tx $$
-
+#[derive(Clone)]
 pub struct Qubo {
     /// The Hessian of the QUBO problem
     pub q: CsMat<f64>,
@@ -86,6 +88,25 @@ impl Qubo {
         }
 
         Self::new_with_c(q_mat.to_csr(), c_vec)
+    }
+
+    pub fn to_vec(&self) -> (Vec<usize>, Vec<usize>, Vec<f64>, Vec<f64>, usize) {
+        let mut i = Vec::new();
+        let mut j = Vec::new();
+        let mut q = Vec::new();
+        let mut c = Vec::new();
+
+        for (&value, (row, col)) in &self.q {
+            i.push(row);
+            j.push(col);
+            q.push(value);
+        }
+
+        for &value in self.c.iter() {
+            c.push(value);
+        }
+
+        (i, j, q, c, self.num_x())
     }
 
     /// Generate a random QUBO struct with a given number of variables, sparsity, and PRNG. This function is deterministic.
@@ -376,5 +397,64 @@ impl Qubo {
         }
 
         Self::new_with_c(q.to_csr(), c)
+    }
+
+    /// Generates a Symmetric QUBO from the current QUBO
+    ///
+    /// Example of making a QUBO symmetric:
+    /// ```rust
+    /// use hercules::qubo::Qubo;
+    /// use smolprng::{PRNG, JsfLarge};
+    ///
+    /// // make a random number generator
+    /// let mut prng = PRNG {
+    ///     generator: JsfLarge::default(),
+    /// };
+    ///
+    /// // make a random QUBO of 50 variables with an approximate sparsity of 0.1
+    /// let p = Qubo::make_random_qubo(50, &mut prng, 0.1)
+    ///
+    /// // make a symmetric QUBO from this QUBO
+    /// let p_sym = p.make_symmetric();
+    /// ```
+    pub fn make_symmetric(&self) -> Qubo {
+        let mut tri_q = TriMat::<f64>::new((self.num_x(), self.num_x()));
+
+        let c = self.c.clone();
+
+        for (&value, (i, j)) in &self.q {
+            if i != j {
+                tri_q.add_triplet(j, i, 0.5 * value);
+                tri_q.add_triplet(i, j, 0.5 * value);
+            } else {
+                tri_q.add_triplet(i, j, value);
+            }
+        }
+
+        Qubo::new_with_c(tri_q.to_csr(), c.clone())
+    }
+
+    /// Convexifies the QUBO problem by modifying the Hessian and linear coefficients,rendering a convex problem.
+    ///
+    /// Currently, assume that the required factor,'s' is known.
+    ///
+    /// $\frac{1}{2}x^TQx + c^Tx = \frac{1}{2}x^T(Q + sI)x + c^Tx - 0.5s^Tx$
+    pub fn make_convex(&self, s: f64) -> Qubo {
+        // generate the scaled (sparse) identity matrix
+        let mut s_eye_tri = TriMat::<f64>::new((self.num_x(), self.num_x()));
+        for i in 0..self.num_x() {
+            s_eye_tri.add_triplet(i, i, s);
+        }
+        let s_eye = s_eye_tri.to_csr();
+
+        return Qubo::new_with_c(&self.q + &s_eye, self.c.clone() - 0.5 * s);
+    }
+
+    /// Calculates the eigenvalues of the QUBO matrix this is a somewhat expensive operation. Converts the QUBO to a
+    /// dense matrix and then calculates the eigenvalues. Assume that the QUBO is symmetric.
+    pub fn hess_eigenvalues(&self) -> Array1<f64> {
+        let q_dense = self.q.to_dense();
+        let (eigs, _) = q_dense.eigh(UPLO::Upper).unwrap();
+        eigs.clone()
     }
 }

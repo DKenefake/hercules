@@ -18,6 +18,7 @@ crate-type = ["cdylib"]
 [dependencies]
 sprs = "0.11.1"
 ndarray = "0.15.6"
+ndarray-linalg = { version = "0.16.0", features = ["intel-mkl-static"] }
 smolprng = "0.1.5"
 rayon = "1.8.0"
 pyo3 = { version = "0.20.2", features = ["extension-module"] }
@@ -35,9 +36,9 @@ opt-level = 3
 codegen-units = 1
 
 [profile.dev]
-codegen-units = 128
-opt-level = 0
-lto = false
+codegen-units = 1
+opt-level = 3
+lto = true
 
 [profile.bench]
 opt-level = 3

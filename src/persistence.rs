@@ -74,23 +74,23 @@ pub fn grad_bounds(qubo: &Qubo, i: usize, persistent: &HashMap<usize, f64>) -> (
 
     // loop over the variables in this row
     for (index, x_j) in q_term.iter() {
-        // dereference and multiply by 0.5 to make an auxiliary variable that is more clear
+        // dereference and multiply by 0.5 to make an auxiliary variable that is clearer
         let mut value = *x_j;
         value = value * 0.5;
 
-        // if it is a fixed variable we can only use this value
+        // if it is a fixed variable, we have effectively removed this variable from the QUBO
         if persistent.contains_key(&index) {
-            lower += value * persistent[&index];
-            upper += value * persistent[&index];
+            lower += 0.0*value * persistent[&index];
+            upper += 0.0*value * persistent[&index];
         } else {
-            // if it is not in the persistent set, then we can chose the best value
+            // if it is not in the persistent set, then we can choose the best value
 
-            // if the value is negative we would set it to 1 to minimize the gradient else 0
+            // if the value is negative, we would set it to 1 to minimize the gradient else 0
             if value <= 0.0 {
                 lower += value;
             }
 
-            // if the value is positive we would set it to 1 to maximize the gradient else 0
+            // if the value is positive, we would set it to 1 to maximize the gradient else 0
             if value >= 0.0 {
                 upper += value;
             }

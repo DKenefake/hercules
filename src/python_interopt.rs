@@ -416,7 +416,19 @@ pub fn solve_branch_bound(
     branch_strategy: Option<String>,
 ) -> PyResult<(Vec<f64>, f64, f64, usize, usize)> {
     // read in the QUBO from file
-    let p = Qubo::from_vec(problem.0, problem.1, problem.2, problem.3, problem.4);
+    let p_input = Qubo::from_vec(problem.0, problem.1, problem.2, problem.3, problem.4);
+
+    let symm_p = p_input.make_symmetric();
+
+    let eigs = symm_p.hess_eigenvalues();
+
+    // get the lowest eigenvalue
+    let min_eig = eigs.iter().fold(f64::INFINITY, |a, &b| a.min(b));
+
+    let p = match min_eig > 0.0 {
+        true => symm_p,
+        false => p_input.make_symmetric().make_convex(min_eig.abs() * 1.1),
+    };
 
     let mut options = SolverOptions {
         fixed_variables: HashMap::new(),
@@ -463,4 +475,22 @@ pub fn solve_branch_bound(
         solver.nodes_visited,
         solver.nodes_processed,
     ))
+}
+
+#[pyfunction]
+pub fn convex_symmetric_form(problem: QuboData) -> PyResult<QuboData> {
+    // read in the QUBO from file
+    let p = Qubo::from_vec(problem.0, problem.1, problem.2, problem.3, problem.4);
+    let symm_p = p.make_symmetric();
+    let eigs = symm_p.hess_eigenvalues();
+
+    // get the lowest eigenvalue
+    let min_eig = eigs.iter().fold(f64::INFINITY, |a, &b| a.min(b));
+
+    // if the problem is already convex we don't have to convexify
+    if min_eig > 0.0 {
+        return Ok(symm_p.to_vec());
+    }
+
+    Ok(p.make_symmetric().make_convex(min_eig.abs() * 1.1).to_vec())
 }
