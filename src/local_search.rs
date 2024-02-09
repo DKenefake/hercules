@@ -297,3 +297,147 @@ pub fn random_search<T: Algorithm>(
 
     best_point
 }
+
+#[cfg(test)]
+mod tests {
+    use crate::local_search::*;
+    use crate::qubo::Qubo;
+    use crate::tests::{make_solver_qubo, make_test_prng};
+    use crate::{initial_points, local_search, local_search_utils};
+    use ndarray::Array1;
+    use rayon::prelude::*;
+    use sprs::CsMat;
+
+    #[test]
+    fn test_opt_criteria() {
+        let p = make_solver_qubo();
+        let mut prng = make_test_prng();
+
+        let mut x_0 = initial_points::generate_random_binary_point(&p, &mut prng, 0.5);
+        for _ in 0..100 {
+            x_0 = local_search_utils::get_gain_criteria(&p, &x_0);
+            println!("{:?}", p.eval(&x_0));
+        }
+    }
+
+    #[test]
+    fn test_opt_heuristics() {
+        let p = make_solver_qubo();
+        let mut x_0 = Array1::ones(p.num_x()) * p.alpha();
+
+        x_0 = local_search::simple_gain_criteria_search(&p, &x_0, 100);
+
+        println!("{:?}", p.eval(&x_0));
+    }
+
+    #[test]
+    fn test_multi_opt_heuristics() {
+        let p = make_solver_qubo();
+        let mut prng = make_test_prng();
+
+        let mut xs = initial_points::generate_random_starting_points(&p, 10, &mut prng);
+
+        xs = local_search::multi_simple_gain_criteria_search(&p, &xs);
+
+        let min_obj = crate::tests::get_min_obj(&p, &xs);
+        println!("{:?}", min_obj);
+    }
+
+    #[test]
+    fn test_multi_opt_heuristics_2() {
+        let p = make_solver_qubo();
+        let mut xs = vec![
+            Array1::ones(p.num_x()) * p.alpha(),
+            Array1::ones(p.num_x()) * p.rho(),
+        ];
+
+        xs = local_search::multi_simple_gain_criteria_search(&p, &xs);
+        let min_obj = crate::tests::get_min_obj(&p, &xs);
+        println!("{min_obj:?}");
+    }
+
+    #[test]
+    fn test_multi_opt_heuristics_3() {
+        let p = make_solver_qubo();
+        let mut xs = Vec::new();
+        for i in 0..1000 {
+            xs.push(Array1::ones(p.num_x()) * (i as f64) / 1000.0);
+        }
+
+        xs = local_search::multi_simple_gain_criteria_search(&p, &xs);
+        let min_obj = crate::tests::get_min_obj(&p, &xs);
+        println!("{min_obj:?}");
+    }
+
+    #[test]
+    fn test_mixed_search() {
+        let p = make_solver_qubo();
+        let mut prng = make_test_prng();
+
+        let mut xs = initial_points::generate_random_starting_points(&p, 10, &mut prng);
+
+        xs = xs
+            .par_iter()
+            .map(|x| simple_mixed_search(&p, &x, 1000))
+            .collect();
+        let min_obj = crate::tests::get_min_obj(&p, &xs);
+        println!("{min_obj:?}");
+    }
+
+    #[test]
+    fn test_particle_swarm() {
+        let p = make_solver_qubo();
+        let mut prng = make_test_prng();
+
+        let x = particle_swarm_search(&p, 50, 1000, &mut prng);
+
+        println!("{:?}", p.eval(&x));
+    }
+
+    #[test]
+    fn compare_methods() {
+        let mut prng = make_test_prng();
+        let p = Qubo::make_random_qubo(50, &mut prng, 0.01);
+
+        let x_0 = initial_points::generate_random_binary_point(&p, &mut prng, 0.5);
+        let max_iter = p.num_x();
+
+        let x_pso = particle_swarm_search(&p, 100, max_iter, &mut prng);
+        let x_mixed = simple_mixed_search(&p, &x_0, max_iter);
+        let x_gain = simple_gain_criteria_search(&p, &x_0, max_iter);
+        let x_opt = simple_local_search(&p, &x_0, max_iter);
+        let x_rand = random_search(&p, 100, &mut prng);
+
+        println!(
+            "PSO: {:?}, MIXED: {:?}, GAIN: {:?}, 1OPT: {:?}, Rand: {:?} ",
+            p.eval(&x_pso),
+            p.eval(&x_mixed),
+            p.eval(&x_gain),
+            p.eval(&x_opt),
+            p.eval(&x_rand)
+        );
+    }
+
+    #[test]
+    fn qubo_heuristics() {
+        let eye = CsMat::eye(3);
+        let p = Qubo::new(eye);
+        let x_0 = Array1::from_vec(vec![1.0, 0.0, 1.0]);
+
+        let x_1 = simple_local_search(&p, &x_0, 10);
+        print!("{:?}", x_1);
+    }
+
+    #[test]
+    fn qubo_multi_heuristics() {
+        let eye = CsMat::eye(3);
+        let p = Qubo::new(eye);
+        let x_0 = Array1::from_vec(vec![1.0, 0.0, 1.0]);
+        let x_1 = Array1::from_vec(vec![0.0, 1.0, 0.0]);
+        let x_2 = Array1::from_vec(vec![1.0, 1.0, 1.0]);
+        let xs = vec![x_0, x_1, x_2];
+
+        let x_3 = multi_simple_local_search(&p, &xs);
+        print!("{:?}", x_3);
+    }
+}

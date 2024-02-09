@@ -239,3 +239,29 @@ pub fn get_best_point(qubo: &Qubo, points: &Vec<Array1<f64>>) -> Array1<f64> {
 
     best_point
 }
+
+#[cfg(test)]
+mod tests {
+    use crate::tests::make_test_prng;
+    use crate::utils::*;
+    use ndarray::Array1;
+
+    #[test]
+    fn test_flip() {
+        let x_0 = Array1::from_vec(vec![1.0, 0.0, 1.0]);
+        let target = Array1::from_vec(vec![0.0, 1.0, 0.0]);
+        let x_1 = invert(&x_0);
+
+        assert_eq!(x_1, target);
+    }
+
+    #[test]
+    fn test_mutate() {
+        let mut prng = make_test_prng();
+        let x_0 = Array1::from_vec(vec![1.0, 0.0, 1.0]);
+        let target = Array1::from_vec(vec![0.0, 0.0, 1.0]);
+        let x_1 = mutate_solution(&x_0, 1, &mut prng);
+
+        assert_eq!(x_1, target);
+    }
+}

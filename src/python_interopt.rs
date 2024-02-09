@@ -13,7 +13,6 @@ use smolprng::{JsfLarge, PRNG};
 
 use crate::branchbound::*;
 use crate::branchbound_utils::{BranchStrategy, SolverOptions};
-use crate::constraint::ConstraintType;
 use crate::variable_reduction::{generate_rule_11, generate_rule_21};
 
 // type alias for the qubo data object from python
@@ -501,7 +500,7 @@ pub fn convex_symmetric_form(problem: QuboData) -> PyResult<QuboData> {
 }
 
 #[pyfunction]
-pub fn generate_rule_1_1(problem: QuboData) -> PyResult<Vec<(usize,usize)>> {
+pub fn generate_rule_1_1(problem: QuboData) -> PyResult<Vec<(usize, usize)>> {
     // read in the QUBO from vec form
     let p = Qubo::from_vec(problem.0, problem.1, problem.2, problem.3, problem.4);
 
@@ -520,7 +519,7 @@ pub fn generate_rule_1_1(problem: QuboData) -> PyResult<Vec<(usize,usize)>> {
 }
 
 #[pyfunction]
-pub fn generate_rule_2_1(problem: QuboData) -> PyResult<Vec<(usize,usize)>> {
+pub fn generate_rule_2_1(problem: QuboData) -> PyResult<Vec<(usize, usize)>> {
     // read in the QUBO from vec form
     let p = Qubo::from_vec(problem.0, problem.1, problem.2, problem.3, problem.4);
 
@@ -537,4 +536,3 @@ pub fn generate_rule_2_1(problem: QuboData) -> PyResult<Vec<(usize,usize)>> {
 
     Ok(rules)
 }
-

@@ -103,3 +103,54 @@ pub fn grad_bounds(qubo: &Qubo, i: usize, persistent: &HashMap<usize, f64>) -> (
 
     (lower, upper)
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::persistence;
+    use crate::qubo::Qubo;
+    use ndarray::Array1;
+    use sprs::CsMat;
+    use std::collections::HashMap;
+
+    #[test]
+    fn test_persistence() {
+        //build the problem
+        let eye = CsMat::eye(3);
+        let c = Array1::from_vec(vec![1.0, 2.0, 3.0]);
+        let p = Qubo::new_with_c(eye, c);
+        let persist = compute_iterative_persistence(&p, &HashMap::new(), 3);
+
+        assert!(persist.contains_key(&0));
+        assert!(persist.contains_key(&1));
+        assert!(persist.contains_key(&2));
+
+        assert!(persist[&0].eq(&0.0));
+        assert!(persist[&1].eq(&0.0));
+        assert!(persist[&2].eq(&0.0));
+    }
+    #[test]
+    fn test_grad_bounds_1() {
+        let eye = CsMat::eye(3);
+        let c = Array1::from_vec(vec![1.0, 2.0, 3.0]);
+        let p = Qubo::new_with_c(eye, c);
+        assert_eq!(grad_bounds(&p, 0, &HashMap::new()), (1.0, 2.0));
+        assert_eq!(grad_bounds(&p, 1, &HashMap::new()), (2.0, 3.0));
+        assert_eq!(grad_bounds(&p, 2, &HashMap::new()), (3.0, 4.0));
+    }
+
+    #[test]
+    fn test_grad_bounds_2() {
+        let eye = CsMat::eye(3);
+        let c = Array1::from_vec(vec![1.0, 2.0, 3.0]);
+        let p = Qubo::new_with_c(eye, c);
+
+        let mut fixed_vars = HashMap::new();
+        fixed_vars.insert(0, 1.0);
+        fixed_vars.insert(2, 1.0);
+
+        assert_eq!(grad_bounds(&p, 0, &fixed_vars), (2.0, 2.0));
+        assert_eq!(grad_bounds(&p, 1, &fixed_vars), (2.0, 3.0));
+        assert_eq!(grad_bounds(&p, 2, &fixed_vars), (4.0, 4.0));
+    }
+}

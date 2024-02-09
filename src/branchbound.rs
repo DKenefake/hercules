@@ -2,7 +2,10 @@ use crate::qubo::Qubo;
 use ndarray::Array1;
 use std::time;
 
-use crate::branchbound_utils::{best_approximation, first_not_fixed, most_violated, random, worst_approximation, BranchStrategy, ClarabelWrapper, QuboBBNode, SolverOptions, check_integer_feasibility};
+use crate::branchbound_utils::{
+    best_approximation, check_integer_feasibility, first_not_fixed, most_violated, random,
+    worst_approximation, BranchStrategy, ClarabelWrapper, QuboBBNode, SolverOptions,
+};
 use crate::persistence::compute_iterative_persistence;
 use clarabel::solver::*;
 use sprs::TriMat;
@@ -87,7 +90,8 @@ impl BBSolver {
             self.nodes_processed += 1;
 
             // see if there are any variables we can fix
-            node.fixed_variables = compute_iterative_persistence(&self.qubo, &node.fixed_variables, self.qubo.num_x());
+            node.fixed_variables =
+                compute_iterative_persistence(&self.qubo, &node.fixed_variables, self.qubo.num_x());
 
             // with this expanded set can we prune the node?
             if self.can_prune(&node) {
@@ -109,7 +113,11 @@ impl BBSolver {
 
             if is_int_feasible {
                 self.update_solution_if_better(&rounded_sol);
-                println!("Integer Feasible Solution Found: {} {}", rounded_sol, node.solution.clone());
+                println!(
+                    "Integer Feasible Solution Found: {} {}",
+                    rounded_sol,
+                    node.solution.clone()
+                );
             }
 
             // determine what variable we are branching on
@@ -298,5 +306,41 @@ impl BBSolver {
         solver.solve();
 
         return (solver.solution.obj_val, Array1::from(solver.solution.x));
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::branchbound_utils::BranchStrategy;
+    use crate::qubo::Qubo;
+    use crate::tests::make_test_prng;
+    use crate::{branchbound, branchbound_utils, local_search};
+    use ndarray::Array1;
+    use sprs::CsMat;
+    use std::collections::HashMap;
+    use std::fmt::Error;
+
+    #[test]
+    pub fn branch_bound() {
+        let mut prng = make_test_prng();
+        let eye = CsMat::eye(3);
+        let c = Array1::from_vec(vec![-1.0, -2.0, -3.0]);
+        let p = Qubo::new_with_c(eye, c);
+
+        let guess = local_search::particle_swarm_search(&p, 100, 1000, &mut prng);
+        let mut solver = branchbound::BBSolver::new(
+            p,
+            branchbound_utils::SolverOptions {
+                fixed_variables: HashMap::new(),
+                max_time: 10.0,
+                seed: 123456789usize,
+                branch_strategy: BranchStrategy::FirstNotFixed,
+            },
+        );
+        solver.warm_start(guess);
+        solver.solve();
+
+        assert_eq!(solver.best_solution_value, -4.5);
+        assert_eq!(solver.best_solution, Array1::from_vec(vec![1.0, 1.0, 1.0]));
     }
 }

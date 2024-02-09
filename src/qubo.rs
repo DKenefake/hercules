@@ -325,7 +325,7 @@ impl Qubo {
     ///
     /// Will panics if it is not possible to write to the file.
     pub fn write_qubo(&self, filename: &str) {
-        // open the file, create file writter
+        // open the file, create file writer
         let file = std::fs::File::create(filename).unwrap();
         let mut writer = std::io::BufWriter::new(file);
 
@@ -458,24 +458,215 @@ impl Qubo {
         eigs.clone()
     }
 
-    // pub fn upper_tri_form(&self) -> Qubo {
-    //     let mut q_upper = TriMat::<f64>::new((self.num_x(), self.num_x()));
-    //
-    //     for (&v, (i, j)) in self.q.iter() {
-    //         if i != j {
-    //             let j_new = i.min(j);
-    //             let i_new = i.max(j);
-    //             let possile_v = q_upper.get(i_new, j_new).unwrap_or(0.0);
-    //             q_upper.add_triplet(i_new, j_new, v + possile_v);
-    //         }
-    //     }
-    //
-    //     let new_diag = self.q.diag().to_dense() + &self.c;
-    //
-    //     for (i, &v) in new_diag.iter().enumerate() {
-    //         q_upper.add_triplet(i, i, v);
-    //     }
-    //
-    //     Qubo::new(q_upper.to_csr())
-    // }
+    /// Checks if the QUBO is symmetric
+    pub fn is_symmetric(&self) -> bool {
+        for (&q_ij, (i, j)) in &self.q {
+            let q_ji = self.q.get(i, j);
+            match q_ji {
+                Some(&q_ji) => {
+                    if q_ij != q_ji {
+                        return false;
+                    }
+                }
+                None => {
+                    return false;
+                }
+            }
+        }
+
+        true
+    }
+}
+
+#[cfg(test)]
+mod tests {
+
+    use super::*;
+    use ndarray::Array1;
+    use sprs::CsMat;
+
+    #[test]
+    fn test_qubo_new() {
+        let q = CsMat::<f64>::eye(10);
+        let p = Qubo::new(q);
+
+        assert_eq!(p.num_x(), 10);
+        assert_eq!(p.q.nnz(), 10);
+        assert_eq!(p.c.len(), 10);
+    }
+
+    #[test]
+    fn test_qubo_new_with_c() {
+        let q = CsMat::<f64>::eye(10);
+        let c = Array1::<f64>::zeros(10);
+        let p = Qubo::new_with_c(q, c);
+
+        assert_eq!(p.num_x(), 10);
+        assert_eq!(p.q.nnz(), 10);
+        assert_eq!(p.c.len(), 10);
+    }
+
+    #[test]
+    fn test_qubo_from_vec() {
+        // Create a QUBO from a list of tuples:
+        let x = vec![0, 1, 2];
+        let y = vec![0, 1, 2];
+        let q = vec![1.0, 1.0, 1.0];
+        let c = vec![0.0, 0.0, 0.0];
+        let num_x = 3;
+
+        // actually create the QUBO
+        let p = Qubo::from_vec(x, y, q, c, 3);
+
+        // check that the QUBO was created correctly
+        assert_eq!(p.num_x(), 3);
+        assert_eq!(p.q.nnz(), 3);
+        assert_eq!(p.c.len(), 3);
+        assert_eq!(p.q, CsMat::<f64>::eye(3));
+    }
+
+    #[test]
+    fn test_qubo_eval() {
+        let q = CsMat::<f64>::eye(3);
+        let c = Array1::<f64>::zeros(3);
+        let p = Qubo::new_with_c(q, c);
+        let x_0 = Array1::from_vec(vec![1.0, 0.0, 1.0]);
+        let obj = p.eval(&x_0);
+
+        assert_eq!(obj, 1.0);
+    }
+
+    #[test]
+    fn test_qubo_eval_grad() {
+        let q = CsMat::<f64>::eye(3);
+        let c = Array1::<f64>::zeros(3);
+        let p = Qubo::new_with_c(q, c);
+        let x_0 = Array1::from_vec(vec![1.0, 1.0, 1.0]);
+        let grad = p.eval_grad(&x_0);
+
+        assert_eq!(grad, Array1::from_vec(vec![1.0, 1.0, 1.0]));
+    }
+
+    #[test]
+    fn test_qubo_eval_grad_non_symmetric() {
+        // Create a QUBO from a list of tuples:
+        let x = vec![0];
+        let y = vec![2];
+        let q = vec![1.0];
+        let c = vec![0.0, 0.0, 0.0];
+        let num_x = 3;
+
+        // actually create the QUBO
+        let p = Qubo::from_vec(x, y, q, c, 3);
+        let x_0 = Array1::from_vec(vec![1.0, 1.0, 1.0]);
+        let grad = p.eval_grad(&x_0);
+
+        assert_eq!(grad, Array1::from_vec(vec![0.5, 0.0, 0.5]));
+    }
+
+    #[test]
+    fn test_make_symmetric_from_symmetric() {
+        let q = CsMat::<f64>::eye(3);
+        let c = Array1::<f64>::zeros(3);
+        let p = Qubo::new_with_c(q, c);
+        let p_sym = p.make_symmetric();
+
+        assert_eq!(p_sym.q.nnz(), 3);
+        assert_eq!(p_sym.q, CsMat::<f64>::eye(3));
+    }
+
+    #[test]
+    fn test_make_symmetric_from_non_symmetric() {
+        // Create a QUBO from a list of tuples:
+        let x = vec![0, 0];
+        let y = vec![0, 2];
+        let q = vec![1.0, 1.0];
+        let c = vec![0.0, 0.0, 0.0];
+        let num_x = 3;
+        let p = Qubo::from_vec(x, y, q, c, 3);
+
+        // make a symmetric QUBO from this QUBO
+        let p_sym = p.make_symmetric();
+
+        assert_eq!(p_sym.q.nnz(), 3);
+        assert_eq!(p_sym.q.get(0, 0), Some(&1.0f64));
+        assert_eq!(p_sym.q.get(0, 2), Some(&0.5f64));
+        assert_eq!(p_sym.q.get(2, 0), Some(&0.5f64));
+    }
+
+    #[test]
+    fn test_make_symmetric_from_non_symmetric_off_diagonal() {
+        // Create a QUBO from a list of tuples:
+        let x = vec![0, 0, 2];
+        let y = vec![0, 2, 0];
+        let q = vec![1.0, 1.5, 0.5];
+        let c = vec![0.0, 0.0, 0.0];
+        let num_x = 3;
+        let p = Qubo::from_vec(x, y, q, c, 3);
+
+        // make a symmetric QUBO from this QUBO
+        let p_sym = p.make_symmetric();
+
+        assert_eq!(p_sym.q.nnz(), 3);
+        assert_eq!(p_sym.q.get(0, 0), Some(&1.0f64));
+        assert_eq!(p_sym.q.get(0, 2), Some(&1.0f64));
+        assert_eq!(p_sym.q.get(2, 0), Some(&1.0f64));
+    }
+
+    #[test]
+    fn read_write_consistency() {
+        // make a qubo and write it to a file
+        let mut prng = crate::tests::make_test_prng();
+        let p = Qubo::make_random_qubo(10, &mut prng, 0.1);
+        Qubo::write_qubo(&p, "test.qubo");
+
+        // now read it back in
+        let q = Qubo::read_qubo("test.qubo");
+
+        // check that the two are the same
+        assert_eq!(p.q, q.q);
+        assert_eq!(p.c, q.c);
+        assert_eq!(p.num_x(), q.num_x());
+        assert_eq!(p.q.nnz(), q.q.nnz())
+    }
+
+    #[test]
+    fn large_scale_write_qubo() {
+        // make a large qubo instance and write it to file
+        let mut prng = crate::tests::make_test_prng();
+        let p = Qubo::make_random_qubo(1000, &mut prng, 0.01);
+        Qubo::write_qubo(&p, "test_large.qubo");
+
+        // read it back in
+        let q = Qubo::read_qubo("test_large.qubo");
+
+        // check that the two are the same
+        assert_eq!(p.q, q.q);
+        assert_eq!(p.c, q.c);
+        assert_eq!(p.num_x(), q.num_x());
+        assert_eq!(p.q.nnz(), q.q.nnz())
+    }
+
+    fn test_is_symmetric_on_symmetric() {
+        let q = CsMat::<f64>::eye(3);
+        let c = Array1::<f64>::zeros(3);
+        let p = Qubo::new_with_c(q, c);
+        assert_eq!(p.is_symmetric(), true);
+    }
+
+    fn test_is_symmetric_on_not_symmetric() {
+        // Create a QUBO from a list of tuples:
+        let x = vec![0, 0];
+        let y = vec![0, 2];
+        let q = vec![1.0, 1.0];
+        let c = vec![0.0, 0.0, 0.0];
+        let num_x = 3;
+        let p = Qubo::from_vec(x, y, q, c, 3);
+
+        // make a symmetric QUBO from this QUBO
+        let p_sym = p.make_symmetric();
+
+        assert_eq!(p_sym.is_symmetric(), true);
+        assert_eq!(p.is_symmetric(), false);
+    }
 }
