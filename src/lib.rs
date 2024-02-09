@@ -23,6 +23,8 @@ pub mod persistence;
 pub mod python_interopt;
 pub mod qubo;
 pub mod utils;
+pub mod variable_reduction;
+pub mod constraint_reduction;
 
 // imports to generate the python interface
 
@@ -45,6 +47,8 @@ fn hercules(_py: Python<'_>, m: &PyModule) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(get_persistence, m)?)?;
     m.add_function(wrap_pyfunction!(solve_branch_bound, m)?)?;
     m.add_function(wrap_pyfunction!(convex_symmetric_form, m)?)?;
+    m.add_function(wrap_pyfunction!(generate_rule_1_1, m)?)?;
+    m.add_function(wrap_pyfunction!(generate_rule_2_1, m)?)?;
     Ok(())
 }
 

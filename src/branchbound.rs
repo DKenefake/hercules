@@ -2,10 +2,7 @@ use crate::qubo::Qubo;
 use ndarray::Array1;
 use std::time;
 
-use crate::branchbound_utils::{
-    best_approximation, first_not_fixed, most_violated, random, worst_approximation,
-    BranchStrategy, ClarabelWrapper, QuboBBNode, SolverOptions,
-};
+use crate::branchbound_utils::{best_approximation, first_not_fixed, most_violated, random, worst_approximation, BranchStrategy, ClarabelWrapper, QuboBBNode, SolverOptions, check_integer_feasibility};
 use crate::persistence::compute_iterative_persistence;
 use clarabel::solver::*;
 use sprs::TriMat;
@@ -57,9 +54,6 @@ impl BBSolver {
         initial_fixed =
             compute_iterative_persistence(&self.qubo, &initial_fixed, self.qubo.num_x());
 
-        // debug print() the number of fixed variables
-        println!("Number of fixed variables: {}", initial_fixed.len());
-
         // create the root node
         let root_node = QuboBBNode {
             lower_bound: f64::NEG_INFINITY,
@@ -87,13 +81,36 @@ impl BBSolver {
             }
 
             // unwrap the node
-            let node = next_node.unwrap();
+            let mut node = next_node.unwrap();
 
             // as we are processing the node, we increment the number of nodes processed
             self.nodes_processed += 1;
 
+            // see if there are any variables we can fix
+            node.fixed_variables = compute_iterative_persistence(&self.qubo, &node.fixed_variables, self.qubo.num_x());
+
+            // with this expanded set can we prune the node?
+            if self.can_prune(&node) {
+                continue;
+            }
+
             // We now need to solve the node to generate the lower bound and solution
             let (lower_bound, solution) = self.solve_node(&node);
+
+            if lower_bound > self.best_solution_value {
+                continue;
+            }
+
+            // inject the solution back into the node
+            node.solution = solution.clone();
+            // check if integer feasible solution
+            // if not all variables are fixed, we can still check if we are 'near' integer-feasible (within 1E-10) of 0 or 1
+            let (is_int_feasible, rounded_sol) = check_integer_feasibility(&node);
+
+            if is_int_feasible {
+                self.update_solution_if_better(&rounded_sol);
+                println!("Integer Feasible Solution Found: {} {}", rounded_sol, node.solution.clone());
+            }
 
             // determine what variable we are branching on
             let branch_id = self.make_branch(&node);
@@ -127,16 +144,21 @@ impl BBSolver {
 
             // evaluate the solution against the best solution we have so far
             // if we have a better solution update it
-            let solution_value = self.qubo.eval(&solution);
-            if solution_value < self.best_solution_value {
-                self.best_solution = solution;
-                self.best_solution_value = solution_value;
-            }
+            self.update_solution_if_better(&solution);
             return true;
         }
 
         // if we cannot remove the node, then we return false as we cannot provably prune it yet
         return false;
+    }
+
+    /// update the best solution if better then the current best solution
+    pub fn update_solution_if_better(&mut self, solution: &Array1<f64>) {
+        let solution_value = self.qubo.eval(&solution);
+        if solution_value < self.best_solution_value {
+            self.best_solution = solution.clone();
+            self.best_solution_value = solution_value;
+        }
     }
 
     /// This function is used to get the next node to process, popping it from the list of nodes
@@ -212,18 +234,6 @@ impl BBSolver {
         // add fixed variables
         zero_branch.fixed_variables.insert(branch_id, 0.0);
         one_branch.fixed_variables.insert(branch_id, 1.0);
-
-        // apply iterative persistence to the fixed variables every time we branch
-        zero_branch.fixed_variables = compute_iterative_persistence(
-            &self.qubo,
-            &zero_branch.fixed_variables,
-            self.qubo.num_x(),
-        );
-        one_branch.fixed_variables = compute_iterative_persistence(
-            &self.qubo,
-            &one_branch.fixed_variables,
-            self.qubo.num_x(),
-        );
 
         // update the solution and lower bound for the new nodes
         zero_branch.solution = solution.clone();

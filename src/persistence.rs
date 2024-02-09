@@ -15,7 +15,7 @@ pub fn compute_iterative_persistence(
     // the number of required iterations is always below the number of variables
     let iters = min(iter_lim, qubo.num_x());
 
-    // simply loop over the number of iters
+    // loop over the number of iters
     for _ in 0..iters {
         let incoming_persistent = compute_persistent(qubo, &new_persistent);
         if new_persistent == incoming_persistent {
@@ -43,12 +43,12 @@ pub fn compute_persistent(qubo: &Qubo, persistent: &HashMap<usize, f64>) -> Hash
         let (lower, upper) = grad_bounds(qubo, i, persistent);
 
         // if the lower bound it positive, then we can set the variable to 0
-        if lower >= 0.0 {
+        if lower > 0.0 {
             new_persistent.insert(i, 0.0);
         }
 
         // if the upper bound is below 0, then we can set the variable to 1
-        if upper <= 0.0 {
+        if upper < 0.0 {
             new_persistent.insert(i, 1.0);
         }
     }
@@ -80,8 +80,8 @@ pub fn grad_bounds(qubo: &Qubo, i: usize, persistent: &HashMap<usize, f64>) -> (
 
         // if it is a fixed variable, we have effectively removed this variable from the QUBO
         if persistent.contains_key(&index) {
-            lower += 0.0*value * persistent[&index];
-            upper += 0.0*value * persistent[&index];
+            lower += 1.0 * value * persistent[&index];
+            upper += 1.0 * value * persistent[&index];
         } else {
             // if it is not in the persistent set, then we can choose the best value
 

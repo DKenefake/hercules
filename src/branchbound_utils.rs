@@ -1,7 +1,7 @@
 use crate::branchbound::BBSolver;
 use crate::qubo::Qubo;
 use clarabel::algebra::CscMatrix;
-use ndarray::Array1;
+use ndarray::{Array1};
 use smolprng::{JsfLarge, PRNG};
 use sprs::CsMat;
 use std::collections::HashMap;
@@ -202,4 +202,29 @@ impl ClarabelWrapper {
         let (t, y, u) = p0.to_csc().into_raw_storage();
         CscMatrix::new(p0.rows(), p0.cols(), t, y, u)
     }
+}
+
+
+pub fn check_integer_feasibility(node: &QuboBBNode) -> (bool, Array1<f64>) {
+    let mut sum = 0;
+    let num_x = node.solution.len();
+    let mut buffer = Array1::zeros(num_x);
+
+    for i in 0..num_x {
+        if node.fixed_variables.contains_key(&i) {
+            sum += 1;
+            buffer[i] = *node.fixed_variables.get(&i).unwrap();
+        }else{
+            if node.solution[i].abs() <= 1E-10 {
+                sum += 1;
+                buffer[i] = 0.0;
+            }
+
+            if (node.solution[i]-1.0).abs() <= 1E-10 {
+                sum += 1;
+                buffer[i] = 1.0;
+            }
+        }
+    }
+    (sum == num_x, buffer)
 }

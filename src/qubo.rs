@@ -457,4 +457,25 @@ impl Qubo {
         let (eigs, _) = q_dense.eigh(UPLO::Upper).unwrap();
         eigs.clone()
     }
+
+    // pub fn upper_tri_form(&self) -> Qubo {
+    //     let mut q_upper = TriMat::<f64>::new((self.num_x(), self.num_x()));
+    //
+    //     for (&v, (i, j)) in self.q.iter() {
+    //         if i != j {
+    //             let j_new = i.min(j);
+    //             let i_new = i.max(j);
+    //             let possile_v = q_upper.get(i_new, j_new).unwrap_or(0.0);
+    //             q_upper.add_triplet(i_new, j_new, v + possile_v);
+    //         }
+    //     }
+    //
+    //     let new_diag = self.q.diag().to_dense() + &self.c;
+    //
+    //     for (i, &v) in new_diag.iter().enumerate() {
+    //         q_upper.add_triplet(i, i, v);
+    //     }
+    //
+    //     Qubo::new(q_upper.to_csr())
+    // }
 }

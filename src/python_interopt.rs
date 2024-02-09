@@ -13,6 +13,8 @@ use smolprng::{JsfLarge, PRNG};
 
 use crate::branchbound::*;
 use crate::branchbound_utils::{BranchStrategy, SolverOptions};
+use crate::constraint::ConstraintType;
+use crate::variable_reduction::{generate_rule_11, generate_rule_21};
 
 // type alias for the qubo data object from python
 type QuboData = (Vec<usize>, Vec<usize>, Vec<f64>, Vec<f64>, usize);
@@ -418,6 +420,9 @@ pub fn solve_branch_bound(
     // read in the QUBO from file
     let p_input = Qubo::from_vec(problem.0, problem.1, problem.2, problem.3, problem.4);
 
+    // get an initially fixed set
+    let initial_set = compute_iterative_persistence(&p_input, &HashMap::new(), p_input.num_x());
+
     let symm_p = p_input.make_symmetric();
 
     let eigs = symm_p.hess_eigenvalues();
@@ -427,11 +432,11 @@ pub fn solve_branch_bound(
 
     let p = match min_eig > 0.0 {
         true => symm_p,
-        false => p_input.make_symmetric().make_convex(min_eig.abs() * 1.1),
+        false => p_input.make_symmetric().make_convex(min_eig.abs() + 1.0),
     };
 
     let mut options = SolverOptions {
-        fixed_variables: HashMap::new(),
+        fixed_variables: initial_set,
         max_time: timeout,
         seed: 12345679usize,
         branch_strategy: BranchStrategy::FirstNotFixed,
@@ -487,10 +492,49 @@ pub fn convex_symmetric_form(problem: QuboData) -> PyResult<QuboData> {
     // get the lowest eigenvalue
     let min_eig = eigs.iter().fold(f64::INFINITY, |a, &b| a.min(b));
 
-    // if the problem is already convex we don't have to convexify
+    // if the problem is already convex we don't have to convex-ify
     if min_eig > 0.0 {
         return Ok(symm_p.to_vec());
     }
 
     Ok(p.make_symmetric().make_convex(min_eig.abs() * 1.1).to_vec())
 }
+
+#[pyfunction]
+pub fn generate_rule_1_1(problem: QuboData) -> PyResult<Vec<(usize,usize)>> {
+    // read in the QUBO from vec form
+    let p = Qubo::from_vec(problem.0, problem.1, problem.2, problem.3, problem.4);
+
+    let persist = compute_iterative_persistence(&p, &HashMap::new(), p.num_x());
+
+    // generate the rules
+    let mut rules = Vec::new();
+    for i in 0..p.num_x() {
+        let rule_i = generate_rule_11(&p, &persist, i);
+        for rule in rule_i {
+            rules.push((rule.x_i, rule.x_j));
+        }
+    }
+
+    Ok(rules)
+}
+
+#[pyfunction]
+pub fn generate_rule_2_1(problem: QuboData) -> PyResult<Vec<(usize,usize)>> {
+    // read in the QUBO from vec form
+    let p = Qubo::from_vec(problem.0, problem.1, problem.2, problem.3, problem.4);
+
+    let persist = compute_iterative_persistence(&p, &HashMap::new(), p.num_x());
+
+    // generate the rules
+    let mut rules = Vec::new();
+    for i in 0..p.num_x() {
+        let rule_i = generate_rule_21(&p, &persist, i);
+        for rule in rule_i {
+            rules.push((rule.x_i, rule.x_j));
+        }
+    }
+
+    Ok(rules)
+}
+

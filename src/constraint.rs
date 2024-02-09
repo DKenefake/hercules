@@ -9,8 +9,8 @@ pub enum ConstraintType {
 }
 
 pub struct Constraint {
-    x_i: usize,
-    x_j: usize,
+    pub(crate) x_i: usize,
+    pub(crate) x_j: usize,
     constraint_type: ConstraintType,
 }
 
