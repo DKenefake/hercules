@@ -516,7 +516,7 @@ mod tests {
         let num_x = 3;
 
         // actually create the QUBO
-        let p = Qubo::from_vec(x, y, q, c, 3);
+        let p = Qubo::from_vec(x, y, q, c, num_x);
 
         // check that the QUBO was created correctly
         assert_eq!(p.num_x(), 3);
@@ -661,12 +661,24 @@ mod tests {
         let q = vec![1.0, 1.0];
         let c = vec![0.0, 0.0, 0.0];
         let num_x = 3;
-        let p = Qubo::from_vec(x, y, q, c, 3);
+        let p = Qubo::from_vec(x, y, q, c, num_x);
 
         // make a symmetric QUBO from this QUBO
         let p_sym = p.make_symmetric();
 
         assert_eq!(p_sym.is_symmetric(), true);
         assert_eq!(p.is_symmetric(), false);
+    }
+
+    #[test]
+    fn test_is_symmetric_on_random_qubo() {
+        let mut prng = crate::tests::make_test_prng();
+        for _ in 0..100 {
+            // make a random qubo
+            let p = Qubo::make_random_qubo(5, &mut prng, 1.0);
+            // now that we have rendered it, it should be symmetric
+            let p_sym = p.make_symmetric();
+            assert_eq!(p_sym.is_symmetric(), true);
+        }
     }
 }
