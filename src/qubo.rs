@@ -461,7 +461,7 @@ impl Qubo {
     /// Checks if the QUBO is symmetric
     pub fn is_symmetric(&self) -> bool {
         for (&q_ij, (i, j)) in &self.q {
-            let q_ji = self.q.get(i, j);
+            let q_ji = self.q.get(j, i);
             match q_ji {
                 Some(&q_ji) => {
                     if q_ij != q_ji {
@@ -647,6 +647,7 @@ mod tests {
         assert_eq!(p.q.nnz(), q.q.nnz())
     }
 
+    #[test]
     fn test_is_symmetric_on_symmetric() {
         let q = CsMat::<f64>::eye(3);
         let c = Array1::<f64>::zeros(3);
@@ -654,6 +655,7 @@ mod tests {
         assert_eq!(p.is_symmetric(), true);
     }
 
+    #[test]
     fn test_is_symmetric_on_not_symmetric() {
         // Create a QUBO from a list of tuples:
         let x = vec![0, 0];
