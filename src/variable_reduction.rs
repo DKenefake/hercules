@@ -8,7 +8,7 @@ use std::collections::HashMap;
 pub fn get_dih(p: &Qubo, i: usize, h: usize) -> f64 {
     let q_ih = *(p.q.get(i, h).unwrap_or(&0.0));
     let q_hi = *(p.q.get(i, h).unwrap_or(&0.0));
-    return 0.5 * (q_ih + q_hi);
+    q_ih + q_hi
 }
 
 /// Implement Rule 1.1 from the paper glover2018

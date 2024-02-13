@@ -7,8 +7,8 @@ use std::time;
 use ndarray::Array1;
 use pyo3::prelude::*;
 
-use crate::local_search;
 use crate::persistence::compute_iterative_persistence;
+use crate::{kopt, local_search};
 use smolprng::{JsfLarge, PRNG};
 
 use crate::branchbound::*;
@@ -431,17 +431,17 @@ pub fn solve_branch_bound(
 
     let p = match min_eig > 0.0 {
         true => symm_p,
-        false => p_input.make_symmetric().make_convex(min_eig.abs() + 1.0),
+        false => symm_p.make_convex(min_eig.abs() + 1.0),
     };
 
     let mut options = SolverOptions {
         fixed_variables: initial_set,
         max_time: timeout,
-        seed: 12345679usize,
+        seed: 12_345_679usize,
         branch_strategy: BranchStrategy::FirstNotFixed,
     };
 
-    options.seed = seed.unwrap_or(12345679usize);
+    options.seed = seed.unwrap_or(12_345_679usize);
 
     options.branch_strategy = match branch_strategy {
         Some(val) => match val.as_str() {
@@ -457,12 +457,10 @@ pub fn solve_branch_bound(
 
     let mut solver = BBSolver::new(p, options);
 
-    match warm_start {
-        Some(x) => {
-            solver.warm_start(Array1::<f64>::from(x));
-        }
-        None => {}
-    };
+    // if we have a warm start, use it
+    if let Some(x) = warm_start {
+        solver.warm_start(Array1::<f64>::from(x));
+    }
 
     let (x, obj) = solver.solve();
 
@@ -535,4 +533,20 @@ pub fn generate_rule_2_1(problem: QuboData) -> PyResult<Vec<(usize, usize)>> {
     }
 
     Ok(rules)
+}
+
+#[pyfunction]
+pub fn k_opt(
+    problem: QuboData,
+    fixed: HashMap<usize, f64>,
+    initial_guess: Option<Vec<f64>>,
+) -> PyResult<Vec<f64>> {
+    // read in the QUBO from vec form
+    let p = Qubo::from_vec(problem.0, problem.1, problem.2, problem.3, problem.4);
+    let persistent = fixed;
+
+    match initial_guess {
+        Some(x) => Ok(kopt::solve_kopt(&p, &persistent, Some(Array1::<f64>::from(x))).to_vec()),
+        None => Ok(kopt::solve_kopt(&p, &persistent, None).to_vec()),
+    }
 }

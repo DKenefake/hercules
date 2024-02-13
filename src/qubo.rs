@@ -102,7 +102,7 @@ impl Qubo {
             q.push(value);
         }
 
-        for &value in self.c.iter() {
+        for &value in &self.c {
             c.push(value);
         }
 
@@ -417,7 +417,7 @@ impl Qubo {
     /// // make a symmetric QUBO from this QUBO
     /// let p_sym = p.make_symmetric();
     /// ```
-    pub fn make_symmetric(&self) -> Qubo {
+    pub fn make_symmetric(&self) -> Self {
         let mut tri_q = TriMat::<f64>::new((self.num_x(), self.num_x()));
 
         let c = self.c.clone();
@@ -431,7 +431,7 @@ impl Qubo {
             }
         }
 
-        Qubo::new_with_c(tri_q.to_csr(), c.clone())
+        Self::new_with_c(tri_q.to_csr(), c)
     }
 
     /// Convexifies the QUBO problem by modifying the Hessian and linear coefficients,rendering a convex problem.
@@ -439,7 +439,7 @@ impl Qubo {
     /// Currently, assume that the required factor,'s' is known.
     ///
     /// $\frac{1}{2}x^TQx + c^Tx = \frac{1}{2}x^T(Q + sI)x + c^Tx - 0.5s^Tx$
-    pub fn make_convex(&self, s: f64) -> Qubo {
+    pub fn make_convex(&self, s: f64) -> Self {
         // generate the scaled (sparse) identity matrix
         let mut s_eye_tri = TriMat::<f64>::new((self.num_x(), self.num_x()));
         for i in 0..self.num_x() {
@@ -447,7 +447,7 @@ impl Qubo {
         }
         let s_eye = s_eye_tri.to_csr();
 
-        return Qubo::new_with_c(&self.q + &s_eye, self.c.clone() - 0.5 * s);
+        Self::new_with_c(&self.q + &s_eye, self.c.clone() - 0.5 * s)
     }
 
     /// Calculates the eigenvalues of the QUBO matrix this is a somewhat expensive operation. Converts the QUBO to a
@@ -455,16 +455,19 @@ impl Qubo {
     pub fn hess_eigenvalues(&self) -> Array1<f64> {
         let q_dense = self.q.to_dense();
         let (eigs, _) = q_dense.eigh(UPLO::Upper).unwrap();
-        eigs.clone()
+        eigs
     }
 
     /// Checks if the QUBO is symmetric
     pub fn is_symmetric(&self) -> bool {
+
+        let error_margin = f64::EPSILON;
+
         for (&q_ij, (i, j)) in &self.q {
             let q_ji = self.q.get(j, i);
             match q_ji {
                 Some(&q_ji) => {
-                    if q_ij != q_ji {
+                    if (q_ij - q_ji).abs() > error_margin {
                         return false;
                     }
                 }
@@ -557,7 +560,7 @@ mod tests {
         let num_x = 3;
 
         // actually create the QUBO
-        let p = Qubo::from_vec(x, y, q, c, 3);
+        let p = Qubo::from_vec(x, y, q, c, num_x);
         let x_0 = Array1::from_vec(vec![1.0, 1.0, 1.0]);
         let grad = p.eval_grad(&x_0);
 
@@ -583,7 +586,7 @@ mod tests {
         let q = vec![1.0, 1.0];
         let c = vec![0.0, 0.0, 0.0];
         let num_x = 3;
-        let p = Qubo::from_vec(x, y, q, c, 3);
+        let p = Qubo::from_vec(x, y, q, c, num_x);
 
         // make a symmetric QUBO from this QUBO
         let p_sym = p.make_symmetric();
@@ -602,7 +605,7 @@ mod tests {
         let q = vec![1.0, 1.5, 0.5];
         let c = vec![0.0, 0.0, 0.0];
         let num_x = 3;
-        let p = Qubo::from_vec(x, y, q, c, 3);
+        let p = Qubo::from_vec(x, y, q, c, num_x);
 
         // make a symmetric QUBO from this QUBO
         let p_sym = p.make_symmetric();

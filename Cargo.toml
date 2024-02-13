@@ -39,6 +39,7 @@ codegen-units = 1
 codegen-units = 128
 opt-level = 0
 lto = false
+incremental = true
 
 [profile.bench]
 opt-level = 3

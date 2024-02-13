@@ -33,6 +33,7 @@ pub enum BranchStrategy {
     BestApproximation,
 }
 
+/// #Panics if the node does not have an unfixed variable
 pub fn first_not_fixed(solver: &BBSolver, node: &QuboBBNode) -> usize {
     // scan through the variables and find the first one that is not fixed
     for i in 0..solver.qubo.num_x() {
@@ -150,10 +151,9 @@ pub fn compute_strong_branch(solver: &BBSolver, node: &QuboBBNode) -> (Array1<f6
 
     for i in 0..solver.qubo.num_x() {
         // fill in the current vector
-        if node.fixed_variables.contains_key(&i) {
-            base_solution[i] = *node.fixed_variables.get(&i).unwrap();
-        } else {
-            base_solution[i] = node.solution[i];
+        match node.fixed_variables.get(&i) {
+            Some(val) => base_solution[i] = *val,
+            None => base_solution[i] = node.solution[i],
         }
 
         // compute the delta values for the zero and one flips
@@ -190,9 +190,9 @@ pub struct ClarabelWrapper {
 }
 
 impl ClarabelWrapper {
-    pub fn new(qubo: &Qubo) -> ClarabelWrapper {
-        let q_new = ClarabelWrapper::make_cb_form(&(qubo.q));
-        ClarabelWrapper {
+    pub fn new(qubo: &Qubo) -> Self {
+        let q_new = Self::make_cb_form(&(qubo.q));
+        Self {
             q: q_new,
             c: qubo.c.clone(),
         }
@@ -209,19 +209,25 @@ pub fn check_integer_feasibility(node: &QuboBBNode) -> (bool, Array1<f64>) {
     let num_x = node.solution.len();
     let mut buffer = Array1::zeros(num_x);
 
-    for i in 0..num_x {
-        if node.fixed_variables.contains_key(&i) {
-            sum += 1;
-            buffer[i] = *node.fixed_variables.get(&i).unwrap();
-        } else {
-            if node.solution[i].abs() <= 1E-10 {
-                sum += 1;
-                buffer[i] = 0.0;
-            }
+    let epsilon = 1E-10;
 
-            if (node.solution[i] - 1.0).abs() <= 1E-10 {
+    for i in 0..num_x {
+
+        match node.fixed_variables.get(&i) {
+            Some(val) => {
                 sum += 1;
-                buffer[i] = 1.0;
+                buffer[i] = *val;
+            },
+            None => {
+                if node.solution[i].abs() <= epsilon {
+                    sum += 1;
+                    buffer[i] = 0.0;
+                }
+
+                if (node.solution[i] - 1.0).abs() <= epsilon {
+                    sum += 1;
+                    buffer[i] = 1.0;
+                }
             }
         }
     }

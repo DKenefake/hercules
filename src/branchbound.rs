@@ -7,7 +7,7 @@ use crate::branchbound_utils::{
     worst_approximation, BranchStrategy, ClarabelWrapper, QuboBBNode, SolverOptions,
 };
 use crate::persistence::compute_iterative_persistence;
-use clarabel::solver::*;
+use clarabel::solver::{DefaultSettings, DefaultSolver, IPSolver, NonnegativeConeT, ZeroConeT};
 use sprs::TriMat;
 
 /// Struct for the B&B Solver
@@ -25,12 +25,12 @@ pub struct BBSolver {
 
 impl BBSolver {
     /// Creates a new B&B solver
-    pub fn new(qubo: Qubo, options: SolverOptions) -> BBSolver {
+    pub fn new(qubo: Qubo, options: SolverOptions) -> Self {
         // create auxiliary variables
         let num_x = qubo.num_x();
         let wrapper = ClarabelWrapper::new(&qubo);
 
-        BBSolver {
+        Self {
             qubo,
             best_solution: Array1::zeros(num_x),
             best_solution_value: 0.0,
@@ -124,14 +124,14 @@ impl BBSolver {
             let branch_id = self.make_branch(&node);
 
             // generate the branches
-            let (zero_branch, one_branch) = self.branch(node, branch_id, lower_bound, solution);
+            let (zero_branch, one_branch) = Self::branch(node, branch_id, lower_bound, solution);
 
             // add the branches to the list of nodes
             self.nodes.push(zero_branch);
             self.nodes.push(one_branch);
         }
 
-        return (self.best_solution.clone(), self.best_solution_value);
+        (self.best_solution.clone(), self.best_solution_value)
     }
 
     /// Checks if we can prune the node, based on the lower bound and best solution
@@ -146,7 +146,7 @@ impl BBSolver {
         if node.fixed_variables.len() == self.qubo.num_x() {
             // generate the solution vector
             let mut solution = Array1::zeros(self.qubo.num_x());
-            for (&index, &value) in node.fixed_variables.iter() {
+            for (&index, &value) in &node.fixed_variables {
                 solution[index] = value;
             }
 
@@ -157,12 +157,12 @@ impl BBSolver {
         }
 
         // if we cannot remove the node, then we return false as we cannot provably prune it yet
-        return false;
+        false
     }
 
     /// update the best solution if better then the current best solution
     pub fn update_solution_if_better(&mut self, solution: &Array1<f64>) {
-        let solution_value = self.qubo.eval(&solution);
+        let solution_value = self.qubo.eval(solution);
         if solution_value < self.best_solution_value {
             self.best_solution = solution.clone();
             self.best_solution_value = solution_value;
@@ -171,18 +171,13 @@ impl BBSolver {
 
     /// This function is used to get the next node to process, popping it from the list of nodes
     pub fn get_next_node(&mut self) -> Option<QuboBBNode> {
-        while self.nodes.len() > 0 {
+        while !self.nodes.is_empty() {
             // we pull a node from our node list
             let optional_node = self.nodes.pop();
 
             // guard against the case where another thread might have popped the last node between the
-            // check and the pop
-            if optional_node.is_none() {
-                return None;
-            }
-
-            // unwrap the node if it is safe
-            let node = optional_node.unwrap();
+            // check and unwrap the node if it is safe
+            let node = optional_node?;
 
             // we increment the number of nodes we have visited
             self.nodes_visited += 1;
@@ -192,7 +187,7 @@ impl BBSolver {
                 return Some(node);
             }
         }
-        return None;
+        None
     }
 
     /// Checks for termination conditions of the B&B algorithm, such as time limit or no more nodes
@@ -209,27 +204,26 @@ impl BBSolver {
         }
 
         // check if we have no more nodes to process
-        if self.nodes.len() == 0 {
+        if self.nodes.is_empty() {
             return true;
         }
 
-        return false;
+        false
     }
 
     /// Branch Selection Strategy - Currently selects the first variable that is not fixed
     pub fn make_branch(&self, node: &QuboBBNode) -> usize {
-        return match self.options.branch_strategy {
+        match self.options.branch_strategy {
             BranchStrategy::FirstNotFixed => first_not_fixed(self, node),
             BranchStrategy::MostViolated => most_violated(self, node),
             BranchStrategy::Random => random(self, node),
             BranchStrategy::WorstApproximation => worst_approximation(self, node),
             BranchStrategy::BestApproximation => best_approximation(self, node),
-        };
+        }
     }
 
     /// Actually branches the node into two new nodes
     pub fn branch(
-        &self,
         node: QuboBBNode,
         branch_id: usize,
         lower_bound: f64,
@@ -251,16 +245,14 @@ impl BBSolver {
         zero_branch.lower_bound = lower_bound;
         one_branch.lower_bound = lower_bound;
 
-        return (zero_branch, one_branch);
+        (zero_branch, one_branch)
     }
 
     /// Solves the subproblem via a QP solver, in this case Clarabel.rs
     pub fn solve_node(&self, node: &QuboBBNode) -> (f64, Array1<f64>) {
         // solve QP associated with the node
-
         // generate default settings
-        let mut settings = DefaultSettings::default();
-        settings.verbose = false;
+        let settings = DefaultSettings{ verbose: false, .. Default::default()};
 
         // generate the constraint matrix
         let A_size = 2 * self.qubo.num_x() + node.fixed_variables.len();
@@ -295,9 +287,9 @@ impl BBSolver {
         // set up the solver with the matrices
         let mut solver = DefaultSolver::new(
             &self.clarabel_wrapper.q,
-            &self.qubo.c.as_slice().unwrap(),
+            self.qubo.c.as_slice().unwrap(),
             &A_clara,
-            &b.as_slice().unwrap(),
+            b.as_slice().unwrap(),
             &cones,
             settings,
         );
@@ -305,7 +297,7 @@ impl BBSolver {
         // actually solve the problem
         solver.solve();
 
-        return (solver.solution.obj_val, Array1::from(solver.solution.x));
+        (solver.solution.obj_val, Array1::from(solver.solution.x))
     }
 }
 
@@ -318,7 +310,6 @@ mod tests {
     use ndarray::Array1;
     use sprs::CsMat;
     use std::collections::HashMap;
-    use std::fmt::Error;
 
     #[test]
     pub fn branch_bound() {

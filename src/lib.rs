@@ -7,6 +7,8 @@
 #![allow(clippy::must_use_candidate)] // somewhat of a nuisance introduced by clippy::pedantic
 #![allow(clippy::doc_markdown)] // breaks some of the documentation written in latex
 #![allow(clippy::match_bool)]
+#![allow(clippy::suboptimal_flops)] // far to many false positives, e.g. vector and matrix multiplication suggestions
+#![allow(clippy::similar_names)] // I think this is fine, as the names are similar for a reason, mostly in the Constraints function
 // I just think this is fine, I think having all possible actions shown in one place simplifies view
 #![allow(clippy::module_name_repetitions)] // some names are just repeated, and that is fine
 
@@ -52,8 +54,7 @@ fn hercules(_py: Python<'_>, m: &PyModule) -> PyResult<()> {
     Ok(())
 }
 
-/// This is the test module. Very few of the tests are actually assert style tests, as we are likely to not hit the same
-/// local minima when running the tests (and not break them) every time we change the seed of the prng and order of operations.
+/// This is the test module. It is used to test the code in the library
 #[cfg(test)]
 mod tests {
     use crate::qubo::Qubo;
