@@ -12,7 +12,7 @@ use crate::{kopt, local_search};
 use smolprng::{JsfLarge, PRNG};
 
 use crate::branchbound::*;
-use crate::branchbound_utils::{BranchStrategy, SolverOptions};
+use crate::branchbound_utils::SolverOptions;
 use crate::variable_reduction::{generate_rule_11, generate_rule_21};
 
 // type alias for the qubo data object from python
@@ -415,6 +415,7 @@ pub fn solve_branch_bound(
     warm_start: Option<Vec<f64>>,
     seed: Option<usize>,
     branch_strategy: Option<String>,
+    sub_problem_solver: Option<String>,
 ) -> PyResult<(Vec<f64>, f64, f64, usize, usize)> {
     // read in the QUBO from file
     let p_input = Qubo::from_vec(problem.0, problem.1, problem.2, problem.3, problem.4);
@@ -434,26 +435,13 @@ pub fn solve_branch_bound(
         false => symm_p.make_convex(min_eig.abs() + 1.0),
     };
 
-    let mut options = SolverOptions {
-        fixed_variables: initial_set,
-        max_time: timeout,
-        seed: 12_345_679usize,
-        branch_strategy: BranchStrategy::FirstNotFixed,
-    };
+    let mut options = SolverOptions::new();
 
     options.seed = seed.unwrap_or(12_345_679usize);
 
-    options.branch_strategy = match branch_strategy {
-        Some(val) => match val.as_str() {
-            "first_not_fixed" => BranchStrategy::FirstNotFixed,
-            "most_violated" => BranchStrategy::MostViolated,
-            "random" => BranchStrategy::Random,
-            "worst" => BranchStrategy::WorstApproximation,
-            "best" => BranchStrategy::BestApproximation,
-            _ => BranchStrategy::FirstNotFixed,
-        },
-        None => BranchStrategy::FirstNotFixed,
-    };
+    options.set_branch_strategy(branch_strategy);
+
+    options.set_sub_problem_strategy(sub_problem_solver);
 
     let mut solver = BBSolver::new(p, options);
 

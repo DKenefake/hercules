@@ -8,14 +8,18 @@
 #![allow(clippy::doc_markdown)] // breaks some of the documentation written in latex
 #![allow(clippy::match_bool)]
 #![allow(clippy::suboptimal_flops)] // far to many false positives, e.g. vector and matrix multiplication suggestions
-#![allow(clippy::similar_names)] // I think this is fine, as the names are similar for a reason, mostly in the Constraints function
+#![allow(clippy::similar_names)]
+// I think this is fine, as the names are similar for a reason, mostly in the Constraints function
 // I just think this is fine, I think having all possible actions shown in one place simplifies view
 #![allow(clippy::module_name_repetitions)] // some names are just repeated, and that is fine
+
+const VERSION: &str = env!("CARGO_PKG_VERSION");
 
 use pyo3::prelude::*;
 
 mod branchbound;
 pub mod branchbound_utils;
+mod branchboundlogger;
 mod constraint;
 pub mod constraint_reduction;
 pub mod initial_points;

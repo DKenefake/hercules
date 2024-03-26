@@ -4,6 +4,7 @@
 
 use ndarray::Array1;
 use ndarray_linalg::*;
+use std::hash::{Hash, Hasher};
 
 use sprs::{CsMat, TriMat};
 use std::io::BufRead;
@@ -222,7 +223,7 @@ impl Qubo {
     /// let alpha = p.alpha();
     /// ```
     pub fn alpha(&self) -> f64 {
-        // find sum of all elements of q, get index of non zero elements
+        // find sum of all elements of q
         let q_sum = self.q.data().iter().sum::<f64>();
         let c_sum = self.c.sum();
 
@@ -384,7 +385,7 @@ impl Qubo {
                 c[i] = value;
             }
 
-            // otherwise we add to the sparse matrix
+            // otherwise, we add to the sparse matrix
             if row_data.len() == 3 {
                 let i = row_data[0].parse::<usize>().unwrap();
                 let j = row_data[1].parse::<usize>().unwrap();
@@ -460,7 +461,6 @@ impl Qubo {
 
     /// Checks if the QUBO is symmetric
     pub fn is_symmetric(&self) -> bool {
-
         let error_margin = f64::EPSILON;
 
         for (&q_ij, (i, j)) in &self.q {

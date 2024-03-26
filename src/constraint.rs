@@ -124,10 +124,10 @@ impl Constraint {
 
     pub fn how_many_fixed(&self, persistent: &HashMap<usize, f64>) -> usize {
         let mut count = 0;
-        if Self::is_fixed(persistent, self.x_i){
+        if Self::is_fixed(persistent, self.x_i) {
             count += 1;
         }
-        if Self::is_fixed(persistent, self.x_i){
+        if Self::is_fixed(persistent, self.x_i) {
             count += 1;
         }
         count
@@ -141,7 +141,6 @@ impl Constraint {
         &self,
         persistent: &HashMap<usize, f64>,
     ) -> Option<(usize, usize, f64)> {
-
         if self.how_many_fixed(persistent) != 1 {
             return None;
         }

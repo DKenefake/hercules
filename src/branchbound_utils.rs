@@ -21,8 +21,49 @@ pub struct QuboBBNode {
 pub struct SolverOptions {
     pub fixed_variables: HashMap<usize, f64>,
     pub branch_strategy: BranchStrategy,
+    pub sub_problem_solver: SubProblemSolver,
     pub max_time: f64,
     pub seed: usize,
+    pub verbose: bool,
+}
+
+impl SolverOptions {
+    pub fn new() -> Self {
+        Self {
+            fixed_variables: HashMap::new(),
+            branch_strategy: BranchStrategy::MostViolated,
+            sub_problem_solver: SubProblemSolver::QP,
+            max_time: 100.0,
+            seed: 0,
+            verbose: false,
+        }
+    }
+
+    pub fn set_branch_strategy(&mut self, strategy: Option<String>) {
+        match strategy {
+            Some(s) => match s.as_str() {
+                "FirstNotFixed" => self.branch_strategy = BranchStrategy::FirstNotFixed,
+                "MostViolated" => self.branch_strategy = BranchStrategy::MostViolated,
+                "Random" => self.branch_strategy = BranchStrategy::Random,
+                "WorstApproximation" => self.branch_strategy = BranchStrategy::WorstApproximation,
+                "BestApproximation" => self.branch_strategy = BranchStrategy::BestApproximation,
+                _ => self.branch_strategy = BranchStrategy::MostViolated,
+            },
+            None => self.branch_strategy = BranchStrategy::MostViolated,
+        }
+    }
+
+    pub fn set_sub_problem_strategy(&mut self, strategy: Option<String>) {
+        match strategy {
+            Some(s) => match s.as_str() {
+                "QP" => self.sub_problem_solver = SubProblemSolver::QP,
+                "QP_Project" => self.sub_problem_solver = SubProblemSolver::QP_Project,
+                "UnconstrainedQP" => self.sub_problem_solver = SubProblemSolver::UnconstrainedQP,
+                _ => self.sub_problem_solver = SubProblemSolver::QP,
+            },
+            None => self.sub_problem_solver = SubProblemSolver::QP,
+        }
+    }
 }
 
 pub enum BranchStrategy {
@@ -31,6 +72,16 @@ pub enum BranchStrategy {
     Random,
     WorstApproximation,
     BestApproximation,
+}
+
+// Enum to describe the subproblem solver result
+type SubProblemResult = (f64, Array1<f64>);
+
+pub enum SubProblemSolver {
+    QP,
+    QP_Project,
+    UnconstrainedQP,
+    CustomSubProblemSolver(fn(&BBSolver, &QuboBBNode) -> SubProblemResult),
 }
 
 /// #Panics if the node does not have an unfixed variable
@@ -212,12 +263,11 @@ pub fn check_integer_feasibility(node: &QuboBBNode) -> (bool, Array1<f64>) {
     let epsilon = 1E-10;
 
     for i in 0..num_x {
-
         match node.fixed_variables.get(&i) {
             Some(val) => {
                 sum += 1;
                 buffer[i] = *val;
-            },
+            }
             None => {
                 if node.solution[i].abs() <= epsilon {
                     sum += 1;

@@ -1,13 +1,16 @@
 use crate::qubo::Qubo;
 use ndarray::Array1;
+use std::ops::Index;
 use std::time;
 
 use crate::branchbound_utils::{
     best_approximation, check_integer_feasibility, first_not_fixed, most_violated, random,
     worst_approximation, BranchStrategy, ClarabelWrapper, QuboBBNode, SolverOptions,
+    SubProblemSolver,
 };
 use crate::persistence::compute_iterative_persistence;
 use clarabel::solver::{DefaultSettings, DefaultSolver, IPSolver, NonnegativeConeT, ZeroConeT};
+use pyo3::pyclass::boolean_struct::False;
 use sprs::TriMat;
 
 /// Struct for the B&B Solver
@@ -75,7 +78,7 @@ impl BBSolver {
 
         // until we have hit a termination condition, we will keep iterating
         while !(*self).termination_condition() {
-            // get the next node, if it exists
+            // get the next node if it exists
             let next_node = self.get_next_node();
 
             // there are no more nodes to process, so we are done iterating
@@ -248,11 +251,23 @@ impl BBSolver {
         (zero_branch, one_branch)
     }
 
-    /// Solves the subproblem via a QP solver, in this case Clarabel.rs
     pub fn solve_node(&self, node: &QuboBBNode) -> (f64, Array1<f64>) {
+        match self.options.sub_problem_solver {
+            SubProblemSolver::QP => self.solve_qp_subproblem(node, false),
+            SubProblemSolver::QP_Project => self.solve_qp_subproblem(node, true),
+            SubProblemSolver::UnconstrainedQP => self.solve_unconstrained_qp_subproblem(node),
+            SubProblemSolver::CustomSubProblemSolver(sps) => sps(self, node),
+        }
+    }
+
+    /// Solves the sub-problem via a QP solver, in this case Clarabel.rs
+    pub fn solve_qp_subproblem(&self, node: &QuboBBNode, project: bool) -> (f64, Array1<f64>) {
         // solve QP associated with the node
         // generate default settings
-        let settings = DefaultSettings{ verbose: false, .. Default::default()};
+        let settings = DefaultSettings {
+            verbose: false,
+            ..Default::default()
+        };
 
         // generate the constraint matrix
         let A_size = 2 * self.qubo.num_x() + node.fixed_variables.len();
@@ -299,11 +314,16 @@ impl BBSolver {
 
         (solver.solution.obj_val, Array1::from(solver.solution.x))
     }
+
+    pub fn solve_unconstrained_qp_subproblem(&self, node: &QuboBBNode) -> (f64, Array1<f64>) {
+        // solve the stationarity conditions of the unconstrained node with the fixed variables projected out
+        unimplemented!()
+    }
 }
 
 #[cfg(test)]
 mod tests {
-    use crate::branchbound_utils::BranchStrategy;
+    use crate::branchbound_utils::{BranchStrategy, SolverOptions};
     use crate::qubo::Qubo;
     use crate::tests::make_test_prng;
     use crate::{branchbound, branchbound_utils, local_search};
@@ -312,22 +332,14 @@ mod tests {
     use std::collections::HashMap;
 
     #[test]
-    pub fn branch_bound() {
+    pub fn branch_bound_test() {
         let mut prng = make_test_prng();
         let eye = CsMat::eye(3);
         let c = Array1::from_vec(vec![-1.0, -2.0, -3.0]);
         let p = Qubo::new_with_c(eye, c);
 
         let guess = local_search::particle_swarm_search(&p, 100, 1000, &mut prng);
-        let mut solver = branchbound::BBSolver::new(
-            p,
-            branchbound_utils::SolverOptions {
-                fixed_variables: HashMap::new(),
-                max_time: 10.0,
-                seed: 123456789usize,
-                branch_strategy: BranchStrategy::FirstNotFixed,
-            },
-        );
+        let mut solver = branchbound::BBSolver::new(p, SolverOptions::new());
         solver.warm_start(guess);
         solver.solve();
 

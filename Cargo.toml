@@ -1,6 +1,6 @@
 [package]
 name = "hercules"
-version = "0.1.0"
+version = "0.2.0"
 edition = "2021"
 authors = ["Dustin Kenefake"]
 license = "BSD-3-Clause"
@@ -19,7 +19,7 @@ crate-type = ["cdylib"]
 sprs = "0.11.1"
 ndarray = "0.15.6"
 ndarray-linalg = { version = "0.16.0", features = ["intel-mkl-static"] }
-smolprng = "0.1.5"
+smolprng = {version = "0.1.6", features = ["no_std"]}
 rayon = "1.8.0"
 pyo3 = { version = "0.20.2", features = ["extension-module"] }
 clarabel = "0.6.0"

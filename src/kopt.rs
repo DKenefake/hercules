@@ -1,7 +1,7 @@
 // Main Backend for running K-Opt via the branch and bound algorithm
 
 use crate::branchbound::BBSolver;
-use crate::branchbound_utils::{BranchStrategy, SolverOptions};
+use crate::branchbound_utils::{BranchStrategy, SolverOptions, SubProblemSolver};
 use crate::persistence::compute_iterative_persistence;
 use crate::qubo::Qubo;
 use ndarray::Array1;
@@ -25,8 +25,10 @@ pub fn solve_kopt(
     let options = SolverOptions {
         fixed_variables: persistent,
         branch_strategy: BranchStrategy::MostViolated,
+        sub_problem_solver: SubProblemSolver::QP,
         max_time: 100.0,
         seed: 0,
+        verbose: false,
     };
 
     // use branch and bound to solve the problem
