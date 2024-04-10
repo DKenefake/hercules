@@ -9,24 +9,40 @@ pub fn output_header(solver_instance: &BBSolver) {
     println!("Version number {version_number}");
     println!("Problem size: {num_variables}");
     println!("Fixed variables: {fixed_vars}");
+
+    println!("------------------------------------------------------");
+    println!("Nodes Visited | Best Solution | Lower Bound | Gap (%)");
+}
+
+pub fn generate_output_line(solver_instance: &BBSolver) {
+    let num_nodes = solver_instance.nodes_visited;
+    let upper_bound = solver_instance.best_solution_value;
+    let lower_bound = solver_instance.nodes.iter().map(|x| x.lower_bound).fold(f64::INFINITY, |a, b| a.min(b));
+    let gap = (upper_bound - lower_bound) / upper_bound * 100.0;
+    println!("{num_nodes} | {upper_bound} | {lower_bound} | {gap}");
 }
 
 #[cfg(test)]
 mod tests {
     use crate::branchbound::BBSolver;
     use crate::branchbound_utils::SolverOptions;
-    use crate::branchboundlogger::output_header;
+    use crate::branchboundlogger::{generate_output_line, output_header};
     use crate::qubo::Qubo;
     use ndarray::Array1;
     use sprs::CsMat;
 
     #[test]
     fn test_output_header() {
-        let solver = BBSolver::new(
-            Qubo::new_with_c(CsMat::eye(3), Array1::from_vec(vec![1.0, 2.0, 3.0])),
+        let mut solver = BBSolver::new(
+            Qubo::new_with_c(CsMat::eye(3), Array1::from_vec(vec![1.0, -2.0, 3.0])),
             SolverOptions::new(),
         );
 
+        solver.preprocess_initial();
+
+        let s = solver.solve();
+
         output_header(&solver);
+        generate_output_line(&solver);
     }
 }

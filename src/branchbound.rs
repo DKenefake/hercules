@@ -12,6 +12,7 @@ use crate::persistence::compute_iterative_persistence;
 use clarabel::solver::{DefaultSettings, DefaultSolver, IPSolver, NonnegativeConeT, ZeroConeT};
 use pyo3::pyclass::boolean_struct::False;
 use sprs::TriMat;
+use crate::branchboundlogger::{generate_output_line, output_header};
 
 /// Struct for the B&B Solver
 pub struct BBSolver {
@@ -54,17 +55,15 @@ impl BBSolver {
 
     /// The main solve function of the B&B algorithm
     pub fn solve(&mut self) -> (Array1<f64>, f64) {
-        // compute an initial set of persistent variables with the fixed variables
-        let mut initial_fixed = self.options.fixed_variables.clone();
 
-        initial_fixed =
-            compute_iterative_persistence(&self.qubo, &initial_fixed, self.qubo.num_x());
+        // preprocess the problem
+        self.preprocess_initial();
 
         // create the root node
         let root_node = QuboBBNode {
             lower_bound: f64::NEG_INFINITY,
             solution: Array1::zeros(self.qubo.num_x()),
-            fixed_variables: initial_fixed,
+            fixed_variables: self.options.fixed_variables.clone(),
         };
 
         // add the root node to the list of nodes
@@ -75,6 +74,12 @@ impl BBSolver {
             .duration_since(time::SystemTime::UNIX_EPOCH)
             .unwrap()
             .as_secs_f64();
+
+        // set up the output of the solver
+        if self.options.verbose {
+            output_header(&self);
+        }
+
 
         // until we have hit a termination condition, we will keep iterating
         while !(*self).termination_condition() {
@@ -110,6 +115,7 @@ impl BBSolver {
 
             // inject the solution back into the node
             node.solution = solution.clone();
+
             // check if integer feasible solution
             // if not all variables are fixed, we can still check if we are 'near' integer-feasible (within 1E-10) of 0 or 1
             let (is_int_feasible, rounded_sol) = check_integer_feasibility(&node);
@@ -132,6 +138,13 @@ impl BBSolver {
             // add the branches to the list of nodes
             self.nodes.push(zero_branch);
             self.nodes.push(one_branch);
+
+            if self.nodes_processed % 100 == 0 {
+                if self.options.verbose {
+                    generate_output_line(&self);
+                }
+            }
+
         }
 
         (self.best_solution.clone(), self.best_solution_value)
@@ -319,6 +332,14 @@ impl BBSolver {
         // solve the stationarity conditions of the unconstrained node with the fixed variables projected out
         unimplemented!()
     }
+
+    pub fn preprocess_initial(&mut self) {
+        // compute an initial set of persistent variables with the fixed variables
+        let mut initial_fixed = self.options.fixed_variables.clone();
+
+        self.options.fixed_variables =
+            compute_iterative_persistence(&self.qubo, &initial_fixed, self.qubo.num_x());
+    }
 }
 
 #[cfg(test)]
@@ -335,7 +356,7 @@ mod tests {
     pub fn branch_bound_test() {
         let mut prng = make_test_prng();
         let eye = CsMat::eye(3);
-        let c = Array1::from_vec(vec![-1.0, -2.0, -3.0]);
+        let c = Array1::from_vec(vec![-1.1, -2.0, -3.0]);
         let p = Qubo::new_with_c(eye, c);
 
         let guess = local_search::particle_swarm_search(&p, 100, 1000, &mut prng);
@@ -343,7 +364,7 @@ mod tests {
         solver.warm_start(guess);
         solver.solve();
 
-        assert_eq!(solver.best_solution_value, -4.5);
+        assert_eq!(solver.best_solution_value, -4.6);
         assert_eq!(solver.best_solution, Array1::from_vec(vec![1.0, 1.0, 1.0]));
     }
 }

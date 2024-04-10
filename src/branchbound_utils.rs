@@ -35,7 +35,7 @@ impl SolverOptions {
             sub_problem_solver: SubProblemSolver::QP,
             max_time: 100.0,
             seed: 0,
-            verbose: false,
+            verbose: true,
         }
     }
 
