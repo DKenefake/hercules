@@ -31,6 +31,10 @@ pub mod python_interopt;
 pub mod qubo;
 pub mod utils;
 pub mod variable_reduction;
+mod branch_stratagy;
+mod branch_subproblem;
+mod branch_node;
+mod solver_options;
 
 // imports to generate the python interface
 

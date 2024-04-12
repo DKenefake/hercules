@@ -25,7 +25,7 @@ pub fn generate_output_line(solver_instance: &BBSolver) {
 #[cfg(test)]
 mod tests {
     use crate::branchbound::BBSolver;
-    use crate::branchbound_utils::SolverOptions;
+    use crate::solver_options::SolverOptions;
     use crate::branchboundlogger::{generate_output_line, output_header};
     use crate::qubo::Qubo;
     use ndarray::Array1;

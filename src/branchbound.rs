@@ -3,15 +3,12 @@ use ndarray::Array1;
 use std::ops::Index;
 use std::time;
 
-use crate::branchbound_utils::{
-    best_approximation, check_integer_feasibility, first_not_fixed, most_violated, random,
-    worst_approximation, BranchStrategy, ClarabelWrapper, QuboBBNode, SolverOptions,
-    SubProblemSolver,
-};
+use crate::branchbound_utils::check_integer_feasibility;
+use crate::solver_options::SolverOptions;
+use crate::branch_node::QuboBBNode;
+use crate::branch_stratagy::BranchStrategy;
+use crate::branch_subproblem::{ClarabelSubProblemSolver, SubProblemSolver};
 use crate::persistence::compute_iterative_persistence;
-use clarabel::solver::{DefaultSettings, DefaultSolver, IPSolver, NonnegativeConeT, ZeroConeT};
-use pyo3::pyclass::boolean_struct::False;
-use sprs::TriMat;
 use crate::branchboundlogger::{generate_output_line, output_header};
 
 /// Struct for the B&B Solver
@@ -23,7 +20,8 @@ pub struct BBSolver {
     pub nodes_processed: usize,
     pub nodes_visited: usize,
     pub time_start: f64,
-    pub clarabel_wrapper: ClarabelWrapper,
+    pub branch_strategy: BranchStrategy,
+    pub subproblem_solver: ClarabelSubProblemSolver,
     pub options: SolverOptions,
 }
 
@@ -32,7 +30,8 @@ impl BBSolver {
     pub fn new(qubo: Qubo, options: SolverOptions) -> Self {
         // create auxiliary variables
         let num_x = qubo.num_x();
-        let wrapper = ClarabelWrapper::new(&qubo);
+
+        let sub_problem_solver = ClarabelSubProblemSolver::new(&qubo);
 
         Self {
             qubo,
@@ -42,7 +41,8 @@ impl BBSolver {
             nodes_processed: 0,
             nodes_visited: 0,
             time_start: 0.0,
-            clarabel_wrapper: wrapper,
+            branch_strategy: BranchStrategy::get_branch_strategy(&options.branch_strategy),
+            subproblem_solver: sub_problem_solver,
             options,
         }
     }
@@ -229,13 +229,7 @@ impl BBSolver {
 
     /// Branch Selection Strategy - Currently selects the first variable that is not fixed
     pub fn make_branch(&self, node: &QuboBBNode) -> usize {
-        match self.options.branch_strategy {
-            BranchStrategy::FirstNotFixed => first_not_fixed(self, node),
-            BranchStrategy::MostViolated => most_violated(self, node),
-            BranchStrategy::Random => random(self, node),
-            BranchStrategy::WorstApproximation => worst_approximation(self, node),
-            BranchStrategy::BestApproximation => best_approximation(self, node),
-        }
+        return self.branch_strategy.make_branch(self, node);
     }
 
     /// Actually branches the node into two new nodes
@@ -245,9 +239,10 @@ impl BBSolver {
         lower_bound: f64,
         solution: Array1<f64>,
     ) -> (QuboBBNode, QuboBBNode) {
-        // make two new nodes, one with the variable set to 0 and the other set to 1
+        // make two new nodes that are clones of the parent, one with the variable set to 0 and
+        // the other set to 1
         let mut zero_branch = node.clone();
-        let mut one_branch = node;
+        let mut one_branch = node.clone();
 
         // add fixed variables
         zero_branch.fixed_variables.insert(branch_id, 0.0);
@@ -265,77 +260,12 @@ impl BBSolver {
     }
 
     pub fn solve_node(&self, node: &QuboBBNode) -> (f64, Array1<f64>) {
-        match self.options.sub_problem_solver {
-            SubProblemSolver::QP => self.solve_qp_subproblem(node, false),
-            SubProblemSolver::QP_Project => self.solve_qp_subproblem(node, true),
-            SubProblemSolver::UnconstrainedQP => self.solve_unconstrained_qp_subproblem(node),
-            SubProblemSolver::CustomSubProblemSolver(sps) => sps(self, node),
-        }
-    }
-
-    /// Solves the sub-problem via a QP solver, in this case Clarabel.rs
-    pub fn solve_qp_subproblem(&self, node: &QuboBBNode, project: bool) -> (f64, Array1<f64>) {
-        // solve QP associated with the node
-        // generate default settings
-        let settings = DefaultSettings {
-            verbose: false,
-            ..Default::default()
-        };
-
-        // generate the constraint matrix
-        let A_size = 2 * self.qubo.num_x() + node.fixed_variables.len();
-        let mut A = TriMat::new((A_size, self.qubo.num_x()));
-        let mut b = Array1::zeros(A_size);
-
-        // add the equality constraints
-        for (index, (&key, &value)) in node.fixed_variables.iter().enumerate() {
-            A.add_triplet(index, key, 1.0);
-            b[index] = value;
-        }
-
-        // add the inequality constraints
-        for (index, i) in (0..self.qubo.num_x()).enumerate() {
-            let offset = node.fixed_variables.len() + index * 2;
-            A.add_triplet(offset, i, 1.0);
-            A.add_triplet(offset + 1, i, -1.0);
-            b[offset] = 1.0;
-            b[offset + 1] = 0.0;
-        }
-
-        // convert the matrix to CSC format and then Clarabel format
-        let A_csc = A.to_csc();
-        let A_clara = ClarabelWrapper::make_cb_form(&A_csc);
-
-        // generate the cones for the solver
-        let cones = [
-            ZeroConeT(node.fixed_variables.len()),
-            NonnegativeConeT(2 * self.qubo.num_x()),
-        ];
-
-        // set up the solver with the matrices
-        let mut solver = DefaultSolver::new(
-            &self.clarabel_wrapper.q,
-            self.qubo.c.as_slice().unwrap(),
-            &A_clara,
-            b.as_slice().unwrap(),
-            &cones,
-            settings,
-        );
-
-        // actually solve the problem
-        solver.solve();
-
-        (solver.solution.obj_val, Array1::from(solver.solution.x))
-    }
-
-    pub fn solve_unconstrained_qp_subproblem(&self, node: &QuboBBNode) -> (f64, Array1<f64>) {
-        // solve the stationarity conditions of the unconstrained node with the fixed variables projected out
-        unimplemented!()
+        self.subproblem_solver.solve(self, node)
     }
 
     pub fn preprocess_initial(&mut self) {
         // compute an initial set of persistent variables with the fixed variables
-        let mut initial_fixed = self.options.fixed_variables.clone();
+        let initial_fixed = self.options.fixed_variables.clone();
 
         self.options.fixed_variables =
             compute_iterative_persistence(&self.qubo, &initial_fixed, self.qubo.num_x());
@@ -344,13 +274,12 @@ impl BBSolver {
 
 #[cfg(test)]
 mod tests {
-    use crate::branchbound_utils::{BranchStrategy, SolverOptions};
+    use crate::solver_options::SolverOptions;
     use crate::qubo::Qubo;
     use crate::tests::make_test_prng;
-    use crate::{branchbound, branchbound_utils, local_search};
+    use crate::{branchbound, local_search};
     use ndarray::Array1;
     use sprs::CsMat;
-    use std::collections::HashMap;
 
     #[test]
     pub fn branch_bound_test() {

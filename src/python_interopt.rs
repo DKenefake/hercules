@@ -12,7 +12,7 @@ use crate::{kopt, local_search};
 use smolprng::{JsfLarge, PRNG};
 
 use crate::branchbound::*;
-use crate::branchbound_utils::SolverOptions;
+use crate::solver_options::SolverOptions;
 use crate::variable_reduction::{generate_rule_11, generate_rule_21};
 
 // type alias for the qubo data object from python
