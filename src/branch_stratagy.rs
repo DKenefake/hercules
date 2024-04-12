@@ -1,7 +1,7 @@
+use crate::branch_node::QuboBBNode;
+use crate::branchbound::BBSolver;
 use ndarray::Array1;
 use smolprng::{JsfLarge, PRNG};
-use crate::branchbound::BBSolver;
-use crate::branch_node::QuboBBNode;
 
 pub enum BranchStrategy {
     FirstNotFixed,
@@ -11,7 +11,7 @@ pub enum BranchStrategy {
     BestApproximation,
 }
 
-pub enum BranchStrategySelection{
+pub enum BranchStrategySelection {
     FirstNotFixed,
     MostViolated,
     Random,
@@ -21,7 +21,7 @@ pub enum BranchStrategySelection{
 
 impl BranchStrategy {
     pub fn make_branch(&self, bb_solver: &BBSolver, node: &QuboBBNode) -> usize {
-        match self{
+        match self {
             BranchStrategy::FirstNotFixed => first_not_fixed(bb_solver, node),
             BranchStrategy::MostViolated => most_violated(bb_solver, node),
             BranchStrategy::Random => random(bb_solver, node),
@@ -30,7 +30,9 @@ impl BranchStrategy {
         }
     }
 
-    pub fn get_branch_strategy(branch_strategy_selection: &BranchStrategySelection) -> BranchStrategy{
+    pub fn get_branch_strategy(
+        branch_strategy_selection: &BranchStrategySelection,
+    ) -> BranchStrategy {
         match branch_strategy_selection {
             BranchStrategySelection::FirstNotFixed => BranchStrategy::FirstNotFixed,
             BranchStrategySelection::MostViolated => BranchStrategy::MostViolated,

@@ -1,5 +1,5 @@
-use std::collections::HashMap;
 use ndarray::Array1;
+use std::collections::HashMap;
 
 /// Struct the describes the branch and bound tree nodes
 #[derive(Clone)]

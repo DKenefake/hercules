@@ -420,9 +420,6 @@ pub fn solve_branch_bound(
     // read in the QUBO from file
     let p_input = Qubo::from_vec(problem.0, problem.1, problem.2, problem.3, problem.4);
 
-    // get an initially fixed set
-    let initial_set = compute_iterative_persistence(&p_input, &HashMap::new(), p_input.num_x());
-
     let symm_p = p_input.make_symmetric();
 
     let eigs = symm_p.hess_eigenvalues();

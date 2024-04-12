@@ -17,7 +17,11 @@ pub fn output_header(solver_instance: &BBSolver) {
 pub fn generate_output_line(solver_instance: &BBSolver) {
     let num_nodes = solver_instance.nodes_visited;
     let upper_bound = solver_instance.best_solution_value;
-    let lower_bound = solver_instance.nodes.iter().map(|x| x.lower_bound).fold(f64::INFINITY, |a, b| a.min(b));
+    let lower_bound = solver_instance
+        .nodes
+        .iter()
+        .map(|x| x.lower_bound)
+        .fold(f64::INFINITY, |a, b| a.min(b));
     let gap = (upper_bound - lower_bound) / upper_bound * 100.0;
     println!("{num_nodes} | {upper_bound} | {lower_bound} | {gap}");
 }
@@ -25,9 +29,9 @@ pub fn generate_output_line(solver_instance: &BBSolver) {
 #[cfg(test)]
 mod tests {
     use crate::branchbound::BBSolver;
-    use crate::solver_options::SolverOptions;
     use crate::branchboundlogger::{generate_output_line, output_header};
     use crate::qubo::Qubo;
+    use crate::solver_options::SolverOptions;
     use ndarray::Array1;
     use sprs::CsMat;
 

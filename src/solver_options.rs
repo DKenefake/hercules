@@ -1,6 +1,6 @@
+use crate::branch_stratagy::BranchStrategySelection;
+use crate::branch_subproblem::{SubProblemSelection, SubProblemSolver};
 use std::collections::HashMap;
-use crate::branch_stratagy::{BranchStrategy, BranchStrategySelection};
-use crate::branch_subproblem::{ClarabelSubProblemSolver, SubProblemSelection, SubProblemSolver};
 
 /// Options for the B&B solver for run time
 pub struct SolverOptions {
@@ -32,8 +32,12 @@ impl SolverOptions {
                 "FirstNotFixed" => self.branch_strategy = BranchStrategySelection::FirstNotFixed,
                 "MostViolated" => self.branch_strategy = BranchStrategySelection::MostViolated,
                 "Random" => self.branch_strategy = BranchStrategySelection::Random,
-                "WorstApproximation" => self.branch_strategy = BranchStrategySelection::WorstApproximation,
-                "BestApproximation" => self.branch_strategy = BranchStrategySelection::BestApproximation,
+                "WorstApproximation" => {
+                    self.branch_strategy = BranchStrategySelection::WorstApproximation
+                }
+                "BestApproximation" => {
+                    self.branch_strategy = BranchStrategySelection::BestApproximation
+                }
                 _ => self.branch_strategy = BranchStrategySelection::MostViolated,
             },
             None => (),

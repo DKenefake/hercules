@@ -1,11 +1,5 @@
-use crate::branchbound::BBSolver;
-use crate::branch_stratagy::BranchStrategy;
-use crate::qubo::Qubo;
 use crate::branch_node::QuboBBNode;
-use clarabel::algebra::CscMatrix;
 use ndarray::Array1;
-use sprs::CsMat;
-use std::collections::HashMap;
 
 /// Bare bones implementation of B&B. Currently requires the QUBO to be symmetrical and convex.
 

@@ -17,6 +17,9 @@ const VERSION: &str = env!("CARGO_PKG_VERSION");
 
 use pyo3::prelude::*;
 
+mod branch_node;
+mod branch_stratagy;
+mod branch_subproblem;
 mod branchbound;
 pub mod branchbound_utils;
 mod branchboundlogger;
@@ -29,12 +32,9 @@ pub mod local_search_utils;
 pub mod persistence;
 pub mod python_interopt;
 pub mod qubo;
+mod solver_options;
 pub mod utils;
 pub mod variable_reduction;
-mod branch_stratagy;
-mod branch_subproblem;
-mod branch_node;
-mod solver_options;
 
 // imports to generate the python interface
 

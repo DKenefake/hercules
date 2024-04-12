@@ -3,13 +3,15 @@ use ndarray::Array1;
 use std::ops::Index;
 use std::time;
 
-use crate::branchbound_utils::check_integer_feasibility;
-use crate::solver_options::SolverOptions;
 use crate::branch_node::QuboBBNode;
 use crate::branch_stratagy::BranchStrategy;
-use crate::branch_subproblem::{ClarabelSubProblemSolver, SubProblemSolver};
-use crate::persistence::compute_iterative_persistence;
+use crate::branch_subproblem::{
+    get_sub_problem_solver, ClarabelSubProblemSolver, SubProblemSolver,
+};
+use crate::branchbound_utils::check_integer_feasibility;
 use crate::branchboundlogger::{generate_output_line, output_header};
+use crate::persistence::compute_iterative_persistence;
+use crate::solver_options::SolverOptions;
 
 /// Struct for the B&B Solver
 pub struct BBSolver {
@@ -31,7 +33,7 @@ impl BBSolver {
         // create auxiliary variables
         let num_x = qubo.num_x();
 
-        let sub_problem_solver = ClarabelSubProblemSolver::new(&qubo);
+        let sub_problem_solver = get_sub_problem_solver(&qubo, &options.sub_problem_solver);
 
         Self {
             qubo,
@@ -55,7 +57,6 @@ impl BBSolver {
 
     /// The main solve function of the B&B algorithm
     pub fn solve(&mut self) -> (Array1<f64>, f64) {
-
         // preprocess the problem
         self.preprocess_initial();
 
@@ -79,7 +80,6 @@ impl BBSolver {
         if self.options.verbose {
             output_header(&self);
         }
-
 
         // until we have hit a termination condition, we will keep iterating
         while !(*self).termination_condition() {
@@ -144,7 +144,6 @@ impl BBSolver {
                     generate_output_line(&self);
                 }
             }
-
         }
 
         (self.best_solution.clone(), self.best_solution_value)
@@ -204,6 +203,32 @@ impl BBSolver {
             }
         }
         None
+    }
+
+    /// This function is used to get the next N nodes to process
+    ///
+    /// It is not guaranteed to generate a vector of N nodes, as there might not be N nodes to get
+    /// can return an empty list of nodes!
+    pub fn get_next_nodes(&mut self, n: usize) -> Vec<QuboBBNode> {
+        let mut selected_nodes = Vec::new();
+
+        // get the next node until we have n nodes or exhausted the list of nodes
+        while selected_nodes.len() < n{
+
+            // get the next node
+            let possible_node = self.get_next_node();
+
+            match possible_node {
+                Some(node) => {
+                        selected_nodes.push(node);
+                }
+                None => {
+                    return selected_nodes;
+                }
+            }
+        }
+
+        selected_nodes
     }
 
     /// Checks for termination conditions of the B&B algorithm, such as time limit or no more nodes
@@ -274,8 +299,8 @@ impl BBSolver {
 
 #[cfg(test)]
 mod tests {
-    use crate::solver_options::SolverOptions;
     use crate::qubo::Qubo;
+    use crate::solver_options::SolverOptions;
     use crate::tests::make_test_prng;
     use crate::{branchbound, local_search};
     use ndarray::Array1;

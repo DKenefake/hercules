@@ -1,27 +1,29 @@
+use crate::branch_node::QuboBBNode;
+use crate::branchbound::BBSolver;
+use crate::qubo::Qubo;
 use clarabel::algebra::CscMatrix;
 use clarabel::solver::{DefaultSettings, DefaultSolver, IPSolver, NonnegativeConeT, ZeroConeT};
 use ndarray::Array1;
 use sprs::{CsMat, TriMat};
-use crate::branch_node::QuboBBNode;
-use crate::branchbound::BBSolver;
-use crate::qubo::Qubo;
-
 
 type SubProblemResult = (f64, Array1<f64>);
 
 pub trait SubProblemSolver {
-   fn new(qubo: &Qubo)-> Self;
+    fn new(qubo: &Qubo) -> Self;
 
-    fn solve(&self, bbsolver: &BBSolver,node: &QuboBBNode) -> SubProblemResult;
+    fn solve(&self, bbsolver: &BBSolver, node: &QuboBBNode) -> SubProblemResult;
 }
 
-pub enum SubProblemSelection{
-    Clarabel
+pub enum SubProblemSelection {
+    Clarabel,
 }
 
-pub fn get_branch_strategy(bbsolver:&BBSolver, sub_problem_selection: &SubProblemSelection) -> ClarabelSubProblemSolver{
-    match sub_problem_selection{
-        SubProblemSelection::Clarabel => ClarabelSubProblemSolver::new(&bbsolver.qubo),
+pub fn get_sub_problem_solver(
+    qubo: &Qubo,
+    sub_problem_selection: &SubProblemSelection,
+) -> ClarabelSubProblemSolver {
+    match sub_problem_selection {
+        SubProblemSelection::Clarabel => ClarabelSubProblemSolver::new(&qubo),
     }
 }
 
@@ -30,7 +32,7 @@ pub struct ClarabelSubProblemSolver {
     c: Array1<f64>,
 }
 
-impl SubProblemSolver for ClarabelSubProblemSolver{
+impl SubProblemSolver for ClarabelSubProblemSolver {
     fn new(qubo: &Qubo) -> Self {
         let q_new = Self::make_cb_form(&(qubo.q));
         Self {
@@ -39,7 +41,7 @@ impl SubProblemSolver for ClarabelSubProblemSolver{
         }
     }
 
-    fn solve(&self, bbsolver: &BBSolver,node: &QuboBBNode) -> SubProblemResult {
+    fn solve(&self, bbsolver: &BBSolver, node: &QuboBBNode) -> SubProblemResult {
         // solve QP associated with the node
         // generate default settings
         let settings = DefaultSettings {
@@ -89,7 +91,6 @@ impl SubProblemSolver for ClarabelSubProblemSolver{
 
         // solve the optimization problem
         solver.solve();
-
 
         (solver.solution.obj_val, Array1::from(solver.solution.x))
     }
