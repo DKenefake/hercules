@@ -1,3 +1,4 @@
+use std::time;
 use crate::branchbound::BBSolver;
 
 pub fn output_header(solver_instance: &BBSolver) {
@@ -22,19 +23,28 @@ pub fn generate_output_line(solver_instance: &BBSolver) {
         .iter()
         .map(|x| x.lower_bound)
         .fold(f64::INFINITY, |a, b| a.min(b));
-    let gap = ((upper_bound - lower_bound) / upper_bound * 100.0 + 1E-5).abs();
+    let gap = 100.0*(upper_bound - lower_bound) / (upper_bound  + 1E-5).abs();
+    let gap = gap.max(0.0);
+    let lower_bound = lower_bound.min(upper_bound);
     println!("{num_nodes} | {upper_bound} | {lower_bound} | {gap}");
 }
 
 pub fn generate_exit_line(solver_instance: &BBSolver) {
     let solution = solver_instance.best_solution.clone();
     let solution_value = solver_instance.best_solution_value;
-    let nodes_visited = solver_instance.nodes_visited;
+    let nodes_solved = solver_instance.nodes_solved;
+    let current_time =time::SystemTime::now()
+        .duration_since(time::SystemTime::UNIX_EPOCH)
+        .unwrap()
+        .as_secs_f64();
+    let time_passed = current_time - solver_instance.time_start;
     println!("------------------------------------------------------");
     println!("Branch and Bound Solver Finished");
     println!("Best Solution: {solution}");
     println!("Best Solution Value: {solution_value}");
-    println!("Nodes Visited: {nodes_visited}");
+    println!("Nodes Visited: {nodes_solved}");
+    println!("Time to Solve: {time_passed}");
+    println!("------------------------------------------------------");
 }
 
 pub fn output_warm_start_info(solver_instance: &BBSolver) {
@@ -61,8 +71,6 @@ mod tests {
             Qubo::new_with_c(CsMat::eye(3), Array1::from_vec(vec![1.0, -2.0, 3.0])),
             SolverOptions::new(),
         );
-
-        solver.preprocess_initial();
 
         let s = solver.solve();
 
