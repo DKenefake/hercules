@@ -15,15 +15,35 @@ pub fn output_header(solver_instance: &BBSolver) {
 }
 
 pub fn generate_output_line(solver_instance: &BBSolver) {
-    let num_nodes = solver_instance.nodes_visited;
+    let num_nodes = solver_instance.nodes_solved;
     let upper_bound = solver_instance.best_solution_value;
     let lower_bound = solver_instance
         .nodes
         .iter()
         .map(|x| x.lower_bound)
         .fold(f64::INFINITY, |a, b| a.min(b));
-    let gap = (upper_bound - lower_bound) / upper_bound * 100.0;
+    let gap = ((upper_bound - lower_bound) / upper_bound * 100.0 + 1E-5).abs();
     println!("{num_nodes} | {upper_bound} | {lower_bound} | {gap}");
+}
+
+pub fn generate_exit_line(solver_instance: &BBSolver) {
+    let solution = solver_instance.best_solution.clone();
+    let solution_value = solver_instance.best_solution_value;
+    let nodes_visited = solver_instance.nodes_visited;
+    println!("------------------------------------------------------");
+    println!("Branch and Bound Solver Finished");
+    println!("Best Solution: {solution}");
+    println!("Best Solution Value: {solution_value}");
+    println!("Nodes Visited: {nodes_visited}");
+}
+
+pub fn output_warm_start_info(solver_instance: &BBSolver) {
+    let num_fixed_vars = solver_instance.options.fixed_variables.len();
+    let solution_value = solver_instance.best_solution_value;
+    println!("------------------------------------------------------");
+    println!("Warm Start Information");
+    println!("Starting with warm start with {num_fixed_vars} fixed variables");
+    println!("Objective: {solution_value}");
 }
 
 #[cfg(test)]

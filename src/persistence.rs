@@ -107,7 +107,6 @@ pub fn grad_bounds(qubo: &Qubo, i: usize, persistent: &HashMap<usize, f64>) -> (
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::persistence;
     use crate::qubo::Qubo;
     use ndarray::Array1;
     use sprs::CsMat;

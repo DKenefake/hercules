@@ -9,7 +9,9 @@ use crate::branch_subproblem::{
     get_sub_problem_solver, ClarabelSubProblemSolver, SubProblemSolver,
 };
 use crate::branchbound_utils::check_integer_feasibility;
-use crate::branchboundlogger::{generate_output_line, output_header};
+use crate::branchboundlogger::{
+    generate_exit_line, generate_output_line, output_header, output_warm_start_info,
+};
 use crate::persistence::compute_iterative_persistence;
 use crate::solver_options::SolverOptions;
 
@@ -20,6 +22,7 @@ pub struct BBSolver {
     pub best_solution_value: f64,
     pub nodes: Vec<QuboBBNode>,
     pub nodes_processed: usize,
+    pub nodes_solved: usize,
     pub nodes_visited: usize,
     pub time_start: f64,
     pub branch_strategy: BranchStrategy,
@@ -33,7 +36,8 @@ impl BBSolver {
         // create auxiliary variables
         let num_x = qubo.num_x();
 
-        let sub_problem_solver = get_sub_problem_solver(&qubo, &options.sub_problem_solver);
+        let subproblem_solver = get_sub_problem_solver(&qubo, &options.sub_problem_solver);
+        let branch_strategy = BranchStrategy::get_branch_strategy(&options.branch_strategy);
 
         Self {
             qubo,
@@ -42,9 +46,10 @@ impl BBSolver {
             nodes: Vec::new(),
             nodes_processed: 0,
             nodes_visited: 0,
+            nodes_solved: 0,
             time_start: 0.0,
-            branch_strategy: BranchStrategy::get_branch_strategy(&options.branch_strategy),
-            subproblem_solver: sub_problem_solver,
+            branch_strategy,
+            subproblem_solver,
             options,
         }
     }
@@ -58,7 +63,7 @@ impl BBSolver {
     /// The main solve function of the B&B algorithm
     pub fn solve(&mut self) -> (Array1<f64>, f64) {
         // preprocess the problem
-        self.preprocess_initial();
+        // self.preprocess_initial();
 
         // create the root node
         let root_node = QuboBBNode {
@@ -78,7 +83,12 @@ impl BBSolver {
 
         // set up the output of the solver
         if self.options.verbose {
+            // display the header
             output_header(&self);
+            // if the best solution is negative, then we output the warm start information
+            if self.best_solution_value < 0.0 {
+                output_warm_start_info(self);
+            }
         }
 
         // until we have hit a termination condition, we will keep iterating
@@ -108,6 +118,7 @@ impl BBSolver {
 
             // We now need to solve the node to generate the lower bound and solution
             let (lower_bound, solution) = self.solve_node(&node);
+            self.nodes_solved += 1;
 
             if lower_bound > self.best_solution_value {
                 continue;
@@ -139,11 +150,15 @@ impl BBSolver {
             self.nodes.push(zero_branch);
             self.nodes.push(one_branch);
 
-            if self.nodes_processed % 100 == 0 {
+            if self.nodes_solved % 100 == 0 {
                 if self.options.verbose {
                     generate_output_line(&self);
                 }
             }
+        }
+
+        if self.options.verbose {
+            generate_exit_line(&self);
         }
 
         (self.best_solution.clone(), self.best_solution_value)
@@ -213,14 +228,13 @@ impl BBSolver {
         let mut selected_nodes = Vec::new();
 
         // get the next node until we have n nodes or exhausted the list of nodes
-        while selected_nodes.len() < n{
-
+        while selected_nodes.len() < n {
             // get the next node
             let possible_node = self.get_next_node();
 
             match possible_node {
                 Some(node) => {
-                        selected_nodes.push(node);
+                    selected_nodes.push(node);
                 }
                 None => {
                     return selected_nodes;
@@ -275,7 +289,7 @@ impl BBSolver {
 
         // update the solution and lower bound for the new nodes
         zero_branch.solution = solution.clone();
-        one_branch.solution = solution;
+        one_branch.solution = solution.clone();
 
         // set the lower bound for the new nodes
         zero_branch.lower_bound = lower_bound;
@@ -299,9 +313,10 @@ impl BBSolver {
 
 #[cfg(test)]
 mod tests {
+    use crate::branch_stratagy::BranchStrategySelection;
     use crate::qubo::Qubo;
     use crate::solver_options::SolverOptions;
-    use crate::tests::make_test_prng;
+    use crate::tests::{make_solver_qubo, make_test_prng};
     use crate::{branchbound, local_search};
     use ndarray::Array1;
     use sprs::CsMat;
@@ -320,5 +335,30 @@ mod tests {
 
         assert_eq!(solver.best_solution_value, -4.6);
         assert_eq!(solver.best_solution, Array1::from_vec(vec![1.0, 1.0, 1.0]));
+    }
+    #[test]
+    pub fn branch_bound_bench() {
+        let mut prng = make_test_prng();
+
+        let p = make_solver_qubo();
+
+        let p_new = p.make_symmetric();
+        // get the eigenvalues of the hessian
+        let eig = p_new.hess_eigenvalues();
+        // get the smallest eigenvalue
+        let min_eig = eig.iter().fold(f64::INFINITY, |a, b| a.min(*b));
+
+        let p_fixed = p_new.make_convex(min_eig.abs() * 1.1);
+
+        let guess = local_search::particle_swarm_search(&p_fixed, 10, 100, &mut prng);
+
+        let mut options = SolverOptions::new();
+        options.verbose = true;
+        options.max_time = 1000.0;
+        options.branch_strategy = BranchStrategySelection::Random;
+
+        let mut solver = branchbound::BBSolver::new(p_fixed, SolverOptions::new());
+        solver.warm_start(guess);
+        solver.solve();
     }
 }
