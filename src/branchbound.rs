@@ -1,8 +1,8 @@
 use crate::qubo::Qubo;
 use ndarray::Array1;
+use rayon::prelude::*;
 use std::ops::Index;
 use std::time;
-use rayon::prelude::*;
 
 use crate::branch_node::QuboBBNode;
 use crate::branch_stratagy::BranchStrategy;
@@ -32,30 +32,30 @@ pub struct BBSolver {
 }
 
 pub enum Event {
-    UpdateBestSolution(Array1<f64>),
+    UpdateBestSolution(Array1<f64>, f64),
     AddBranches(QuboBBNode, QuboBBNode),
-    Nill
+    Nill,
 }
 
-pub enum SolverLoggingAction{
+pub enum SolverLoggingAction {
     NodeVisited,
     NodeProcessed,
     NodeSolved,
 }
 
-pub enum PruneAction{
+pub enum PruneAction {
     Prune,
-    Dont
+    Dont,
 }
 
-pub enum IntegerFeasibility{
+pub enum IntegerFeasibility {
     IntegerFeasible(Array1<f64>),
-    NotIntegerFeasible
+    NotIntegerFeasible,
 }
 
-pub struct ProcessNodeState{
+pub struct ProcessNodeState {
     pub prune_action: PruneAction,
-    pub event: Option<Event>
+    pub event: Option<Event>,
 }
 
 impl BBSolver {
@@ -128,7 +128,6 @@ impl BBSolver {
 
         // until we have hit a termination condition, we will keep iterating
         while !(*self).termination_condition() {
-
             // get the most recent 25 nodes to process
             let nodes = self.get_next_nodes(self.options.threads);
 
@@ -136,31 +135,20 @@ impl BBSolver {
                 break;
             }
 
-            let process_results = nodes.par_iter().map(|node| {
-                self.process_node(node.clone())
-            }).collect::<Vec<ProcessNodeState>>();
+            let process_results = nodes
+                .par_iter()
+                .map(|node| self.process_node(node.clone()))
+                .collect::<Vec<_>>();
 
             self.nodes_processed += nodes.len();
 
             for state in process_results {
-                match state.event {
-                    Some(Event::UpdateBestSolution(solution)) => {
-                        self.update_solution_if_better(&solution);
-                    },
-                    Some(Event::AddBranches(zero_branch, one_branch)) => {
-                        self.nodes.push(zero_branch);
-                        self.nodes.push(one_branch);
-                        self.nodes_solved += 1;
-                    },
-                    _ => {}
-                }
+                self.apply_event_option(state.event);
             }
-
 
             if self.options.verbose {
                 generate_output_line(&self);
             }
-
         }
 
         if self.options.verbose {
@@ -169,7 +157,6 @@ impl BBSolver {
 
         (self.best_solution.clone(), self.best_solution_value)
     }
-
 
     /// Checks if we can prune the node, based on the lower bound and best solution, returns an action
     pub fn can_prune_action(&self, node: &QuboBBNode) -> (PruneAction, Event) {
@@ -186,9 +173,13 @@ impl BBSolver {
                 solution[index] = value;
             }
 
+            let value = self.qubo.eval(&solution);
             // evaluate the solution against the best solution we have so far
             // if we have a better solution update it
-            return (PruneAction::Prune, Event::UpdateBestSolution(solution));
+            return (
+                PruneAction::Prune,
+                Event::UpdateBestSolution(solution, value),
+            );
         }
 
         (PruneAction::Dont, Event::Nill)
@@ -196,10 +187,9 @@ impl BBSolver {
 
     /// main loop of the branch and bound algorithm
     pub fn process_node(&self, node: QuboBBNode) -> ProcessNodeState {
-
         let mut x = ProcessNodeState {
             prune_action: PruneAction::Dont,
-            event: None
+            event: None,
         };
 
         let mut node = node.clone();
@@ -214,16 +204,9 @@ impl BBSolver {
         match prune_action {
             PruneAction::Prune => {
                 x.prune_action = PruneAction::Prune;
-
-                match event {
-                    Event::UpdateBestSolution(solution) => {
-                        x.event = Some(Event::UpdateBestSolution(solution));
-                    },
-                    _ => {}
-                }
-
+                x.event = Option::from(event);
                 return x;
-            },
+            }
             PruneAction::Dont => {}
         };
 
@@ -238,7 +221,8 @@ impl BBSolver {
         let (is_int_feasible, rounded_sol) = check_integer_feasibility(&node);
 
         if is_int_feasible {
-            x.event = Some(Event::UpdateBestSolution(rounded_sol));
+            let value = self.qubo.eval(&rounded_sol);
+            x.event = Some(Event::UpdateBestSolution(rounded_sol, value));
             return x;
         }
 
@@ -249,15 +233,32 @@ impl BBSolver {
         let (zero_branch, one_branch) = Self::branch(node, branch_id, lower_bound, solution);
 
         // add the branches to the list of nodes
-        x.event = Some(Event::AddBranches(zero_branch, one_branch));;
+        x.event = Some(Event::AddBranches(zero_branch, one_branch));
 
         x
+    }
 
+    pub fn apply_event_option(&mut self, event: Option<Event>) {
+        if event.is_none() {
+            return;
+        }
+
+        match event.unwrap() {
+            Event::UpdateBestSolution(solution, value) => {
+                self.update_solution_if_better(&solution, value);
+            }
+            Event::AddBranches(zero_branch, one_branch) => {
+                self.nodes.push(zero_branch);
+                self.nodes.push(one_branch);
+                self.nodes_solved += 1;
+            }
+            _ => {}
+        };
     }
 
     /// update the best solution if better than the current best solution
-    pub fn update_solution_if_better(&mut self, solution: &Array1<f64>) {
-        let solution_value = self.qubo.eval(solution);
+    pub fn update_solution_if_better(&mut self, solution: &Array1<f64>, solution_value: f64) {
+        // let solution_value = self.qubo.eval(solution);
         if solution_value < self.best_solution_value {
             self.best_solution = solution.clone();
             self.best_solution_value = solution_value;
@@ -266,7 +267,6 @@ impl BBSolver {
 
     /// This function is used to get the next node to process, popping it from the list of nodes
     pub fn get_next_node(&mut self) -> Option<QuboBBNode> {
-
         while !self.nodes.is_empty() {
             // we pull a node from our node list
             let optional_node = self.nodes.pop();
@@ -282,16 +282,16 @@ impl BBSolver {
             let (prune, event) = self.can_prune_action(&node);
 
             match event {
-                Event::UpdateBestSolution(solution) => {
-                    self.update_solution_if_better(&solution);
-                },
+                Event::UpdateBestSolution(solution, value) => {
+                    self.update_solution_if_better(&solution, value);
+                }
                 _ => {}
             }
 
             match prune {
                 PruneAction::Dont => {
                     return Some(node);
-                },
+                }
                 PruneAction::Prune => {}
             }
         }
@@ -300,22 +300,19 @@ impl BBSolver {
     }
 
     pub fn get_next_nodes(&mut self, n: usize) -> Vec<QuboBBNode> {
-
         let mut nodes = Vec::new();
 
         while nodes.len() <= n {
-
             let next_node = self.get_next_node();
 
             match next_node {
                 Some(node) => {
                     nodes.push(node);
-                },
+                }
                 None => {
                     break;
                 }
             }
-
         }
 
         nodes
@@ -377,7 +374,6 @@ impl BBSolver {
     pub fn solve_node(&self, node: &QuboBBNode) -> (f64, Array1<f64>) {
         self.subproblem_solver.solve(self, node)
     }
-
 }
 
 #[cfg(test)]
