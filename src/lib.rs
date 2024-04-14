@@ -75,7 +75,7 @@ mod tests {
             generator: JsfLarge::default(),
         };
 
-        Qubo::make_random_qubo(50, &mut prng, 0.2)
+        Qubo::make_random_qubo(50, &mut prng, 0.1)
     }
 
     pub(crate) fn get_min_obj(p: &Qubo, xs: &Vec<Array1<f64>>) -> f64 {

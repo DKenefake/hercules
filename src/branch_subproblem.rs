@@ -27,6 +27,7 @@ pub fn get_sub_problem_solver(
     }
 }
 
+#[derive(Clone)]
 pub struct ClarabelSubProblemSolver {
     q: CscMatrix,
     c: Array1<f64>,
