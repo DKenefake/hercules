@@ -424,7 +424,7 @@ mod tests {
         let mut options = SolverOptions::new();
         options.verbose = true;
         options.max_time = 1000.0;
-        options.branch_strategy = BranchStrategySelection::Random;
+        options.branch_strategy = BranchStrategySelection::MostViolated;
         options.threads = 32;
 
         let mut solver = branchbound::BBSolver::new(p_fixed, options);
