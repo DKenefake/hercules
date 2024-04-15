@@ -1,7 +1,7 @@
 use crate::qubo::Qubo;
 use ndarray::Array1;
 use rayon::prelude::*;
-use std::ops::Index;
+// use std::ops::Index;
 use std::time;
 
 use crate::branch_node::QuboBBNode;
@@ -37,10 +37,10 @@ pub enum Event {
     Nill,
 }
 
-pub enum SolverLoggingAction {
-    NodeVisited,
-    NodeProcessed,
-    NodeSolved,
+pub enum NodeLoggingAction {
+    Visited,
+    Processed,
+    Solved,
 }
 
 pub enum PruneAction {
@@ -119,7 +119,7 @@ impl BBSolver {
         // set up the output of the solver
         if self.options.verbose {
             // display the header
-            output_header(&self);
+            output_header(self);
             // if the best solution is negative, then we output the warm start information
             if self.best_solution_value < 0.0 {
                 output_warm_start_info(self);
@@ -137,7 +137,7 @@ impl BBSolver {
 
             let process_results = nodes
                 .par_iter()
-                .map(|node| self.process_node(node.clone()))
+                .map(|node| self.process_node(node))
                 .collect::<Vec<_>>();
 
             self.nodes_processed += nodes.len();
@@ -147,12 +147,12 @@ impl BBSolver {
             }
 
             if self.options.verbose {
-                generate_output_line(&self);
+                generate_output_line(self);
             }
         }
 
         if self.options.verbose {
-            generate_exit_line(&self);
+            generate_exit_line(self);
         }
 
         (self.best_solution.clone(), self.best_solution_value)
@@ -186,7 +186,7 @@ impl BBSolver {
     }
 
     /// main loop of the branch and bound algorithm
-    pub fn process_node(&self, node: QuboBBNode) -> ProcessNodeState {
+    pub fn process_node(&self, node: &QuboBBNode) -> ProcessNodeState {
         let mut x = ProcessNodeState {
             prune_action: PruneAction::Dont,
             event: None,
@@ -252,7 +252,7 @@ impl BBSolver {
                 self.nodes.push(one_branch);
                 self.nodes_solved += 1;
             }
-            _ => {}
+            Event::Nill => {}
         };
     }
 
@@ -281,11 +281,8 @@ impl BBSolver {
             // if we can't prune it, then we return it
             let (prune, event) = self.can_prune_action(&node);
 
-            match event {
-                Event::UpdateBestSolution(solution, value) => {
-                    self.update_solution_if_better(&solution, value);
-                }
-                _ => {}
+            if let Event::UpdateBestSolution(solution, value) = event {
+                self.update_solution_if_better(&solution, value);
             }
 
             match prune {
@@ -341,7 +338,7 @@ impl BBSolver {
 
     /// Branch Selection Strategy - Currently selects the first variable that is not fixed
     pub fn make_branch(&self, node: &QuboBBNode) -> usize {
-        return self.branch_strategy.make_branch(self, node);
+        self.branch_strategy.make_branch(self, node)
     }
 
     /// Actually branches the node into two new nodes
@@ -354,7 +351,7 @@ impl BBSolver {
         // make two new nodes that are clones of the parent, one with the variable set to 0 and
         // the other set to 1
         let mut zero_branch = node.clone();
-        let mut one_branch = node.clone();
+        let mut one_branch = node;
 
         // add fixed variables
         zero_branch.fixed_variables.insert(branch_id, 0.0);
@@ -362,7 +359,7 @@ impl BBSolver {
 
         // update the solution and lower bound for the new nodes
         zero_branch.solution = solution.clone();
-        one_branch.solution = solution.clone();
+        one_branch.solution = solution;
 
         // set the lower bound for the new nodes
         zero_branch.lower_bound = lower_bound;

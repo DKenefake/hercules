@@ -1,7 +1,7 @@
 // Main Backend for running K-Opt via the branch and bound algorithm
 
 use crate::branch_stratagy::BranchStrategySelection;
-use crate::branch_subproblem::{SubProblemSelection, SubProblemSolver};
+use crate::branch_subproblem::SubProblemSelection;
 use crate::branchbound::BBSolver;
 use crate::persistence::compute_iterative_persistence;
 use crate::qubo::Qubo;

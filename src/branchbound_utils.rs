@@ -11,21 +11,19 @@ pub fn check_integer_feasibility(node: &QuboBBNode) -> (bool, Array1<f64>) {
     let epsilon = 1E-10;
 
     for i in 0..num_x {
-        match node.fixed_variables.get(&i) {
-            Some(val) => {
-                sum += 1;
-                buffer[i] = *val;
-            }
-            None => {
-                if node.solution[i].abs() <= epsilon {
-                    sum += 1;
-                    buffer[i] = 0.0;
-                }
 
-                if (node.solution[i] - 1.0).abs() <= epsilon {
-                    sum += 1;
-                    buffer[i] = 1.0;
-                }
+        if let Some(val) = node.fixed_variables.get(&i){
+            sum += 1;
+            buffer[i] = *val;
+        }else {
+            if node.solution[i].abs() <= epsilon {
+                sum += 1;
+                buffer[i] = 0.0;
+            }
+
+            if (node.solution[i] - 1.0).abs() <= epsilon {
+                sum += 1;
+                buffer[i] = 1.0;
             }
         }
     }

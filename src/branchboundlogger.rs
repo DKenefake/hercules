@@ -22,7 +22,7 @@ pub fn generate_output_line(solver_instance: &BBSolver) {
         .nodes
         .iter()
         .map(|x| x.lower_bound)
-        .fold(f64::INFINITY, |a, b| a.min(b));
+        .fold(f64::INFINITY, f64::min);
     let gap = 100.0 * (upper_bound - lower_bound) / (upper_bound + 1E-5).abs();
     let gap = gap.max(0.0);
     let lower_bound = lower_bound.min(upper_bound);

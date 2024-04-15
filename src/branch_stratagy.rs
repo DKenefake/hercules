@@ -22,23 +22,23 @@ pub enum BranchStrategySelection {
 impl BranchStrategy {
     pub fn make_branch(&self, bb_solver: &BBSolver, node: &QuboBBNode) -> usize {
         match self {
-            BranchStrategy::FirstNotFixed => first_not_fixed(bb_solver, node),
-            BranchStrategy::MostViolated => most_violated(bb_solver, node),
-            BranchStrategy::Random => random(bb_solver, node),
-            BranchStrategy::WorstApproximation => worst_approximation(bb_solver, node),
-            BranchStrategy::BestApproximation => best_approximation(bb_solver, node),
+            Self::FirstNotFixed => first_not_fixed(bb_solver, node),
+            Self::MostViolated => most_violated(bb_solver, node),
+            Self::Random => random(bb_solver, node),
+            Self::WorstApproximation => worst_approximation(bb_solver, node),
+            Self::BestApproximation => best_approximation(bb_solver, node),
         }
     }
 
-    pub fn get_branch_strategy(
+    pub const fn get_branch_strategy(
         branch_strategy_selection: &BranchStrategySelection,
     ) -> BranchStrategy {
         match branch_strategy_selection {
-            BranchStrategySelection::FirstNotFixed => BranchStrategy::FirstNotFixed,
-            BranchStrategySelection::MostViolated => BranchStrategy::MostViolated,
-            BranchStrategySelection::Random => BranchStrategy::Random,
-            BranchStrategySelection::WorstApproximation => BranchStrategy::WorstApproximation,
-            BranchStrategySelection::BestApproximation => BranchStrategy::BestApproximation,
+            BranchStrategySelection::FirstNotFixed => Self::FirstNotFixed,
+            BranchStrategySelection::MostViolated => Self::MostViolated,
+            BranchStrategySelection::Random => Self::Random,
+            BranchStrategySelection::WorstApproximation => Self::WorstApproximation,
+            BranchStrategySelection::BestApproximation => Self::BestApproximation,
         }
     }
 }
@@ -79,7 +79,9 @@ pub fn random(solver: &BBSolver, node: &QuboBBNode) -> usize {
     };
 
     // generate a random index in the list of variables
-    let index = (prng.gen_u64() % solver.qubo.num_x() as u64) as usize;
+
+    // This unwrap is 'safe' in that, the 32 bit system would crash trying to solve a QUBO with 2^32 variables
+    let index =  usize::try_from(prng.gen_u64() % solver.qubo.num_x() as u64).unwrap();
 
     // scan thru the variables and find the first one that is not fixed starting at the random point
     for i in index..solver.qubo.num_x() {

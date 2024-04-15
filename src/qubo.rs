@@ -3,8 +3,7 @@
 //! The QUBO struct uses a sparse representation of the QUBO matrix, and is stored in CSR order, it is not assumed to be symmetrical.
 
 use ndarray::Array1;
-use ndarray_linalg::*;
-use std::hash::{Hash, Hasher};
+use ndarray_linalg::{Eigh, UPLO};
 
 use sprs::{CsMat, TriMat};
 use std::io::BufRead;

@@ -1,5 +1,5 @@
 use crate::branch_stratagy::BranchStrategySelection;
-use crate::branch_subproblem::{SubProblemSelection, SubProblemSolver};
+use crate::branch_subproblem::SubProblemSelection;
 use std::collections::HashMap;
 
 /// Options for the B&B solver for run time
@@ -27,16 +27,17 @@ impl SolverOptions {
     }
 
     pub fn set_branch_strategy(&mut self, strategy: Option<String>) {
+
         match strategy {
             Some(s) => match s.as_str() {
                 "FirstNotFixed" => self.branch_strategy = BranchStrategySelection::FirstNotFixed,
                 "MostViolated" => self.branch_strategy = BranchStrategySelection::MostViolated,
                 "Random" => self.branch_strategy = BranchStrategySelection::Random,
                 "WorstApproximation" => {
-                    self.branch_strategy = BranchStrategySelection::WorstApproximation
+                    self.branch_strategy = BranchStrategySelection::WorstApproximation;
                 }
                 "BestApproximation" => {
-                    self.branch_strategy = BranchStrategySelection::BestApproximation
+                    self.branch_strategy = BranchStrategySelection::BestApproximation;
                 }
                 _ => self.branch_strategy = BranchStrategySelection::MostViolated,
             },
@@ -45,12 +46,12 @@ impl SolverOptions {
     }
 
     pub fn set_sub_problem_strategy(&mut self, strategy: Option<String>) {
-        match strategy {
-            Some(s) => match s.as_str() {
+
+        if let Some(s) = strategy {
+            match s.as_str() {
                 "QP" => self.sub_problem_solver = SubProblemSelection::Clarabel,
                 _ => self.sub_problem_solver = SubProblemSelection::Clarabel,
-            },
-            None => (),
+            }
         }
     }
 }

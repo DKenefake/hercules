@@ -160,18 +160,18 @@ impl Constraint {
         fixed_value: f64,
     ) -> Option<(usize, f64)> {
         // if the fixed value is 1, then the free variable must be 0
-        return match fixed_value == 1.0 {
+        match fixed_value == 1.0 {
             true => Some((free_var, 0.0)),
             false => Some((free_var, 1.0)),
-        };
+        }
     }
 
     pub fn exactly_one_inference(&self, free_var: usize, fixed_value: f64) -> Option<(usize, f64)> {
         // if the fixed value is 1, then the free variable must be 0
-        return match fixed_value == 1.0 {
+        match fixed_value == 1.0 {
             true => Some((free_var, 0.0)),
             false => Some((free_var, 1.0)),
-        };
+        }
     }
 
     pub fn at_least_one_inference(
@@ -180,10 +180,10 @@ impl Constraint {
         fixed_value: f64,
     ) -> Option<(usize, f64)> {
         // if the fixed value is 0, then the free variable must be 1
-        return match fixed_value == 1.0 {
+        match fixed_value == 1.0 {
             true => None,
             false => Some((free_var, 1.0)),
-        };
+        }
     }
 
     pub fn greater_than_inference(&self, persistent: &HashMap<usize, f64>) -> Option<(usize, f64)> {
@@ -240,7 +240,7 @@ impl Constraint {
         None
     }
 
-    pub fn equal_inference(&self, free_var: usize, fixed_value: f64) -> Option<(usize, f64)> {
+    pub const fn equal_inference(&self, free_var: usize, fixed_value: f64) -> Option<(usize, f64)> {
         Some((free_var, fixed_value))
     }
 }
