@@ -1,10 +1,10 @@
-# Hercules: QUBO Heuristic Solver Toolkit
+# Hercules: QUBO Solver and Heuristics Toolkit
 
-Hercules is a Rust library for (heuristically) solving Quadratic Unconstrained Binary Optimization (QUBO) problems. Hercules is designed to be used as a library for implementing and testing QUBO heuristics. It is mostly a side project for me during my PhD, so please be understanding of this.
+Hercules is a Rust library for analysing, finding approximate solutions, and finding exact solutions for Quadratic Unconstrained Binary Optimization (QUBO) problems. It is mostly a side project for me during my PhD, so please be understanding of this.
 
 ## What is this library for?
 
-Hercules is designed as a simple, easy-to-use library for solving QUBO problems. It is not necessarily designed to be a state-of-the-art tool but a toolkit for quickly prototyping and testing new heuristics. That said, Hercules is designed to be fast and written in Rust, a high-performance systems programming language.
+Hercules is designed as a simple, easy-to-use library for solving QUBO problems. It is not necessarily designed to be a state-of-the-art tool but a toolkit for quickly prototyping and testing QUBO methods. That said, Hercules is designed to be fast and written in Rust, a high-performance systems programming language.
 
 ## Progress
 
@@ -12,12 +12,19 @@ Hercules is currently in the early stages of development. The following features
 
 - [x] QUBO data structure
 - [x] QUBO problem generation
-- [x] 1-opt heuristic
-- [x] Gain heuristic (based on boros2007)
-- [ ] Tabu search
-- [x] Discrete Particle Swarm Optimization
-- [ ] Simulated Annealing
-- [ ] Parallel Tempering
+- [x] QUBO Heuristics
+- [x] Initial Branch & Bound Solver
+
+When refereing to the solver, there is a world of a difference between naive implimentations and useful for real world implimentations. I am trying to oterativley move the solver to the category of usefull for real world problems, without punting to much of the responsibilities to dependencies. This is documented in a very high level on my [personal blog](https://dkenefake.github.io/blog/bb1). As it stands, it can generally solve dense and sparse problems below 80 binaries. But I hope to push the capabilities to larger problem sizes, and solve the problems we can much faster. 
+
+- [x] Initial Branch and Bound
+- [x] Initial Presolver
+- [x] Warm Starting
+- [x] Variable Branching Rules
+- [x] Multithreaded B&B solver
+- [ ] Modern Presolver
+- [ ] Warm starting subproblems
+
 
 ## Simple: Read and solve QUBO example
 
