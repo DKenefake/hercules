@@ -98,8 +98,8 @@ pub fn grad_bounds(qubo: &Qubo, i: usize, persistent: &HashMap<usize, f64>) -> (
     }
 
     // add the contribution from the constant term
-    lower = lower + qubo.c[i];
-    upper = upper + qubo.c[i];
+    lower += qubo.c[i];
+    upper += qubo.c[i];
 
     (lower, upper)
 }

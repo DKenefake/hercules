@@ -1,5 +1,5 @@
 use crate::branchbound::BBSolver;
-use std::time;
+use crate::branchbound_utils::get_current_time;
 
 pub fn output_header(solver_instance: &BBSolver) {
     let version_number = env!("CARGO_PKG_VERSION");
@@ -33,10 +33,7 @@ pub fn generate_exit_line(solver_instance: &BBSolver) {
     let solution = solver_instance.best_solution.clone();
     let solution_value = solver_instance.best_solution_value;
     let nodes_solved = solver_instance.nodes_solved;
-    let current_time = time::SystemTime::now()
-        .duration_since(time::SystemTime::UNIX_EPOCH)
-        .unwrap()
-        .as_secs_f64();
+    let current_time = get_current_time();
     let time_passed = current_time - solver_instance.time_start;
     println!("------------------------------------------------------");
     println!("Branch and Bound Solver Finished");

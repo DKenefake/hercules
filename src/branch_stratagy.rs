@@ -30,9 +30,7 @@ impl BranchStrategy {
         }
     }
 
-    pub const fn get_branch_strategy(
-        branch_strategy_selection: &BranchStrategySelection,
-    ) -> BranchStrategy {
+    pub const fn get_branch_strategy(branch_strategy_selection: &BranchStrategySelection) -> Self {
         match branch_strategy_selection {
             BranchStrategySelection::FirstNotFixed => Self::FirstNotFixed,
             BranchStrategySelection::MostViolated => Self::MostViolated,
@@ -79,9 +77,8 @@ pub fn random(solver: &BBSolver, node: &QuboBBNode) -> usize {
     };
 
     // generate a random index in the list of variables
-
-    // This unwrap is 'safe' in that, the 32 bit system would crash trying to solve a QUBO with 2^32 variables
-    let index =  usize::try_from(prng.gen_u64() % solver.qubo.num_x() as u64).unwrap();
+    // This unwrap is 'safe' in that, the 32-bit system would crash trying to solve a QUBO with 2^32 variables
+    let index = usize::try_from(prng.gen_u64() % solver.qubo.num_x() as u64).unwrap();
 
     // scan thru the variables and find the first one that is not fixed starting at the random point
     for i in index..solver.qubo.num_x() {
@@ -128,7 +125,7 @@ pub fn worst_approximation(solver: &BBSolver, node: &QuboBBNode) -> usize {
     index_worst_approximation
 }
 
-/// Branches on the variable that has an estimated best result,keeping the lower bound as low as possible
+/// Branches on the variable that has an estimated best result, keeping the lower bound as low as possible
 pub fn best_approximation(solver: &BBSolver, node: &QuboBBNode) -> usize {
     let (zero_flip, one_flip) = compute_strong_branch(solver, node);
 

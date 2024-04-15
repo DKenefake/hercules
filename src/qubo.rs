@@ -166,6 +166,7 @@ impl Qubo {
         0.5 * x.dot(&temp) + self.c.dot(x)
     }
 
+
     /// Return the number of variables in the QUBO
     ///
     /// Example of getting the number of variables in a QUBO:
@@ -452,6 +453,9 @@ impl Qubo {
 
     /// Calculates the eigenvalues of the QUBO matrix this is a somewhat expensive operation. Converts the QUBO to a
     /// dense matrix and then calculates the eigenvalues. Assume that the QUBO is symmetric.
+    ///
+    /// # Panics
+    ///  If the eigenvalue calculation fails, The only panic annotation from the ndarray_linalg crate is when the matrix is non-square
     pub fn hess_eigenvalues(&self) -> Array1<f64> {
         let q_dense = self.q.to_dense();
         let (eigs, _) = q_dense.eigh(UPLO::Upper).unwrap();

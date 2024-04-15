@@ -26,7 +26,7 @@ impl Constraint {
     }
 
     /// Checks if the persistent variables are consistent with the constraint
-    pub fn check(&self, persistent: &HashMap<usize, f64>) -> bool {
+    pub fn check(&self, persistent: &HashMap<usize, usize>) -> bool {
         // can only be computed if both variables are fixed
         if self.how_many_fixed(persistent) != 2 {
             return true;
@@ -45,11 +45,11 @@ impl Constraint {
 
     /// Given a set of persistent variables, computes of an inference can be made and if so
     /// returns the index and value of the fixed variable
-    pub fn make_inference(&self, persistent: &HashMap<usize, f64>) -> Option<(usize, f64)> {
+    pub fn make_inference(&self, persistent: &HashMap<usize, usize>) -> Option<(usize, usize)> {
         // count how many fixed variables we have
         let num_fixed = self.how_many_fixed(persistent);
 
-        // if both are fixed or unfixed then we can't make any inferences
+        // if both are fixed or free, then we can't make any inferences
         if num_fixed == 2 || num_fixed == 0 {
             return None;
         }
@@ -61,42 +61,42 @@ impl Constraint {
         match self.constraint_type {
             ConstraintType::NoMoreThanOne => self.no_more_then_one_inference(free, fixed_value),
             ConstraintType::ExactlyOne => self.exactly_one_inference(free, fixed_value),
-            ConstraintType::AtLeastOne => self.at_least_one_inference(free, fixed_value),
+            ConstraintType::AtLeastOne => Self::at_least_one_inference(free, fixed_value),
             ConstraintType::GreaterThan => self.greater_than_inference(persistent),
             ConstraintType::LessThan => self.less_than_inference(persistent),
             ConstraintType::Equal => self.equal_inference(free, fixed_value),
         }
     }
 
-    pub fn no_more_than_one(&self, persistent: &HashMap<usize, f64>) -> bool {
-        // If we have explicitly checked both keys to be fixed so this is safe
+    pub fn no_more_than_one(&self, persistent: &HashMap<usize, usize>) -> bool {
+        // If we have explicitly checked both keys to be fixed, so this is safe
         let x_i_val = *persistent.get(&self.x_i).unwrap();
         let x_j_val = *persistent.get(&self.x_j).unwrap();
 
         // We can't have both
-        !(x_i_val == 1.0 && x_j_val == 1.0)
+        !(x_i_val == 1 && x_j_val == 1)
     }
 
-    pub fn at_least_one(&self, persistent: &HashMap<usize, f64>) -> bool {
-        // If we have explicitly checked both keys to be fixed so this is safe
+    pub fn at_least_one(&self, persistent: &HashMap<usize, usize>) -> bool {
+        // If we have explicitly checked both keys to be fixed, so this is safe
         let x_i_val = *persistent.get(&self.x_i).unwrap();
         let x_j_val = *persistent.get(&self.x_j).unwrap();
 
         // If either is 1, then we are consistent
-        x_i_val == 1.0 || x_j_val == 1.0
+        x_i_val == 1 || x_j_val == 1
     }
 
-    pub fn exactly_one(&self, persistent: &HashMap<usize, f64>) -> bool {
-        // If we have explicitly checked both keys to be fixed so this is safe
+    pub fn exactly_one(&self, persistent: &HashMap<usize, usize>) -> bool {
+        // If we have explicitly checked both keys to be fixed, so this is safe
         let x_i_val = *persistent.get(&self.x_i).unwrap();
         let x_j_val = *persistent.get(&self.x_j).unwrap();
 
         // if we can only have one, then we can't have both
-        x_i_val + x_j_val == 1.0
+        x_i_val + x_j_val == 1
     }
 
-    pub fn greater_than(&self, persistent: &HashMap<usize, f64>) -> bool {
-        // If we have explicitly checked both keys to be fixed so this is safe
+    pub fn greater_than(&self, persistent: &HashMap<usize, usize>) -> bool {
+        // If we have explicitly checked both keys to be fixed, so this is safe
         let x_i_val = *persistent.get(&self.x_i).unwrap();
         let x_j_val = *persistent.get(&self.x_j).unwrap();
 
@@ -104,8 +104,8 @@ impl Constraint {
         x_i_val >= x_j_val
     }
 
-    pub fn less_than(&self, persistent: &HashMap<usize, f64>) -> bool {
-        // If we have explicitly checked both keys to be fixed so this is safe
+    pub fn less_than(&self, persistent: &HashMap<usize, usize>) -> bool {
+        // If we have explicitly checked both keys to be fixed, so this is safe
         let x_i_val = *persistent.get(&self.x_i).unwrap();
         let x_j_val = *persistent.get(&self.x_j).unwrap();
 
@@ -113,7 +113,7 @@ impl Constraint {
         x_i_val <= x_j_val
     }
 
-    pub fn equal(&self, persistent: &HashMap<usize, f64>) -> bool {
+    pub fn equal(&self, persistent: &HashMap<usize, usize>) -> bool {
         // If we have explicitly checked both keys to be fixed, so this is safe
         let x_i_val = *persistent.get(&self.x_i).unwrap();
         let x_j_val = *persistent.get(&self.x_j).unwrap();
@@ -122,7 +122,7 @@ impl Constraint {
         x_i_val == x_j_val
     }
 
-    pub fn how_many_fixed(&self, persistent: &HashMap<usize, f64>) -> usize {
+    pub fn how_many_fixed(&self, persistent: &HashMap<usize, usize>) -> usize {
         let mut count = 0;
         if Self::is_fixed(persistent, self.x_i) {
             count += 1;
@@ -133,14 +133,14 @@ impl Constraint {
         count
     }
 
-    pub fn is_fixed(persistent: &HashMap<usize, f64>, index: usize) -> bool {
+    pub fn is_fixed(persistent: &HashMap<usize, usize>, index: usize) -> bool {
         persistent.contains_key(&index)
     }
 
     pub fn get_standard_form(
         &self,
-        persistent: &HashMap<usize, f64>,
-    ) -> Option<(usize, usize, f64)> {
+        persistent: &HashMap<usize, usize>,
+    ) -> Option<(usize, usize, usize)> {
         if self.how_many_fixed(persistent) != 1 {
             return None;
         }
@@ -157,55 +157,48 @@ impl Constraint {
     pub fn no_more_then_one_inference(
         &self,
         free_var: usize,
-        fixed_value: f64,
-    ) -> Option<(usize, f64)> {
+        fixed_value: usize,
+    ) -> Option<(usize, usize)> {
         // if the fixed value is 1, then the free variable must be 0
-        match fixed_value == 1.0 {
-            true => Some((free_var, 0.0)),
-            false => Some((free_var, 1.0)),
+        match fixed_value == 1 {
+            true => Some((free_var, 0)),
+            false => Some((free_var, 1)),
         }
     }
 
-    pub fn exactly_one_inference(&self, free_var: usize, fixed_value: f64) -> Option<(usize, f64)> {
+    pub fn exactly_one_inference(&self, free_var: usize, fixed_value: usize) -> Option<(usize, usize)> {
         // if the fixed value is 1, then the free variable must be 0
-        match fixed_value == 1.0 {
-            true => Some((free_var, 0.0)),
-            false => Some((free_var, 1.0)),
+        match fixed_value == 1 {
+            true => Some((free_var, 0)),
+            false => Some((free_var, 1)),
         }
     }
 
-    pub fn at_least_one_inference(
-        &self,
+    pub const fn at_least_one_inference(
         free_var: usize,
-        fixed_value: f64,
-    ) -> Option<(usize, f64)> {
+        fixed_value: usize,
+    ) -> Option<(usize, usize)> {
         // if the fixed value is 0, then the free variable must be 1
-        match fixed_value == 1.0 {
+        match fixed_value == 1 {
             true => None,
-            false => Some((free_var, 1.0)),
+            false => Some((free_var, 1)),
         }
     }
 
-    pub fn greater_than_inference(&self, persistent: &HashMap<usize, f64>) -> Option<(usize, f64)> {
+    pub fn greater_than_inference(&self, persistent: &HashMap<usize, usize>) -> Option<(usize, usize)> {
         // examines the constraint x_i >= x_j, to see if we can make a logical implication
 
-        if persistent.contains_key(&self.x_i) {
-            // we have x_i defined so we can check if we can make an inference on x_j
-            let x_i_value = *persistent.get(&self.x_i).unwrap();
-
+        if let Some(x_i_value) = persistent.get(&self.x_i) {
             // if x_i is 0, then x_j must be 0
-            if x_i_value == 0.0 {
-                return Some((self.x_j, 0.0));
+            if *x_i_value == 0 {
+                return Some((self.x_j, 0));
             }
         }
 
-        if persistent.contains_key(&self.x_j) {
-            // we have x_j defined, so we can check if we can make an inference on x_i
-            let x_j_value = *persistent.get(&self.x_j).unwrap();
-
-            // if x_i is 0, then x_j must be 0
-            if x_j_value == 1.0 {
-                return Some((self.x_i, 1.0));
+        if let Some(x_j_value) = persistent.get(&self.x_j) {
+            // if x_j is 1, then x_i must be 1
+            if *x_j_value == 1 {
+                return Some((self.x_i, 1));
             }
         }
 
@@ -213,26 +206,21 @@ impl Constraint {
         None
     }
 
-    pub fn less_than_inference(&self, persistent: &HashMap<usize, f64>) -> Option<(usize, f64)> {
+    /// Given a constraint of the type x_i <= x_j, solves if we can make an inference on it
+    pub fn less_than_inference(&self, persistent: &HashMap<usize, usize>) -> Option<(usize, usize)> {
         // examines the constraint x_i <= x_j, to see if we can make a logical implication
 
-        if persistent.contains_key(&self.x_i) {
-            // we have x_i defined, so we can check if we can make an inference on x_j
-            let x_i_value = *persistent.get(&self.x_i).unwrap();
-
-            // if x_i is 0, then x_j must be 0
-            if x_i_value == 1.0 {
-                return Some((self.x_j, 1.0));
+        if let Some(x_i_value) = persistent.get(&self.x_i) {
+            // if x_i is 1, then x_j must be 1
+            if *x_i_value == 1 {
+                return Some((self.x_j, 1));
             }
         }
 
-        if persistent.contains_key(&self.x_j) {
-            // we have x_j defined, so we can check if we can make an inference on x_i
-            let x_j_value = *persistent.get(&self.x_j).unwrap();
-
-            // if x_i is 0, then x_j must be 0
-            if x_j_value == 0.0 {
-                return Some((self.x_i, 0.0));
+        if let Some(x_j_value) = persistent.get(&self.x_j) {
+            // if x_j is 0, then x_i must be 0
+            if *x_j_value == 0 {
+                return Some((self.x_i, 0));
             }
         }
 
@@ -240,7 +228,10 @@ impl Constraint {
         None
     }
 
-    pub const fn equal_inference(&self, free_var: usize, fixed_value: f64) -> Option<(usize, f64)> {
+    /// Given a constraint of the type x_i = x_j, solves if we can make an inference on it
+    ///
+    /// In this case, we always can, as we can always set the free variable to the fixed value
+    pub const fn equal_inference(&self, free_var: usize, fixed_value: usize) -> Option<(usize, usize)> {
         Some((free_var, fixed_value))
     }
 }
@@ -252,9 +243,9 @@ mod tests {
 
     #[test]
     fn test_constraints_10() {
-        let mut persistent = HashMap::new();
-        persistent.insert(0, 1.0);
-        persistent.insert(1, 0.0);
+        let mut persistent:HashMap<usize, usize> = HashMap::new();
+        persistent.insert(0, 1);
+        persistent.insert(1, 0);
 
         let c_at_least = Constraint::new(0, 1, ConstraintType::AtLeastOne);
         let c_no_more = Constraint::new(0, 1, ConstraintType::NoMoreThanOne);
@@ -274,8 +265,8 @@ mod tests {
     #[test]
     fn test_constraints_11() {
         let mut persistent = HashMap::new();
-        persistent.insert(0, 1.0);
-        persistent.insert(1, 1.0);
+        persistent.insert(0, 1);
+        persistent.insert(1, 1);
 
         let c_at_least = Constraint::new(0, 1, ConstraintType::AtLeastOne);
         let c_no_more = Constraint::new(0, 1, ConstraintType::NoMoreThanOne);
@@ -295,8 +286,8 @@ mod tests {
     #[test]
     fn test_constraints_01() {
         let mut persistent = HashMap::new();
-        persistent.insert(0, 0.0);
-        persistent.insert(1, 1.0);
+        persistent.insert(0, 0);
+        persistent.insert(1, 1);
 
         let c_at_least = Constraint::new(0, 1, ConstraintType::AtLeastOne);
         let c_no_more = Constraint::new(0, 1, ConstraintType::NoMoreThanOne);
@@ -315,8 +306,8 @@ mod tests {
     #[test]
     fn test_constraints_00() {
         let mut persistent = HashMap::new();
-        persistent.insert(0, 0.0);
-        persistent.insert(1, 0.0);
+        persistent.insert(0, 0);
+        persistent.insert(1, 0);
 
         let c_at_least = Constraint::new(0, 1, ConstraintType::AtLeastOne);
         let c_no_more = Constraint::new(0, 1, ConstraintType::NoMoreThanOne);

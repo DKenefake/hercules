@@ -9,8 +9,9 @@
 #![allow(clippy::match_bool)]
 #![allow(clippy::suboptimal_flops)] // far to many false positives, e.g. vector and matrix multiplication suggestions
 #![allow(clippy::similar_names)]
-// I think this is fine, as the names are similar for a reason, mostly in the Constraints function
-// I just think this is fine, I think having all possible actions shown in one place simplifies view
+#![allow(clippy::implicit_hasher)] // we are using the default hasher
+#![allow(clippy::needless_pass_by_value)]
+// This is fine as it is lighting up functions that will eventurally be interfaces that will consume the values
 #![allow(clippy::module_name_repetitions)] // some names are just repeated, and that is fine
 
 const VERSION: &str = env!("CARGO_PKG_VERSION");
@@ -35,6 +36,7 @@ pub mod qubo;
 mod solver_options;
 pub mod utils;
 pub mod variable_reduction;
+mod numeric_trait;
 
 // imports to generate the python interface
 

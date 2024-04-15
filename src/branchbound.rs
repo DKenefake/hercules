@@ -9,7 +9,7 @@ use crate::branch_stratagy::BranchStrategy;
 use crate::branch_subproblem::{
     get_sub_problem_solver, ClarabelSubProblemSolver, SubProblemSolver,
 };
-use crate::branchbound_utils::check_integer_feasibility;
+use crate::branchbound_utils::{check_integer_feasibility, get_current_time};
 use crate::branchboundlogger::{
     generate_exit_line, generate_output_line, output_header, output_warm_start_info,
 };
@@ -66,10 +66,7 @@ impl BBSolver {
 
         let subproblem_solver = get_sub_problem_solver(&qubo, &options.sub_problem_solver);
         let branch_strategy = BranchStrategy::get_branch_strategy(&options.branch_strategy);
-        let start_time = time::SystemTime::now()
-            .duration_since(time::SystemTime::UNIX_EPOCH)
-            .unwrap()
-            .as_secs_f64();
+        let start_time = get_current_time();
 
         Self {
             qubo,
@@ -110,11 +107,9 @@ impl BBSolver {
         // add the root node to the list of nodes
         self.nodes.push(root_node);
 
-        // set the start time
-        self.time_start = time::SystemTime::now()
-            .duration_since(time::SystemTime::UNIX_EPOCH)
-            .unwrap()
-            .as_secs_f64();
+        // set the start time,
+        // as the start time can be different from the time we created the solver instance
+        self.time_start = get_current_time();
 
         // set up the output of the solver
         if self.options.verbose {
@@ -141,6 +136,7 @@ impl BBSolver {
                 .collect::<Vec<_>>();
 
             self.nodes_processed += nodes.len();
+
 
             for state in process_results {
                 self.apply_event_option(state.event);
@@ -216,7 +212,7 @@ impl BBSolver {
         // inject the solution back into the node
         node.solution = solution.clone();
 
-        // check if integer feasible solution
+        // check if integer-feasible solution
         // if not all variables are fixed, we can still check if we are 'near' integer-feasible (within 1E-10) of 0 or 1
         let (is_int_feasible, rounded_sol) = check_integer_feasibility(&node);
 
@@ -239,20 +235,18 @@ impl BBSolver {
     }
 
     pub fn apply_event_option(&mut self, event: Option<Event>) {
-        if event.is_none() {
-            return;
-        }
-
-        match event.unwrap() {
-            Event::UpdateBestSolution(solution, value) => {
-                self.update_solution_if_better(&solution, value);
+        if let Some(action) = event{
+            match action {
+                Event::UpdateBestSolution(solution, value) => {
+                    self.update_solution_if_better(&solution, value);
+                }
+                Event::AddBranches(zero_branch, one_branch) => {
+                    self.nodes.push(zero_branch);
+                    self.nodes.push(one_branch);
+                    self.nodes_solved += 1;
+                }
+                Event::Nill => {}
             }
-            Event::AddBranches(zero_branch, one_branch) => {
-                self.nodes.push(zero_branch);
-                self.nodes.push(one_branch);
-                self.nodes_solved += 1;
-            }
-            Event::Nill => {}
         };
     }
 
@@ -318,10 +312,7 @@ impl BBSolver {
     /// Checks for termination conditions of the B&B algorithm, such as time limit or no more nodes
     pub fn termination_condition(&self) -> bool {
         // get current time to check if we have exceeded the maximum time
-        let current_time = time::SystemTime::now()
-            .duration_since(time::SystemTime::UNIX_EPOCH)
-            .unwrap()
-            .as_secs_f64();
+        let current_time = get_current_time();
 
         // check if we violated the time limit
         if current_time - self.time_start > self.options.max_time {

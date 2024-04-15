@@ -1,8 +1,6 @@
-//! Acts as the interface to rust code from python. Currently only supports reading the QUBO from a file, and running the one of the search algorithms.
-
+//! Acts as the interface to rust code from python. Currently only supports reading the QUBO from a file, and running one of the search algorithms.
 use crate::qubo::Qubo;
 use std::collections::HashMap;
-use std::time;
 
 use ndarray::Array1;
 use pyo3::prelude::*;
@@ -12,6 +10,7 @@ use crate::{kopt, local_search};
 use smolprng::{JsfLarge, PRNG};
 
 use crate::branchbound::*;
+use crate::branchbound_utils::get_current_time;
 use crate::solver_options::SolverOptions;
 use crate::variable_reduction::{generate_rule_11, generate_rule_21};
 
@@ -293,7 +292,7 @@ pub fn msls_from_file(filename: String, xs: Vec<Vec<f64>>) -> PyResult<(Vec<Vec<
     let x_solns = local_search::multi_simple_local_search(&p, &xs);
 
     // convert the output to the correct type
-    let x_solns_vec: Vec<Vec<_>> = x_solns.iter().map(|x| x.to_vec()).collect();
+    let x_solns_vec: Vec<Vec<_>> = x_solns.iter().map(ndarray::ArrayBase::to_vec).collect();
 
     // calculate the objective of each solution
     let objs = x_solns_vec
@@ -335,7 +334,7 @@ pub fn msls(problem: QuboData, xs: Vec<Vec<f64>>) -> PyResult<(Vec<Vec<f64>>, Ve
     let x_solns = local_search::multi_simple_local_search(&p, &xs);
 
     // convert the output to the correct type
-    let x_solns_vec: Vec<Vec<_>> = x_solns.iter().map(|x| x.to_vec()).collect();
+    let x_solns_vec: Vec<Vec<_>> = x_solns.iter().map(ndarray::ArrayBase::to_vec).collect();
 
     // calculate the objective of each solution
     let objs = x_solns_vec
@@ -367,7 +366,7 @@ pub fn read_qubo(filename: String) -> PyResult<QuboData> {
     let c = p.c.to_vec();
     let num_x = p.num_x();
 
-    for (k, v) in p.q.iter() {
+    for (k, v) in &p.q {
         i.push(v.0);
         j.push(v.1);
         q.push(*k);
@@ -457,11 +456,7 @@ pub fn solve_branch_bound(
 
     let (x, obj) = solver.solve();
 
-    let time_elapse = time::SystemTime::now()
-        .duration_since(time::SystemTime::UNIX_EPOCH)
-        .unwrap()
-        .as_secs_f64()
-        - solver.time_start;
+    let time_elapse = get_current_time() - solver.time_start;
 
     Ok((
         x.to_vec(),
