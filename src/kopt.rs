@@ -30,7 +30,7 @@ pub fn solve_kopt(
         sub_problem_solver: SubProblemSelection::Clarabel,
         max_time: 100.0,
         seed: 0,
-        verbose: false,
+        verbose: 1,
         threads: 1,
     };
 

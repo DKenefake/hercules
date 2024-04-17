@@ -9,7 +9,7 @@ pub struct SolverOptions {
     pub sub_problem_solver: SubProblemSelection,
     pub max_time: f64,
     pub seed: usize,
-    pub verbose: bool,
+    pub verbose: usize,
     pub threads: usize,
 }
 
@@ -21,7 +21,7 @@ impl SolverOptions {
             sub_problem_solver: SubProblemSelection::Clarabel,
             max_time: 100.0,
             seed: 0,
-            verbose: true,
+            verbose: 1,
             threads: 1,
         }
     }

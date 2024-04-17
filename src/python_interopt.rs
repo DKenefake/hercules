@@ -416,7 +416,7 @@ pub fn solve_branch_bound(
     branch_strategy: Option<String>,
     sub_problem_solver: Option<String>,
     threads: Option<usize>,
-    verbose: Option<bool>,
+    verbose: Option<usize>,
 ) -> PyResult<(Vec<f64>, f64, f64, usize, usize)> {
     // read in the QUBO from file
     let p_input = Qubo::from_vec(problem.0, problem.1, problem.2, problem.3, problem.4);
@@ -443,7 +443,7 @@ pub fn solve_branch_bound(
 
     options.threads = threads.unwrap_or(1);
 
-    options.verbose = verbose.unwrap_or(false);
+    options.verbose = verbose.unwrap_or(1);
 
     options.max_time = timeout;
 

@@ -1,8 +1,6 @@
 use crate::qubo::Qubo;
 use ndarray::Array1;
 use rayon::prelude::*;
-// use std::ops::Index;
-use std::time;
 
 use crate::branch_node::QuboBBNode;
 use crate::branch_stratagy::BranchStrategy;
@@ -10,9 +8,7 @@ use crate::branch_subproblem::{
     get_sub_problem_solver, ClarabelSubProblemSolver, SubProblemSolver,
 };
 use crate::branchbound_utils::{check_integer_feasibility, get_current_time};
-use crate::branchboundlogger::{
-    generate_exit_line, generate_output_line, output_header, output_warm_start_info,
-};
+use crate::branchboundlogger::SolverOutputLogger;
 use crate::persistence::compute_iterative_persistence;
 use crate::solver_options::SolverOptions;
 
@@ -104,31 +100,27 @@ impl BBSolver {
             fixed_variables: self.options.fixed_variables.clone(),
         };
 
+        let logger = SolverOutputLogger{output_level: self.options.verbose};
+
         // add the root node to the list of nodes
         self.nodes.push(root_node);
 
-        // set the start time,
-        // as the start time can be different from the time we created the solver instance
+        // Reset start time as it can be different from the time we created the solver instance
         self.time_start = get_current_time();
 
         // set up the output of the solver
-        if self.options.verbose {
-            // display the header
-            output_header(self);
-            // if the best solution is negative, then we output the warm start information
-            if self.best_solution_value < 0.0 {
-                output_warm_start_info(self);
-            }
+        // display the header
+        logger.output_header(self);
+
+        // if the best solution is negative, then we output the warm start information
+        if self.best_solution_value < 0.0 {
+            logger.output_warm_start_info(self);
         }
 
         // until we have hit a termination condition, we will keep iterating
         while !(*self).termination_condition() {
             // get the most recent 25 nodes to process
             let nodes = self.get_next_nodes(self.options.threads);
-
-            if nodes.is_empty() {
-                break;
-            }
 
             let process_results = nodes
                 .par_iter()
@@ -137,25 +129,26 @@ impl BBSolver {
 
             self.nodes_processed += nodes.len();
 
-
+            // apply all the events from the parallel loop back to the solver
             for state in process_results {
                 self.apply_event_option(state.event);
             }
 
-            if self.options.verbose {
-                generate_output_line(self);
-            }
+            // display the line, if verbose
+            logger.generate_output_line(self);
+
         }
 
-        if self.options.verbose {
-            generate_exit_line(self);
-        }
+        // display the exit line
+        logger.generate_exit_line(self);
 
         (self.best_solution.clone(), self.best_solution_value)
     }
 
     /// Checks if we can prune the node, based on the lower bound and best solution, returns an action
     pub fn can_prune_action(&self, node: &QuboBBNode) -> (PruneAction, Event) {
+
+        // if our parent solution is above our current feasible soltion then prune
         if node.lower_bound > self.best_solution_value {
             return (PruneAction::Prune, Event::Nill);
         }
@@ -183,28 +176,28 @@ impl BBSolver {
 
     /// main loop of the branch and bound algorithm
     pub fn process_node(&self, node: &QuboBBNode) -> ProcessNodeState {
+
         let mut x = ProcessNodeState {
             prune_action: PruneAction::Dont,
             event: None,
         };
 
+        // create a mutable copy of the node
         let mut node = node.clone();
 
-        // see if there are any variables we can fix
+        // pass to the presolver to see if there are any variable we can fix
         node.fixed_variables =
             compute_iterative_persistence(&self.qubo, &node.fixed_variables, self.qubo.num_x());
 
         // with this expanded set can we prune the node?
         let (prune_action, event) = self.can_prune_action(&node);
 
-        match prune_action {
-            PruneAction::Prune => {
-                x.prune_action = PruneAction::Prune;
-                x.event = Option::from(event);
-                return x;
-            }
-            PruneAction::Dont => {}
-        };
+        // if we are pruning at this stage then we can early return
+        if let PruneAction::Prune = prune_action{
+            x.prune_action = prune_action;
+            x.event = Some(event);
+            return x;
+        }
 
         // We now need to solve the node to generate the lower bound and solution
         let (lower_bound, solution) = self.solve_node(&node);
@@ -216,9 +209,20 @@ impl BBSolver {
         // if not all variables are fixed, we can still check if we are 'near' integer-feasible (within 1E-10) of 0 or 1
         let (is_int_feasible, rounded_sol) = check_integer_feasibility(&node);
 
+        // if we are integer feasible then we can prune this branch and return the solution
         if is_int_feasible {
+            x.prune_action = PruneAction::Prune;
+
+            // compute the objective
             let value = self.qubo.eval(&rounded_sol);
-            x.event = Some(Event::UpdateBestSolution(rounded_sol, value));
+
+            // if it is better, then we will attempt to update the solution otherwise just prune
+            if value <= self.best_solution_value{
+                x.event = Some(Event::UpdateBestSolution(rounded_sol, value));
+            }else{
+                x.event = Some(Event::Nill);
+            }
+
             return x;
         }
 
@@ -228,7 +232,7 @@ impl BBSolver {
         // generate the branches
         let (zero_branch, one_branch) = Self::branch(node, branch_id, lower_bound, solution);
 
-        // add the branches to the list of nodes
+        // create an add branches event and add the new branches
         x.event = Some(Event::AddBranches(zero_branch, one_branch));
 
         x
@@ -252,7 +256,6 @@ impl BBSolver {
 
     /// update the best solution if better than the current best solution
     pub fn update_solution_if_better(&mut self, solution: &Array1<f64>, solution_value: f64) {
-        // let solution_value = self.qubo.eval(solution);
         if solution_value < self.best_solution_value {
             self.best_solution = solution.clone();
             self.best_solution_value = solution_value;
@@ -275,15 +278,14 @@ impl BBSolver {
             // if we can't prune it, then we return it
             let (prune, event) = self.can_prune_action(&node);
 
+            // if we have stumbled into a better solution then we can take it
             if let Event::UpdateBestSolution(solution, value) = event {
                 self.update_solution_if_better(&solution, value);
             }
 
-            match prune {
-                PruneAction::Dont => {
-                    return Some(node);
-                }
-                PruneAction::Prune => {}
+            // if we don't prune the node then we can return it
+            if let PruneAction::Dont = prune{
+                return Some(node);
             }
         }
 
@@ -291,18 +293,18 @@ impl BBSolver {
     }
 
     pub fn get_next_nodes(&mut self, n: usize) -> Vec<QuboBBNode> {
+
         let mut nodes = Vec::new();
 
+        // loop while we haven't filled our vector OR the node list is not empty
         while nodes.len() <= n {
             let next_node = self.get_next_node();
 
-            match next_node {
-                Some(node) => {
-                    nodes.push(node);
-                }
-                None => {
-                    break;
-                }
+            // if there is a node to add, do so, else break out as there aren't any nodes left
+            if let Some(node) = next_node{
+                nodes.push(node);
+            }else{
+                break;
             }
         }
 
@@ -406,10 +408,10 @@ mod tests {
         let guess = local_search::particle_swarm_search(&p_fixed, 10, 100, &mut prng);
 
         let mut options = SolverOptions::new();
-        options.verbose = true;
+        options.verbose = 1;
         options.max_time = 1000.0;
         options.branch_strategy = BranchStrategySelection::MostViolated;
-        options.threads = 32;
+        options.threads = 200;
 
         let mut solver = branchbound::BBSolver::new(p_fixed, options);
         solver.warm_start(guess);
