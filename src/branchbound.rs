@@ -9,6 +9,7 @@ use crate::branch_subproblem::{
 };
 use crate::branchbound_utils::{check_integer_feasibility, get_current_time};
 use crate::branchboundlogger::SolverOutputLogger;
+use crate::lower_bound::li_lower_bound;
 use crate::persistence::compute_iterative_persistence;
 use crate::solver_options::SolverOptions;
 
@@ -44,14 +45,10 @@ pub enum PruneAction {
     Dont,
 }
 
-pub enum IntegerFeasibility {
-    IntegerFeasible(Array1<usize>),
-    NotIntegerFeasible,
-}
-
 pub struct ProcessNodeState {
     pub prune_action: PruneAction,
     pub event: Option<Event>,
+    pub logging: NodeLoggingAction,
 }
 
 impl BBSolver {
@@ -129,11 +126,10 @@ impl BBSolver {
                 .map(|node| self.process_node(node))
                 .collect::<Vec<_>>();
 
-            self.nodes_processed += nodes.len();
-
             // apply all the events from the parallel loop back to the solver
             for state in process_results {
                 self.apply_event_option(state.event);
+                self.apply_logging_action(state.logging);
             }
 
             // display the line, if verbose
@@ -174,6 +170,25 @@ impl BBSolver {
         (PruneAction::Dont, Event::Nill)
     }
 
+    // apply the logging action to the solver
+    pub fn apply_logging_action(&mut self, action: NodeLoggingAction) {
+        match action {
+            NodeLoggingAction::Visited => {
+                // increment the number of nodes visited
+                self.nodes_visited += 1;
+            }
+            NodeLoggingAction::Processed => {
+                // increment the number of nodes processed
+                self.nodes_processed += 1;
+            }
+            NodeLoggingAction::Solved => {
+                // increment the number of nodes solved and processed
+                self.nodes_processed += 1;
+                self.nodes_solved += 1;
+            }
+        }
+    }
+
     /// main loop of the branch and bound algorithm
     pub fn process_node(&self, node: &QuboBBNode) -> ProcessNodeState {
 
@@ -184,12 +199,16 @@ impl BBSolver {
         node.fixed_variables =
             compute_iterative_persistence(&self.qubo, &node.fixed_variables, self.qubo.num_x());
 
+        // calculate the lower bound via the li lower bound formula
+        let li_bound = li_lower_bound(&self.qubo, &node.fixed_variables);
+        node.lower_bound = node.lower_bound.max(li_bound);
+
         // with this expanded set can we prune the node?
         let (prune_action, event) = self.can_prune_action(&node);
 
         // if we are pruning at this stage then we can early return
         if matches!(prune_action, PruneAction::Prune) {
-            return ProcessNodeState{prune_action, event: Some(event)};
+            return ProcessNodeState{prune_action, event: Some(event), logging: NodeLoggingAction::Processed};
         }
 
         // We now need to solve the node to generate the lower bound and solution
@@ -211,9 +230,9 @@ impl BBSolver {
 
             // if it is better, then we will attempt to update the solution otherwise just prune
             if value <= self.best_solution_value {
-                return ProcessNodeState{prune_action, event : Some(Event::UpdateBestSolution(rounded_sol, value))};
+                return ProcessNodeState{prune_action, event : Some(Event::UpdateBestSolution(rounded_sol, value)), logging: NodeLoggingAction::Solved};
             } else {
-                return ProcessNodeState{prune_action, event : Some(Event::Nill)};
+                return ProcessNodeState{prune_action, event : Some(Event::Nill), logging: NodeLoggingAction::Solved};
             }
         }
 
@@ -223,7 +242,7 @@ impl BBSolver {
         // generate the branches
         let (zero_branch, one_branch) = Self::branch(node, branch_id, lower_bound, solution);
 
-        ProcessNodeState{prune_action, event: Some(Event::AddBranches(zero_branch, one_branch))}
+        ProcessNodeState{prune_action, event: Some(Event::AddBranches(zero_branch, one_branch)), logging: NodeLoggingAction::Solved}
     }
 
     pub fn apply_event_option(&mut self, event: Option<Event>) {
@@ -235,7 +254,6 @@ impl BBSolver {
                 Event::AddBranches(zero_branch, one_branch) => {
                     self.nodes.push(zero_branch);
                     self.nodes.push(one_branch);
-                    self.nodes_solved += 1;
                 }
                 Event::Nill => {}
             }
@@ -261,12 +279,12 @@ impl BBSolver {
             let node = optional_node?;
 
             // we increment the number of nodes we have visited
-            self.nodes_visited += 1;
+            self.apply_logging_action(NodeLoggingAction::Visited);
 
             // if we can't prune it, then we return it
             let (prune, event) = self.can_prune_action(&node);
 
-            // if we have stumbled into a better solution then we can take it
+            // if we have stumbled into a better solution, then we can take it
             if let Event::UpdateBestSolution(solution, value) = event {
                 self.update_solution_if_better(&solution, value);
             }
@@ -349,7 +367,7 @@ impl BBSolver {
     }
 
     pub fn solve_node(&self, node: &QuboBBNode) -> (f64, Array1<f64>) {
-        self.subproblem_solver.solve(self, node)
+        self.subproblem_solver.solve_lower_bound(self, node)
     }
 }
 

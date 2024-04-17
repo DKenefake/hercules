@@ -41,6 +41,7 @@ pub mod qubo;
 mod solver_options;
 pub mod utils;
 pub mod variable_reduction;
+mod lower_bound;
 
 // imports to generate the python interface
 
@@ -80,7 +81,7 @@ mod tests {
             generator: JsfLarge::default(),
         };
 
-        Qubo::make_random_qubo(50, &mut prng, 0.1)
+        Qubo::make_random_qubo(50, &mut prng, 0.01)
     }
 
     pub(crate) fn get_min_obj(p: &Qubo, xs: &Vec<Array1<usize>>) -> f64 {

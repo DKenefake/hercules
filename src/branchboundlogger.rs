@@ -64,14 +64,20 @@ impl SolverOutputLogger {
 
         let solution = solver_instance.best_solution.clone();
         let solution_value = solver_instance.best_solution_value;
+
         let nodes_solved = solver_instance.nodes_solved;
+        let nodes_processed = solver_instance.nodes_processed;
+        let nodes_visited = solver_instance.nodes_visited;
+
         let current_time = get_current_time();
         let time_passed = current_time - solver_instance.time_start;
         println!("------------------------------------------------------");
         println!("Branch and Bound Solver Finished");
         println!("Best Solution: {solution}");
         println!("Best Solution Value: {solution_value}");
-        println!("Nodes Visited: {nodes_solved}");
+        println!("Nodes Solved: {nodes_solved}");
+        println!("Nodes Processed: {nodes_processed}");
+        println!("Nodes Visited: {nodes_visited}");
         println!("Time to Solve: {time_passed}");
         println!("------------------------------------------------------");
     }
@@ -85,8 +91,7 @@ impl SolverOutputLogger {
         let solution_value = solver_instance.best_solution_value;
         println!("------------------------------------------------------");
         println!("Warm Start Information");
-        println!("Starting with warm start with {num_fixed_vars} fixed variables");
-        println!("Objective: {solution_value}");
+        println!("Warm started objective: {solution_value}");
     }
 }
 

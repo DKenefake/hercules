@@ -11,7 +11,7 @@ type SubProblemResult = (f64, Array1<f64>);
 pub trait SubProblemSolver {
     fn new(qubo: &Qubo) -> Self;
 
-    fn solve(&self, bbsolver: &BBSolver, node: &QuboBBNode) -> SubProblemResult;
+    fn solve_lower_bound(&self, bbsolver: &BBSolver, node: &QuboBBNode) -> SubProblemResult;
 }
 
 pub enum SubProblemSelection {
@@ -42,7 +42,7 @@ impl SubProblemSolver for ClarabelSubProblemSolver {
         }
     }
 
-    fn solve(&self, bbsolver: &BBSolver, node: &QuboBBNode) -> SubProblemResult {
+    fn solve_lower_bound(&self, bbsolver: &BBSolver, node: &QuboBBNode) -> SubProblemResult {
         // solve QP associated with the node
         // generate default settings
         let settings = DefaultSettings {
