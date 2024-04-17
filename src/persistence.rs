@@ -6,9 +6,9 @@ use std::collections::HashMap;
 /// computing the persistent variables until.
 pub fn compute_iterative_persistence(
     qubo: &Qubo,
-    persistent: &HashMap<usize, f64>,
+    persistent: &HashMap<usize, usize>,
     iter_lim: usize,
-) -> HashMap<usize, f64> {
+) -> HashMap<usize, usize> {
     // make a copy of the passed persistence variable
     let mut new_persistent = persistent.clone();
 
@@ -29,7 +29,10 @@ pub fn compute_iterative_persistence(
 
 /// This function takes a QUBO and a set of persistent variables and returns a new set of persistent variables by computing the
 /// persistent variables once.
-pub fn compute_persistent(qubo: &Qubo, persistent: &HashMap<usize, f64>) -> HashMap<usize, f64> {
+pub fn compute_persistent(
+    qubo: &Qubo,
+    persistent: &HashMap<usize, usize>,
+) -> HashMap<usize, usize> {
     // create a new hashmap to store the new persistent variables
     let mut new_persistent = persistent.clone();
 
@@ -44,12 +47,12 @@ pub fn compute_persistent(qubo: &Qubo, persistent: &HashMap<usize, f64>) -> Hash
 
         // if the lower bound it positive, then we can set the variable to 0
         if lower > 0.0 {
-            new_persistent.insert(i, 0.0);
+            new_persistent.insert(i, 0);
         }
 
         // if the upper bound is below 0, then we can set the variable to 1
         if upper < 0.0 {
-            new_persistent.insert(i, 1.0);
+            new_persistent.insert(i, 1);
         }
     }
 
@@ -57,7 +60,7 @@ pub fn compute_persistent(qubo: &Qubo, persistent: &HashMap<usize, f64>) -> Hash
 }
 
 /// Finds bounds of the i-th index of the gradients of the QUBO function
-pub fn grad_bounds(qubo: &Qubo, i: usize, persistent: &HashMap<usize, f64>) -> (f64, f64) {
+pub fn grad_bounds(qubo: &Qubo, i: usize, persistent: &HashMap<usize, usize>) -> (f64, f64) {
     // set up tracking variables for each bound
     let mut lower = 0.0;
     let mut upper = 0.0;
@@ -76,12 +79,12 @@ pub fn grad_bounds(qubo: &Qubo, i: usize, persistent: &HashMap<usize, f64>) -> (
     for (index, x_j) in q_term.iter() {
         // dereference and multiply by 0.5 to make an auxiliary variable that is clearer
         let mut value = *x_j;
-        value = value * 0.5;
+        value *= 0.5;
 
         // if it is a fixed variable, we have effectively removed this variable from the QUBO
         if persistent.contains_key(&index) {
-            lower += 1.0 * value * persistent[&index];
-            upper += 1.0 * value * persistent[&index];
+            lower += 1.0 * value * (persistent[&index] as f64);
+            upper += 1.0 * value * (persistent[&index] as f64);
         } else {
             // if it is not in the persistent set, then we can choose the best value
 
@@ -124,9 +127,9 @@ mod tests {
         assert!(persist.contains_key(&1));
         assert!(persist.contains_key(&2));
 
-        assert!(persist[&0].eq(&0.0));
-        assert!(persist[&1].eq(&0.0));
-        assert!(persist[&2].eq(&0.0));
+        assert!(persist[&0].eq(&0));
+        assert!(persist[&1].eq(&0));
+        assert!(persist[&2].eq(&0));
     }
     #[test]
     fn test_grad_bounds_1() {
@@ -145,8 +148,8 @@ mod tests {
         let p = Qubo::new_with_c(eye, c);
 
         let mut fixed_vars = HashMap::new();
-        fixed_vars.insert(0, 1.0);
-        fixed_vars.insert(2, 1.0);
+        fixed_vars.insert(0, 1);
+        fixed_vars.insert(2, 1);
 
         assert_eq!(grad_bounds(&p, 0, &fixed_vars), (2.0, 2.0));
         assert_eq!(grad_bounds(&p, 1, &fixed_vars), (2.0, 3.0));

@@ -15,7 +15,7 @@ use crate::solver_options::SolverOptions;
 /// Struct for the B&B Solver
 pub struct BBSolver {
     pub qubo: Qubo,
-    pub best_solution: Array1<f64>,
+    pub best_solution: Array1<usize>,
     pub best_solution_value: f64,
     pub nodes: Vec<QuboBBNode>,
     pub nodes_processed: usize,
@@ -28,7 +28,7 @@ pub struct BBSolver {
 }
 
 pub enum Event {
-    UpdateBestSolution(Array1<f64>, f64),
+    UpdateBestSolution(Array1<usize>, f64),
     AddBranches(QuboBBNode, QuboBBNode),
     Nill,
 }
@@ -45,7 +45,7 @@ pub enum PruneAction {
 }
 
 pub enum IntegerFeasibility {
-    IntegerFeasible(Array1<f64>),
+    IntegerFeasible(Array1<usize>),
     NotIntegerFeasible,
 }
 
@@ -80,13 +80,13 @@ impl BBSolver {
     }
 
     /// This function is used to warm start the solver with an initial solution if one is not provided
-    pub fn warm_start(&mut self, initial_solution: Array1<f64>) {
+    pub fn warm_start(&mut self, initial_solution: Array1<usize>) {
         self.best_solution = initial_solution;
-        self.best_solution_value = self.qubo.eval(&self.best_solution);
+        self.best_solution_value = self.qubo.eval_usize(&self.best_solution);
     }
 
     /// The main solve function of the B&B algorithm
-    pub fn solve(&mut self) -> (Array1<f64>, f64) {
+    pub fn solve(&mut self) -> (Array1<usize>, f64) {
         // preprocess the problem
         let initial_fixed = self.options.fixed_variables.clone();
 
@@ -100,7 +100,9 @@ impl BBSolver {
             fixed_variables: self.options.fixed_variables.clone(),
         };
 
-        let logger = SolverOutputLogger{output_level: self.options.verbose};
+        let logger = SolverOutputLogger {
+            output_level: self.options.verbose,
+        };
 
         // add the root node to the list of nodes
         self.nodes.push(root_node);
@@ -136,7 +138,6 @@ impl BBSolver {
 
             // display the line, if verbose
             logger.generate_output_line(self);
-
         }
 
         // display the exit line
@@ -147,7 +148,6 @@ impl BBSolver {
 
     /// Checks if we can prune the node, based on the lower bound and best solution, returns an action
     pub fn can_prune_action(&self, node: &QuboBBNode) -> (PruneAction, Event) {
-
         // if our parent solution is above our current feasible soltion then prune
         if node.lower_bound > self.best_solution_value {
             return (PruneAction::Prune, Event::Nill);
@@ -162,7 +162,7 @@ impl BBSolver {
                 solution[index] = value;
             }
 
-            let value = self.qubo.eval(&solution);
+            let value = self.qubo.eval_usize(&solution);
             // evaluate the solution against the best solution we have so far
             // if we have a better solution update it
             return (
@@ -176,7 +176,6 @@ impl BBSolver {
 
     /// main loop of the branch and bound algorithm
     pub fn process_node(&self, node: &QuboBBNode) -> ProcessNodeState {
-
         let mut x = ProcessNodeState {
             prune_action: PruneAction::Dont,
             event: None,
@@ -193,7 +192,7 @@ impl BBSolver {
         let (prune_action, event) = self.can_prune_action(&node);
 
         // if we are pruning at this stage then we can early return
-        if let PruneAction::Prune = prune_action{
+        if let PruneAction::Prune = prune_action {
             x.prune_action = prune_action;
             x.event = Some(event);
             return x;
@@ -214,12 +213,12 @@ impl BBSolver {
             x.prune_action = PruneAction::Prune;
 
             // compute the objective
-            let value = self.qubo.eval(&rounded_sol);
+            let value = self.qubo.eval_usize(&rounded_sol);
 
             // if it is better, then we will attempt to update the solution otherwise just prune
-            if value <= self.best_solution_value{
+            if value <= self.best_solution_value {
                 x.event = Some(Event::UpdateBestSolution(rounded_sol, value));
-            }else{
+            } else {
                 x.event = Some(Event::Nill);
             }
 
@@ -239,7 +238,7 @@ impl BBSolver {
     }
 
     pub fn apply_event_option(&mut self, event: Option<Event>) {
-        if let Some(action) = event{
+        if let Some(action) = event {
             match action {
                 Event::UpdateBestSolution(solution, value) => {
                     self.update_solution_if_better(&solution, value);
@@ -255,7 +254,7 @@ impl BBSolver {
     }
 
     /// update the best solution if better than the current best solution
-    pub fn update_solution_if_better(&mut self, solution: &Array1<f64>, solution_value: f64) {
+    pub fn update_solution_if_better(&mut self, solution: &Array1<usize>, solution_value: f64) {
         if solution_value < self.best_solution_value {
             self.best_solution = solution.clone();
             self.best_solution_value = solution_value;
@@ -284,7 +283,7 @@ impl BBSolver {
             }
 
             // if we don't prune the node then we can return it
-            if let PruneAction::Dont = prune{
+            if let PruneAction::Dont = prune {
                 return Some(node);
             }
         }
@@ -293,7 +292,6 @@ impl BBSolver {
     }
 
     pub fn get_next_nodes(&mut self, n: usize) -> Vec<QuboBBNode> {
-
         let mut nodes = Vec::new();
 
         // loop while we haven't filled our vector OR the node list is not empty
@@ -301,9 +299,9 @@ impl BBSolver {
             let next_node = self.get_next_node();
 
             // if there is a node to add, do so, else break out as there aren't any nodes left
-            if let Some(node) = next_node{
+            if let Some(node) = next_node {
                 nodes.push(node);
-            }else{
+            } else {
                 break;
             }
         }
@@ -347,8 +345,8 @@ impl BBSolver {
         let mut one_branch = node;
 
         // add fixed variables
-        zero_branch.fixed_variables.insert(branch_id, 0.0);
-        one_branch.fixed_variables.insert(branch_id, 1.0);
+        zero_branch.fixed_variables.insert(branch_id, 0);
+        one_branch.fixed_variables.insert(branch_id, 1);
 
         // update the solution and lower bound for the new nodes
         zero_branch.solution = solution.clone();
@@ -389,7 +387,7 @@ mod tests {
         solver.solve();
 
         assert_eq!(solver.best_solution_value, -4.6);
-        assert_eq!(solver.best_solution, Array1::from_vec(vec![1.0, 1.0, 1.0]));
+        assert_eq!(solver.best_solution, Array1::from_vec(vec![1, 1, 1]));
     }
     #[test]
     pub fn branch_bound_bench() {

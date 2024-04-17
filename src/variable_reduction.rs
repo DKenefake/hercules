@@ -18,7 +18,7 @@ pub fn get_dih(p: &Qubo, i: usize, h: usize) -> f64 {
 ///
 /// The rule we are implimenting is the following (this is due to us doing min while they are doing max)
 /// Assume d_ih < 0, if c_i +d_ih + D+_ > 0 then x_i <= x_h
-pub fn generate_rule_11(p: &Qubo, fixed: &HashMap<usize, f64>, i: usize) -> Vec<Constraint> {
+pub fn generate_rule_11(p: &Qubo, fixed: &HashMap<usize, usize>, i: usize) -> Vec<Constraint> {
     let d_i = (0..p.num_x())
         .map(|h| get_dih(p, i, h))
         .collect::<Array1<f64>>();
@@ -37,11 +37,7 @@ pub fn generate_rule_11(p: &Qubo, fixed: &HashMap<usize, f64>, i: usize) -> Vec<
 }
 
 /// Implement Rule 2.1 from the paper glover2018
-///
-///
-///
-///
-pub fn generate_rule_21(p: &Qubo, fixed: &HashMap<usize, f64>, i: usize) -> Vec<Constraint> {
+pub fn generate_rule_21(p: &Qubo, fixed: &HashMap<usize, usize>, i: usize) -> Vec<Constraint> {
     let d_i = (0..p.num_x())
         .map(|h| get_dih(p, i, h))
         .collect::<Array1<f64>>();

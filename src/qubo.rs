@@ -166,6 +166,10 @@ impl Qubo {
         0.5 * x.dot(&temp) + self.c.dot(x)
     }
 
+    pub fn eval_usize(&self, x: &Array1<usize>) -> f64 {
+        let x_f64 = x.mapv(|x| x as f64);
+        self.eval(&x_f64)
+    }
 
     /// Return the number of variables in the QUBO
     ///
@@ -203,6 +207,12 @@ impl Qubo {
     pub fn eval_grad(&self, x: &Array1<f64>) -> Array1<f64> {
         // takes the gradient of the QUBO at x, does not assume that the QUBO is symmetric
         0.5 * (&self.q * x + &self.q.transpose_view() * x) + &self.c
+    }
+
+    pub fn eval_grad_usize(&self, x: &Array1<usize>) -> Array1<f64> {
+        // takes the gradient of the QUBO at x, does not assume that the QUBO is symmetric
+        let x_f64 = x.mapv(|x| x as f64);
+        self.eval_grad(&x_f64)
     }
 
     /// Computes the optimal solution of the relaxed QUBO problem where x* = \alpha. From Boros2007.

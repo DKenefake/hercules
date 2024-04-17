@@ -12,9 +12,9 @@ use std::collections::HashMap;
 /// run k-opt on a given QUBO
 pub fn solve_kopt(
     qubo: &Qubo,
-    fixed_variables: &HashMap<usize, f64>,
-    initial_guess: Option<Array1<f64>>,
-) -> Array1<f64> {
+    fixed_variables: &HashMap<usize, usize>,
+    initial_guess: Option<Array1<usize>>,
+) -> Array1<usize> {
     // create a hashmap to store the persistent variables
     let mut persistent = fixed_variables.clone();
 

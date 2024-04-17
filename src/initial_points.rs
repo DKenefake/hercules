@@ -29,13 +29,16 @@ use smolprng::{Algorithm, PRNG};
 pub fn generate_random_starting_point<T: Algorithm>(
     qubo: &Qubo,
     prng: &mut PRNG<T>,
-) -> Array1<f64> {
+) -> Array1<usize> {
     // generate a zeroed buffer
-    let mut x = Array1::<f64>::zeros(qubo.num_x());
+    let mut x = Array1::<usize>::zeros(qubo.num_x());
 
     // for each variable, set it to a random number between 0.0 and 1.0
     for i in 0..x.len() {
-        x[i] = prng.gen_f64();
+        match prng.gen_bool() {
+            true => x[i] = 1,
+            false => x[i] = 0,
+        }
     }
     x
 }
@@ -59,7 +62,7 @@ pub fn generate_random_starting_points<T: Algorithm>(
     qubo: &Qubo,
     num_points: usize,
     prng: &mut PRNG<T>,
-) -> Vec<Array1<f64>> {
+) -> Vec<Array1<usize>> {
     (0..num_points)
         .map(|_| generate_random_starting_point(qubo, prng))
         .collect()
@@ -139,14 +142,14 @@ pub fn generate_random_binary_point<T: Algorithm>(
     qubo: &Qubo,
     prng: &mut PRNG<T>,
     sparsity: f64,
-) -> Array1<f64> {
+) -> Array1<usize> {
     // set up a zeroed buffer
-    let mut x = Array1::<f64>::zeros(qubo.num_x());
+    let mut x = Array1::<usize>::zeros(qubo.num_x());
 
     // for each variable, if the random number is less than sparsity, set it to 1.0
     for i in 0..x.len() {
         if prng.gen_f64() < sparsity {
-            x[i] = 1.0;
+            x[i] = 1;
         }
     }
     x

@@ -154,20 +154,20 @@ pub fn best_approximation(solver: &BBSolver, node: &QuboBBNode) -> usize {
 }
 
 pub fn compute_strong_branch(solver: &BBSolver, node: &QuboBBNode) -> (Array1<f64>, Array1<f64>) {
-    let mut base_solution = Array1::zeros(solver.qubo.num_x());
-    let mut delta_zero = Array1::zeros(solver.qubo.num_x());
-    let mut delta_one = Array1::zeros(solver.qubo.num_x());
+    let mut base_solution = Array1::<f64>::zeros(solver.qubo.num_x());
+    let mut delta_zero = Array1::<f64>::zeros(solver.qubo.num_x());
+    let mut delta_one = Array1::<f64>::zeros(solver.qubo.num_x());
 
     for i in 0..solver.qubo.num_x() {
         // fill in the current vector
         match node.fixed_variables.get(&i) {
-            Some(val) => base_solution[i] = *val,
+            Some(val) => base_solution[i] = (*val) as f64,
             None => base_solution[i] = node.solution[i],
         }
 
         // compute the delta values for the zero and one flips
-        delta_zero[i] = -base_solution[i];
-        delta_one[i] = 1.0 - base_solution[i];
+        delta_zero[i] = -(base_solution[i] as f64);
+        delta_one[i] = 1.0 - (base_solution[i] as f64);
     }
 
     // build the intermediate vectors

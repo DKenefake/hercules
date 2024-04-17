@@ -53,12 +53,12 @@ impl SubProblemSolver for ClarabelSubProblemSolver {
         // generate the constraint matrix
         let A_size = 2 * bbsolver.qubo.num_x() + node.fixed_variables.len();
         let mut A = TriMat::new((A_size, bbsolver.qubo.num_x()));
-        let mut b = Array1::zeros(A_size);
+        let mut b = Array1::<f64>::zeros(A_size);
 
         // add the equality constraints
         for (index, (&key, &value)) in node.fixed_variables.iter().enumerate() {
             A.add_triplet(index, key, 1.0);
-            b[index] = value;
+            b[index] = value as f64;
         }
 
         // add the inequality constraints

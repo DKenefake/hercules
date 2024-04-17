@@ -165,7 +165,10 @@ impl Constraint {
         }
     }
 
-    pub const fn exactly_one_inference(free_var: usize, fixed_value: usize) -> Option<(usize, usize)> {
+    pub const fn exactly_one_inference(
+        free_var: usize,
+        fixed_value: usize,
+    ) -> Option<(usize, usize)> {
         // if the fixed value is 1, then the free variable must be 0
         match fixed_value == 1 {
             true => Some((free_var, 0)),
@@ -184,7 +187,10 @@ impl Constraint {
         }
     }
 
-    pub fn greater_than_inference(&self, persistent: &HashMap<usize, usize>) -> Option<(usize, usize)> {
+    pub fn greater_than_inference(
+        &self,
+        persistent: &HashMap<usize, usize>,
+    ) -> Option<(usize, usize)> {
         // examines the constraint x_i >= x_j, to see if we can make a logical implication
 
         if let Some(x_i_value) = persistent.get(&self.x_i) {
@@ -206,7 +212,10 @@ impl Constraint {
     }
 
     /// Given a constraint of the type x_i <= x_j, solves if we can make an inference on it
-    pub fn less_than_inference(&self, persistent: &HashMap<usize, usize>) -> Option<(usize, usize)> {
+    pub fn less_than_inference(
+        &self,
+        persistent: &HashMap<usize, usize>,
+    ) -> Option<(usize, usize)> {
         // examines the constraint x_i <= x_j, to see if we can make a logical implication
 
         if let Some(x_i_value) = persistent.get(&self.x_i) {
@@ -242,7 +251,7 @@ mod tests {
 
     #[test]
     fn test_constraints_10() {
-        let mut persistent:HashMap<usize, usize> = HashMap::new();
+        let mut persistent: HashMap<usize, usize> = HashMap::new();
         persistent.insert(0, 1);
         persistent.insert(1, 0);
 

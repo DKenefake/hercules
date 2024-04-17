@@ -9,7 +9,7 @@ use crate::persistence::compute_iterative_persistence;
 use crate::{kopt, local_search};
 use smolprng::{JsfLarge, PRNG};
 
-use crate::branchbound::*;
+use crate::branchbound::BBSolver;
 use crate::branchbound_utils::get_current_time;
 use crate::solver_options::SolverOptions;
 use crate::variable_reduction::{generate_rule_11, generate_rule_21};
@@ -32,7 +32,7 @@ pub fn sum_as_string(a: usize, b: usize) -> PyResult<String> {
 /// # read in the QUBO from a file
 /// x_soln = hercules.rand_from_file("file.qubo", 0, 10)
 /// ```
-pub fn rand_from_file(filename: String, seed: usize, num_points: usize) -> PyResult<Vec<f64>> {
+pub fn rand_from_file(filename: String, seed: usize, num_points: usize) -> PyResult<Vec<usize>> {
     // read in the QUBO from file
     let p = Qubo::read_qubo(filename.as_str());
 
@@ -60,7 +60,7 @@ pub fn rand_from_file(filename: String, seed: usize, num_points: usize) -> PyRes
 /// # read in the QUBO from a file
 /// x_soln = hercules.rand(problem, 0, 10)
 /// ```
-pub fn rand(problem: QuboData, seed: usize, num_points: usize) -> PyResult<Vec<f64>> {
+pub fn rand(problem: QuboData, seed: usize, num_points: usize) -> PyResult<Vec<usize>> {
     // read in the QUBO from file
     let p = Qubo::from_vec(problem.0, problem.1, problem.2, problem.3, problem.4);
 
@@ -91,7 +91,7 @@ pub fn pso_from_file(
     seed: usize,
     num_particles: usize,
     max_steps: usize,
-) -> PyResult<(Vec<f64>, f64)> {
+) -> PyResult<(Vec<usize>, f64)> {
     // read in the QUBO from file
     let p = Qubo::read_qubo(filename.as_str());
 
@@ -104,7 +104,7 @@ pub fn pso_from_file(
     let x_soln = local_search::particle_swarm_search(&p, num_particles, max_steps, &mut prng);
 
     // return the solution and its objective
-    Ok((x_soln.to_vec(), p.eval(&x_soln)))
+    Ok((x_soln.to_vec(), p.eval_usize(&x_soln)))
 }
 
 /// This reads in the QUBO from a file, and solves the QUBO using particle swarm optimization, returns the best solution found.
@@ -125,7 +125,7 @@ pub fn pso(
     seed: usize,
     num_particles: usize,
     max_steps: usize,
-) -> PyResult<(Vec<f64>, f64)> {
+) -> PyResult<(Vec<usize>, f64)> {
     // read in the QUBO from file
     let p = Qubo::from_vec(problem.0, problem.1, problem.2, problem.3, problem.4);
 
@@ -138,7 +138,7 @@ pub fn pso(
     let x_soln = local_search::particle_swarm_search(&p, num_particles, max_steps, &mut prng);
 
     // return the solution and its objective
-    Ok((x_soln.to_vec(), p.eval(&x_soln)))
+    Ok((x_soln.to_vec(), p.eval_usize(&x_soln)))
 }
 
 /// This reads in the QUBO from a file, and solves the QUBO using gain guided local search, returns the best solution found.
@@ -153,20 +153,20 @@ pub fn pso(
 #[pyfunction]
 pub fn gls_from_file(
     filename: String,
-    x_0: Vec<f64>,
+    x_0: Vec<usize>,
     max_steps: usize,
-) -> PyResult<(Vec<f64>, f64)> {
+) -> PyResult<(Vec<usize>, f64)> {
     // read in the QUBO from file
     let p = Qubo::read_qubo(filename.as_str());
 
     // convert the input to the correct type
-    let x_array = Array1::<f64>::from(x_0);
+    let x_array = Array1::from(x_0);
 
     // run the gain guided local search
     let x_soln = local_search::simple_gain_criteria_search(&p, &x_array, max_steps);
 
     // return the solution and its objective
-    Ok((x_soln.to_vec(), p.eval(&x_soln)))
+    Ok((x_soln.to_vec(), p.eval_usize(&x_soln)))
 }
 
 /// This reads in the QUBO from a file, and solves the QUBO using gain guided local search, returns the best solution found.
@@ -185,18 +185,18 @@ pub fn gls_from_file(
 /// x_soln, obj = hercules.gls(problem, x_0, 10)
 /// ```
 #[pyfunction]
-pub fn gls(problem: QuboData, x_0: Vec<f64>, max_steps: usize) -> PyResult<(Vec<f64>, f64)> {
+pub fn gls(problem: QuboData, x_0: Vec<usize>, max_steps: usize) -> PyResult<(Vec<usize>, f64)> {
     // read in the QUBO from file
     let p = Qubo::from_vec(problem.0, problem.1, problem.2, problem.3, problem.4);
 
     // convert the input to the correct type
-    let x_array = Array1::<f64>::from(x_0);
+    let x_array = Array1::from(x_0);
 
     // run the gain guided local search
     let x_soln = local_search::simple_gain_criteria_search(&p, &x_array, max_steps);
 
     // return the solution and its objective
-    Ok((x_soln.to_vec(), p.eval(&x_soln)))
+    Ok((x_soln.to_vec(), p.eval_usize(&x_soln)))
 }
 
 /// This reads in the QUBO from a file, and solves the QUBO using mixed local search, returns the best solution found.
@@ -216,20 +216,20 @@ pub fn gls(problem: QuboData, x_0: Vec<f64>, max_steps: usize) -> PyResult<(Vec<
 #[pyfunction]
 pub fn mls_from_file(
     filename: String,
-    x_0: Vec<f64>,
+    x_0: Vec<usize>,
     max_steps: usize,
-) -> PyResult<(Vec<f64>, f64)> {
+) -> PyResult<(Vec<usize>, f64)> {
     // read in the QUBO from file
     let p = Qubo::read_qubo(filename.as_str());
 
     // convert the input to the correct type
-    let x_array = Array1::<f64>::from(x_0);
+    let x_array = Array1::from(x_0);
 
     // run the multi-start local search
     let x_soln = local_search::simple_mixed_search(&p, &x_array, max_steps);
 
     // return the solution and its objective
-    Ok((x_soln.to_vec(), p.eval(&x_soln)))
+    Ok((x_soln.to_vec(), p.eval_usize(&x_soln)))
 }
 
 /// This solves the QUBO using mixed local search, returns the best solution found.
@@ -248,18 +248,18 @@ pub fn mls_from_file(
 /// x_soln, obj = hercules.mls(problem, x_0, 10)
 /// ```
 #[pyfunction]
-pub fn mls(problem: QuboData, x_0: Vec<f64>, max_steps: usize) -> PyResult<(Vec<f64>, f64)> {
+pub fn mls(problem: QuboData, x_0: Vec<usize>, max_steps: usize) -> PyResult<(Vec<usize>, f64)> {
     // read in the QUBO from file
     let p = Qubo::from_vec(problem.0, problem.1, problem.2, problem.3, problem.4);
 
     // convert the input to the correct type
-    let x_array = Array1::<f64>::from(x_0);
+    let x_array = Array1::from(x_0);
 
     // run the multi-start local search
     let x_soln = local_search::simple_mixed_search(&p, &x_array, max_steps);
 
     // return the solution and its objective
-    Ok((x_soln.to_vec(), p.eval(&x_soln)))
+    Ok((x_soln.to_vec(), p.eval_usize(&x_soln)))
 }
 
 /// This reads in the QUBO from a file, and solves the QUBO using multi-start local search, returns the best solution found.
@@ -281,12 +281,18 @@ pub fn mls(problem: QuboData, x_0: Vec<f64>, max_steps: usize) -> PyResult<(Vec<
 /// x_solns, objs = hercules.msls_from_file("file.qubo", xs)
 /// ```
 #[pyfunction]
-pub fn msls_from_file(filename: String, xs: Vec<Vec<f64>>) -> PyResult<(Vec<Vec<f64>>, Vec<f64>)> {
+pub fn msls_from_file(
+    filename: String,
+    xs: Vec<Vec<usize>>,
+) -> PyResult<(Vec<Vec<usize>>, Vec<f64>)> {
     // read in the QUBO from file
     let p = Qubo::read_qubo(filename.as_str());
 
     // convert the input to the correct type
-    let xs = xs.iter().map(|x| Array1::<f64>::from(x.clone())).collect();
+    let xs = xs
+        .iter()
+        .map(|x| Array1::<usize>::from(x.clone()))
+        .collect();
 
     // run the multi-start local search
     let x_solns = local_search::multi_simple_local_search(&p, &xs);
@@ -297,7 +303,7 @@ pub fn msls_from_file(filename: String, xs: Vec<Vec<f64>>) -> PyResult<(Vec<Vec<
     // calculate the objective of each solution
     let objs = x_solns_vec
         .iter()
-        .map(|x| p.eval(&Array1::<f64>::from(x.clone())))
+        .map(|x| p.eval_usize(&Array1::<usize>::from(x.clone())))
         .collect();
 
     // return the solutions and their objectives
@@ -323,12 +329,15 @@ pub fn msls_from_file(filename: String, xs: Vec<Vec<f64>>) -> PyResult<(Vec<Vec<
 /// x_solns, objs = hercules.msls(problem, xs)
 /// ```
 #[pyfunction]
-pub fn msls(problem: QuboData, xs: Vec<Vec<f64>>) -> PyResult<(Vec<Vec<f64>>, Vec<f64>)> {
+pub fn msls(problem: QuboData, xs: Vec<Vec<usize>>) -> PyResult<(Vec<Vec<usize>>, Vec<f64>)> {
     // read in the QUBO from file
     let p = Qubo::from_vec(problem.0, problem.1, problem.2, problem.3, problem.4);
 
     // convert the input to the correct type
-    let xs = xs.iter().map(|x| Array1::<f64>::from(x.clone())).collect();
+    let xs = xs
+        .iter()
+        .map(|x| Array1::<usize>::from(x.clone()))
+        .collect();
 
     // run the multi-start local search
     let x_solns = local_search::multi_simple_local_search(&p, &xs);
@@ -339,7 +348,7 @@ pub fn msls(problem: QuboData, xs: Vec<Vec<f64>>) -> PyResult<(Vec<Vec<f64>>, Ve
     // calculate the objective of each solution
     let objs = x_solns_vec
         .iter()
-        .map(|x| p.eval(&Array1::<f64>::from(x.clone())))
+        .map(|x| p.eval_usize(&Array1::<usize>::from(x.clone())))
         .collect();
 
     // return the solutions and their objectives
@@ -397,8 +406,8 @@ pub fn write_qubo(problem: QuboData, filename: String) -> PyResult<()> {
 #[pyfunction]
 pub fn get_persistence(
     problem: QuboData,
-    fixed: HashMap<usize, f64>,
-) -> PyResult<HashMap<usize, f64>> {
+    fixed: HashMap<usize, usize>,
+) -> PyResult<HashMap<usize, usize>> {
     // read in the QUBO from file
     let p = Qubo::from_vec(problem.0, problem.1, problem.2, problem.3, problem.4);
 
@@ -411,13 +420,13 @@ pub fn get_persistence(
 pub fn solve_branch_bound(
     problem: QuboData,
     timeout: f64,
-    warm_start: Option<Vec<f64>>,
+    warm_start: Option<Vec<usize>>,
     seed: Option<usize>,
     branch_strategy: Option<String>,
     sub_problem_solver: Option<String>,
     threads: Option<usize>,
     verbose: Option<usize>,
-) -> PyResult<(Vec<f64>, f64, f64, usize, usize)> {
+) -> PyResult<(Vec<usize>, f64, f64, usize, usize)> {
     // read in the QUBO from file
     let p_input = Qubo::from_vec(problem.0, problem.1, problem.2, problem.3, problem.4);
 
@@ -451,7 +460,7 @@ pub fn solve_branch_bound(
 
     // if we have a warm start, use it
     if let Some(x) = warm_start {
-        solver.warm_start(Array1::<f64>::from(x));
+        solver.warm_start(Array1::<usize>::from(x));
     }
 
     let (x, obj) = solver.solve();
@@ -526,15 +535,15 @@ pub fn generate_rule_2_1(problem: QuboData) -> PyResult<Vec<(usize, usize)>> {
 #[pyfunction]
 pub fn k_opt(
     problem: QuboData,
-    fixed: HashMap<usize, f64>,
-    initial_guess: Option<Vec<f64>>,
-) -> PyResult<Vec<f64>> {
+    fixed: HashMap<usize, usize>,
+    initial_guess: Option<Vec<usize>>,
+) -> PyResult<Vec<usize>> {
     // read in the QUBO from vec form
     let p = Qubo::from_vec(problem.0, problem.1, problem.2, problem.3, problem.4);
     let persistent = fixed;
 
     match initial_guess {
-        Some(x) => Ok(kopt::solve_kopt(&p, &persistent, Some(Array1::<f64>::from(x))).to_vec()),
+        Some(x) => Ok(kopt::solve_kopt(&p, &persistent, Some(Array1::<usize>::from(x))).to_vec()),
         None => Ok(kopt::solve_kopt(&p, &persistent, None).to_vec()),
     }
 }

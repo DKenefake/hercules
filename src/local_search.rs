@@ -37,7 +37,7 @@ use smolprng::{Algorithm, PRNG};
 /// // perform a simple local search starting at x_0
 /// let x_sol = local_search::simple_local_search(&p, &x_0, 1000);
 /// ```
-pub fn simple_local_search(qubo: &Qubo, x_0: &Array1<f64>, max_steps: usize) -> Array1<f64> {
+pub fn simple_local_search(qubo: &Qubo, x_0: &Array1<usize>, max_steps: usize) -> Array1<usize> {
     let mut x = x_0.clone();
     let variables = (0..qubo.num_x()).collect();
     let mut x_1 = local_search_utils::one_step_local_search_improved(qubo, &x, &variables);
@@ -78,7 +78,7 @@ pub fn simple_local_search(qubo: &Qubo, x_0: &Array1<f64>, max_steps: usize) -> 
 /// // perform a multiple simple local search starting at x_0
 /// let x_sols = local_search::multi_simple_local_search(&p, &xs);
 /// ```
-pub fn multi_simple_local_search(qubo: &Qubo, xs: &Vec<Array1<f64>>) -> Vec<Array1<f64>> {
+pub fn multi_simple_local_search(qubo: &Qubo, xs: &Vec<Array1<usize>>) -> Vec<Array1<usize>> {
     // Given a vector of initial points, run simple local search on each of them
     xs.par_iter()
         .map(|x| simple_local_search(qubo, x, usize::MAX))
@@ -108,9 +108,9 @@ pub fn multi_simple_local_search(qubo: &Qubo, xs: &Vec<Array1<f64>>) -> Vec<Arra
 /// ```
 pub fn simple_gain_criteria_search(
     qubo: &Qubo,
-    x_0: &Array1<f64>,
+    x_0: &Array1<usize>,
     max_steps: usize,
-) -> Array1<f64> {
+) -> Array1<usize> {
     let mut x = x_0.clone();
     let mut x_1 = local_search_utils::get_gain_criteria(qubo, &x);
     let mut steps = 0;
@@ -149,7 +149,10 @@ pub fn simple_gain_criteria_search(
 /// // perform a multiple simple gain criteria search starting at x_0
 /// let x_sols = local_search::multi_simple_gain_criteria_search(&p, &xs);
 /// ```
-pub fn multi_simple_gain_criteria_search(qubo: &Qubo, xs: &Vec<Array1<f64>>) -> Vec<Array1<f64>> {
+pub fn multi_simple_gain_criteria_search(
+    qubo: &Qubo,
+    xs: &Vec<Array1<usize>>,
+) -> Vec<Array1<usize>> {
     // Given a vector of initial points, run simple local search on each of them
     xs.par_iter()
         .map(|x| simple_gain_criteria_search(qubo, x, 1000))
@@ -178,7 +181,7 @@ pub fn multi_simple_gain_criteria_search(qubo: &Qubo, xs: &Vec<Array1<f64>>) -> 
 /// // perform a simple mixed search starting at x_0
 /// let x_sol = local_search::simple_mixed_search(&p, &x_0, 1000);
 /// ```
-pub fn simple_mixed_search(qubo: &Qubo, x_0: &Array1<f64>, max_steps: usize) -> Array1<f64> {
+pub fn simple_mixed_search(qubo: &Qubo, x_0: &Array1<usize>, max_steps: usize) -> Array1<usize> {
     let mut x = x_0.clone();
     let mut x_1 = local_search_utils::get_gain_criteria(qubo, &x);
     let mut steps = 0;
@@ -217,7 +220,7 @@ pub fn particle_swarm_search<T: Algorithm>(
     num_particles: usize,
     max_steps: usize,
     prng: &mut PRNG<T>,
-) -> Array1<f64> {
+) -> Array1<usize> {
     // initialize the particles
     let num_dim = qubo.num_x();
 
@@ -277,16 +280,16 @@ pub fn random_search<T: Algorithm>(
     qubo: &Qubo,
     num_points: usize,
     prng: &mut PRNG<T>,
-) -> Array1<f64> {
+) -> Array1<usize> {
     // set up an initial best point and objective
     let mut best_point = make_binary_point(qubo.num_x(), prng);
-    let mut best_objective = qubo.eval(&best_point);
+    let mut best_objective = qubo.eval_usize(&best_point);
 
     // loop over the number of points
     for _ in 0..num_points {
         // generate a new point and evaluate it
         let new_point = make_binary_point(qubo.num_x(), prng);
-        let new_obj = qubo.eval(&new_point);
+        let new_obj = qubo.eval_usize(&new_point);
 
         // if the new point is better, update the best point
         if new_obj <= best_objective {
@@ -316,18 +319,8 @@ mod tests {
         let mut x_0 = initial_points::generate_random_binary_point(&p, &mut prng, 0.5);
         for _ in 0..100 {
             x_0 = local_search_utils::get_gain_criteria(&p, &x_0);
-            println!("{:?}", p.eval(&x_0));
+            println!("{:?}", p.eval_usize(&x_0));
         }
-    }
-
-    #[test]
-    fn test_opt_heuristics() {
-        let p = make_solver_qubo();
-        let mut x_0 = Array1::ones(p.num_x()) * p.alpha();
-
-        x_0 = local_search::simple_gain_criteria_search(&p, &x_0, 100);
-
-        println!("{:?}", p.eval(&x_0));
     }
 
     #[test]
@@ -344,32 +337,6 @@ mod tests {
     }
 
     #[test]
-    fn test_multi_opt_heuristics_2() {
-        let p = make_solver_qubo();
-        let mut xs = vec![
-            Array1::ones(p.num_x()) * p.alpha(),
-            Array1::ones(p.num_x()) * p.rho(),
-        ];
-
-        xs = local_search::multi_simple_gain_criteria_search(&p, &xs);
-        let min_obj = crate::tests::get_min_obj(&p, &xs);
-        println!("{min_obj:?}");
-    }
-
-    #[test]
-    fn test_multi_opt_heuristics_3() {
-        let p = make_solver_qubo();
-        let mut xs = Vec::new();
-        for i in 0..1000 {
-            xs.push(Array1::ones(p.num_x()) * (i as f64) / 1000.0);
-        }
-
-        xs = local_search::multi_simple_gain_criteria_search(&p, &xs);
-        let min_obj = crate::tests::get_min_obj(&p, &xs);
-        println!("{min_obj:?}");
-    }
-
-    #[test]
     fn test_mixed_search() {
         let p = make_solver_qubo();
         let mut prng = make_test_prng();
@@ -380,6 +347,7 @@ mod tests {
             .par_iter()
             .map(|x| simple_mixed_search(&p, &x, 1000))
             .collect();
+
         let min_obj = crate::tests::get_min_obj(&p, &xs);
         println!("{min_obj:?}");
     }
@@ -391,7 +359,7 @@ mod tests {
 
         let x = particle_swarm_search(&p, 50, 1000, &mut prng);
 
-        println!("{:?}", p.eval(&x));
+        println!("{:?}", p.eval_usize(&x));
     }
 
     #[test]
@@ -410,11 +378,11 @@ mod tests {
 
         println!(
             "PSO: {:?}, MIXED: {:?}, GAIN: {:?}, 1OPT: {:?}, Rand: {:?} ",
-            p.eval(&x_pso),
-            p.eval(&x_mixed),
-            p.eval(&x_gain),
-            p.eval(&x_opt),
-            p.eval(&x_rand)
+            p.eval_usize(&x_pso),
+            p.eval_usize(&x_mixed),
+            p.eval_usize(&x_gain),
+            p.eval_usize(&x_opt),
+            p.eval_usize(&x_rand)
         );
     }
 
@@ -422,7 +390,7 @@ mod tests {
     fn qubo_heuristics() {
         let eye = CsMat::eye(3);
         let p = Qubo::new(eye);
-        let x_0 = Array1::from_vec(vec![1.0, 0.0, 1.0]);
+        let x_0 = Array1::from_vec(vec![1, 0, 1]);
 
         let x_1 = simple_local_search(&p, &x_0, 10);
         print!("{:?}", x_1);
@@ -432,9 +400,9 @@ mod tests {
     fn qubo_multi_heuristics() {
         let eye = CsMat::eye(3);
         let p = Qubo::new(eye);
-        let x_0 = Array1::from_vec(vec![1.0, 0.0, 1.0]);
-        let x_1 = Array1::from_vec(vec![0.0, 1.0, 0.0]);
-        let x_2 = Array1::from_vec(vec![1.0, 1.0, 1.0]);
+        let x_0 = Array1::from_vec(vec![1, 0, 1]);
+        let x_1 = Array1::from_vec(vec![0, 1, 0]);
+        let x_2 = Array1::from_vec(vec![1, 1, 1]);
         let xs = vec![x_0, x_1, x_2];
 
         let x_3 = multi_simple_local_search(&p, &xs);

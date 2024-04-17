@@ -10,22 +10,21 @@ use crate::branchbound_utils::get_current_time;
 /// 1 - Header, Iteration Log, and Finish
 /// 2 - Each New Feasible Solution
 ///
-pub struct SolverOutputLogger{
-    pub output_level: usize
+pub struct SolverOutputLogger {
+    pub output_level: usize,
 }
 
 impl SolverOutputLogger {
-
-    pub fn new(level:usize) -> Self{
-        SolverOutputLogger{output_level:level}
+    pub const fn new(level: usize) -> Self {
+        Self {
+            output_level: level,
+        }
     }
 
     pub fn output_header(&self, solver_instance: &BBSolver) {
-
-        if self.output_level < 1{
+        if self.output_level < 1 {
             return;
         }
-
 
         let version_number = env!("CARGO_PKG_VERSION");
         let num_variables = solver_instance.qubo.num_x();
@@ -41,8 +40,7 @@ impl SolverOutputLogger {
     }
 
     pub fn generate_output_line(&self, solver_instance: &BBSolver) {
-
-        if self.output_level < 1{
+        if self.output_level < 1 {
             return;
         }
 
@@ -60,8 +58,7 @@ impl SolverOutputLogger {
     }
 
     pub fn generate_exit_line(&self, solver_instance: &BBSolver) {
-
-        if self.output_level < 1{
+        if self.output_level < 1 {
             return;
         }
 
@@ -80,8 +77,7 @@ impl SolverOutputLogger {
     }
 
     pub fn output_warm_start_info(&self, solver_instance: &BBSolver) {
-
-        if self.output_level < 1{
+        if self.output_level < 1 {
             return;
         }
 
@@ -92,7 +88,6 @@ impl SolverOutputLogger {
         println!("Starting with warm start with {num_fixed_vars} fixed variables");
         println!("Objective: {solution_value}");
     }
-
 }
 
 #[cfg(test)]
@@ -111,7 +106,7 @@ mod tests {
             SolverOptions::new(),
         );
 
-        let solver_logger = SolverOutputLogger{output_level:1};
+        let solver_logger = SolverOutputLogger { output_level: 1 };
 
         let s = solver.solve();
 

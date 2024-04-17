@@ -11,6 +11,10 @@
 #![allow(clippy::similar_names)]
 #![allow(clippy::implicit_hasher)] // we are using the default hasher
 #![allow(clippy::needless_pass_by_value)]
+#![allow(clippy::cast_precision_loss)] // we are casting floats to ints, and this is fine as the max int is 1
+#![allow(clippy::cast_sign_loss)] //
+#![allow(clippy::cast_possible_truncation)]
+// we are casting floats to ints, and this is fine as the max int is 1
 // This is fine as it is lighting up functions that will eventurally be interfaces that will consume the values
 #![allow(clippy::module_name_repetitions)] // some names are just repeated, and that is fine
 
@@ -30,13 +34,13 @@ pub mod initial_points;
 mod kopt;
 pub mod local_search;
 pub mod local_search_utils;
+mod numeric_trait;
 pub mod persistence;
 pub mod python_interopt;
 pub mod qubo;
 mod solver_options;
 pub mod utils;
 pub mod variable_reduction;
-mod numeric_trait;
 
 // imports to generate the python interface
 
@@ -80,9 +84,9 @@ mod tests {
         Qubo::make_random_qubo(50, &mut prng, 0.1)
     }
 
-    pub(crate) fn get_min_obj(p: &Qubo, xs: &Vec<Array1<f64>>) -> f64 {
+    pub(crate) fn get_min_obj(p: &Qubo, xs: &Vec<Array1<usize>>) -> f64 {
         xs.par_iter()
-            .map(|x| p.eval(&x))
+            .map(|x| p.eval_usize(&x))
             .min_by(|a, b| a.partial_cmp(b).unwrap())
             .unwrap()
     }

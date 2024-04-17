@@ -152,11 +152,11 @@ pub fn is_fractional(x: &Array1<f64>) -> bool {
 /// // generate a random point inside with x in {0, 1}^10 with
 /// let x_0 = utils::make_binary_point(p.num_x(), &mut prng);
 /// ```
-pub fn make_binary_point<T: Algorithm>(num_dim: usize, prng: &mut PRNG<T>) -> Array1<f64> {
-    let mut x = Array1::<f64>::zeros(num_dim);
+pub fn make_binary_point<T: Algorithm>(num_dim: usize, prng: &mut PRNG<T>) -> Array1<usize> {
+    let mut x = Array1::<usize>::zeros(num_dim);
     for i in 0..x.len() {
         if prng.gen_f64() > 0.5 {
-            x[i] = 1.0;
+            x[i] = 1;
         }
     }
     x
@@ -223,14 +223,14 @@ pub fn gen_binary_point_from_dist<T: Algorithm>(
 /// // select the best point based on the objective out of this vector
 /// let best_point = utils::get_best_point(&p, &points);
 /// ```
-pub fn get_best_point(qubo: &Qubo, points: &Vec<Array1<f64>>) -> Array1<f64> {
+pub fn get_best_point(qubo: &Qubo, points: &Vec<Array1<usize>>) -> Array1<usize> {
     // set the first point as the best point
     let mut best_point = points[0].clone();
-    let mut best_obj = qubo.eval(&best_point);
+    let mut best_obj = qubo.eval_usize(&best_point);
 
     // search thru the points and find the best one
     for point in points {
-        let obj = qubo.eval(point);
+        let obj = qubo.eval_usize(point);
         if obj < best_obj {
             best_obj = obj;
             best_point = point.clone();

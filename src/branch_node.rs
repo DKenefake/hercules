@@ -6,5 +6,5 @@ use std::collections::HashMap;
 pub struct QuboBBNode {
     pub lower_bound: f64,
     pub solution: Array1<f64>,
-    pub fixed_variables: HashMap<usize, f64>,
+    pub fixed_variables: HashMap<usize, usize>,
 }

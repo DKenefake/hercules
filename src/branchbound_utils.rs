@@ -3,7 +3,7 @@ use ndarray::Array1;
 use std::time;
 
 /// Utility function to check if a node has an integer solution, and if so, returns the rounded solution
-pub fn check_integer_feasibility(node: &QuboBBNode) -> (bool, Array1<f64>) {
+pub fn check_integer_feasibility(node: &QuboBBNode) -> (bool, Array1<usize>) {
     let mut sum = 0;
     let num_x = node.solution.len();
     let mut buffer = Array1::zeros(num_x);
@@ -17,12 +17,12 @@ pub fn check_integer_feasibility(node: &QuboBBNode) -> (bool, Array1<f64>) {
         } else {
             if node.solution[i].abs() <= epsilon {
                 sum += 1;
-                buffer[i] = 0.0;
+                buffer[i] = 0;
             }
 
             if (node.solution[i] - 1.0).abs() <= epsilon {
                 sum += 1;
-                buffer[i] = 1.0;
+                buffer[i] = 1;
             }
         }
     }

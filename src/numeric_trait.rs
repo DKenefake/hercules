@@ -1,4 +1,3 @@
-
 pub trait BaseVariable {
     fn to_f64(&self) -> f64;
     fn to_usize(&self) -> usize;
@@ -22,4 +21,3 @@ impl BaseVariable for f64 {
         *self as usize
     }
 }
-
