@@ -108,7 +108,7 @@ mod tests {
 
         let solver_logger = SolverOutputLogger { output_level: 1 };
 
-        let s = solver.solve();
+        let _ = solver.solve();
 
         solver_logger.output_warm_start_info(&solver);
         solver_logger.generate_exit_line(&solver);

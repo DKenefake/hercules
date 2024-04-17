@@ -17,12 +17,6 @@ use crate::variable_reduction::{generate_rule_11, generate_rule_21};
 // type alias for the qubo data object from python
 type QuboData = (Vec<usize>, Vec<usize>, Vec<f64>, Vec<f64>, usize);
 
-/// Formats the sum of two numbers as string.
-#[pyfunction]
-pub fn sum_as_string(a: usize, b: usize) -> PyResult<String> {
-    Ok((a + b).to_string())
-}
-
 /// This reads in the QUBO from a file, and solves the QUBO using random search, returns the best solution found.
 ///
 /// Example
@@ -32,6 +26,9 @@ pub fn sum_as_string(a: usize, b: usize) -> PyResult<String> {
 /// # read in the QUBO from a file
 /// x_soln = hercules.rand_from_file("file.qubo", 0, 10)
 /// ```
+/// # Errors
+///
+/// if the file does not exist, then it will abort
 pub fn rand_from_file(filename: String, seed: usize, num_points: usize) -> PyResult<Vec<usize>> {
     // read in the QUBO from file
     let p = Qubo::read_qubo(filename.as_str());
@@ -60,6 +57,10 @@ pub fn rand_from_file(filename: String, seed: usize, num_points: usize) -> PyRes
 /// # read in the QUBO from a file
 /// x_soln = hercules.rand(problem, 0, 10)
 /// ```
+///
+/// # Errors
+///
+/// This function should never error, but if it does, it will abort.
 pub fn rand(problem: QuboData, seed: usize, num_points: usize) -> PyResult<Vec<usize>> {
     // read in the QUBO from file
     let p = Qubo::from_vec(problem.0, problem.1, problem.2, problem.3, problem.4);
@@ -85,6 +86,10 @@ pub fn rand(problem: QuboData, seed: usize, num_points: usize) -> PyResult<Vec<u
 /// # read in the QUBO from a file
 /// x_s = hercules.pso_from_file("file.qubo", 0, 10, 100)
 /// ```
+///
+/// # Errors
+///
+/// if the file does not exist, then it will abort
 #[pyfunction]
 pub fn pso_from_file(
     filename: String,
@@ -119,6 +124,9 @@ pub fn pso_from_file(
 /// # solve via PSO
 /// x_s = hercules.pso(problem, 0, 10, 100)
 /// ```
+/// # Errors
+///
+/// This function should never error, but if it does, it will abort.
 #[pyfunction]
 pub fn pso(
     problem: QuboData,
@@ -150,6 +158,10 @@ pub fn pso(
 /// # read in the QUBO from a file
 /// x_soln = hercules.gls_from_file("file.qubo", 0, 10)
 /// ```
+///
+/// # Errors
+///
+/// if the file does not exist, then it will abort
 #[pyfunction]
 pub fn gls_from_file(
     filename: String,
@@ -184,6 +196,9 @@ pub fn gls_from_file(
 /// # read in the QUBO from a file
 /// x_soln, obj = hercules.gls(problem, x_0, 10)
 /// ```
+/// # Errors
+///
+/// This function should never error, but if it does, it will abort.
 #[pyfunction]
 pub fn gls(problem: QuboData, x_0: Vec<usize>, max_steps: usize) -> PyResult<(Vec<usize>, f64)> {
     // read in the QUBO from file
@@ -213,6 +228,9 @@ pub fn gls(problem: QuboData, x_0: Vec<usize>, max_steps: usize) -> PyResult<(Ve
 /// # read in the QUBO from a file
 /// x_soln, obj = hercules.mls_from_file("file.qubo", x_0, 10)
 /// ```
+/// # Errors
+///
+/// if the file does not exist, then it will abort
 #[pyfunction]
 pub fn mls_from_file(
     filename: String,
@@ -247,6 +265,9 @@ pub fn mls_from_file(
 /// # solve via multi start local search
 /// x_soln, obj = hercules.mls(problem, x_0, 10)
 /// ```
+/// # Errors
+///
+/// This function should never error, but if it does, it will abort.
 #[pyfunction]
 pub fn mls(problem: QuboData, x_0: Vec<usize>, max_steps: usize) -> PyResult<(Vec<usize>, f64)> {
     // read in the QUBO from file
@@ -280,6 +301,9 @@ pub fn mls(problem: QuboData, x_0: Vec<usize>, max_steps: usize) -> PyResult<(Ve
 /// # read in the QUBO from a file
 /// x_solns, objs = hercules.msls_from_file("file.qubo", xs)
 /// ```
+/// # Errors
+///
+/// if the file does not exist, then it will abort
 #[pyfunction]
 pub fn msls_from_file(
     filename: String,
@@ -328,6 +352,9 @@ pub fn msls_from_file(
 /// # read in the QUBO from a file
 /// x_solns, objs = hercules.msls(problem, xs)
 /// ```
+/// # Errors
+///
+/// This function should never error, but if it does, it will abort.
 #[pyfunction]
 pub fn msls(problem: QuboData, xs: Vec<Vec<usize>>) -> PyResult<(Vec<Vec<usize>>, Vec<f64>)> {
     // read in the QUBO from file
@@ -364,6 +391,9 @@ pub fn msls(problem: QuboData, xs: Vec<Vec<usize>>) -> PyResult<(Vec<Vec<usize>>
 /// # read in the QUBO from a file
 /// p = hercules.read_qubo("file.qubo")
 /// ```
+/// # Errors
+///
+/// if the file does not exist, then it will abort
 #[pyfunction]
 pub fn read_qubo(filename: String) -> PyResult<QuboData> {
     // read in the QUBO from file
@@ -393,6 +423,9 @@ pub fn read_qubo(filename: String) -> PyResult<QuboData> {
 /// # read in the QUBO from a file
 /// p = hercules.read_qubo("file.qubo")
 /// ```
+/// # Errors
+///
+/// if the location does not exist, then it will abort
 #[pyfunction]
 pub fn write_qubo(problem: QuboData, filename: String) -> PyResult<()> {
     // read in the QUBO from file
@@ -403,6 +436,23 @@ pub fn write_qubo(problem: QuboData, filename: String) -> PyResult<()> {
     Ok(())
 }
 
+/// This function computes the persistence of the QUBO, e.g. an initial set of variables that can be fixed
+/// to reduce the size of the problem.
+///
+/// Example
+/// ``` python
+/// import hercules
+///
+/// # read in the QUBO from a file
+/// problem = hercules.read_qubo("file.qubo")
+///
+/// # compute the persistence
+/// fixed = hercules.get_persistence(problem, {})
+/// ```
+///
+/// # Errors
+///
+/// if the file does not exist, then it will abort, but the persistence calculation should never fail
 #[pyfunction]
 pub fn get_persistence(
     problem: QuboData,
@@ -416,6 +466,25 @@ pub fn get_persistence(
     Ok(new_fixed)
 }
 
+/// Solves the QUBO using branch and bound, returns the best solution found.
+///
+/// Example
+/// ``` python
+/// import hercules
+///
+/// # read in the QUBO from a file
+/// problem = hercules.read_qubo("file.qubo")
+///
+/// # calculate a warm start
+/// x_0, _ = hercules.pso(problem, 0, 10, 100)
+///
+/// # solve the QUBO using branch and bound
+/// x, obj, time, nodes_visited, nodes_processed = hercules.solve_branch_bound(problem, timeout = 10.0, warm_start = x_0, seed = 12345, branch_strategy = "MostViolated", sub_problem_solver="Clarabel", threads=32, verbose=1)
+/// ```
+///
+/// # Errors
+///
+/// This shouldn't error, but if it does, it will abort.
 #[pyfunction]
 pub fn solve_branch_bound(
     problem: QuboData,
@@ -476,6 +545,22 @@ pub fn solve_branch_bound(
     ))
 }
 
+/// This function converts the QUBO to a convex symmetric form
+/// and returns the QUBO in vec form
+///
+/// Example
+/// ``` python
+/// import hercules
+///
+/// # read in the QUBO from a file
+/// problem = hercules.read_qubo("file.qubo")
+///
+/// # convert the QUBO to a convex symmetric form
+/// new_problem = hercules.convex_symmetric_form(problem)
+/// ```
+///
+/// # Errors
+/// If the eigenvalue calculation fails, then it will abort
 #[pyfunction]
 pub fn convex_symmetric_form(problem: QuboData) -> PyResult<QuboData> {
     // read in the QUBO from file
@@ -494,6 +579,22 @@ pub fn convex_symmetric_form(problem: QuboData) -> PyResult<QuboData> {
     Ok(p.make_symmetric().make_convex(min_eig.abs() * 1.1).to_vec())
 }
 
+/// This function generates the rule 1.1 for the QUBO from the glover paper
+/// and returns the rules in vec form
+///
+/// Example
+/// ``` python
+/// import hercules
+///
+/// # read in the QUBO from a file
+/// problem = hercules.read_qubo("file.qubo")
+///
+/// # generate the rules
+/// rules = hercules.generate_rule_1_1(problem)
+/// ```
+///
+/// # Errors
+/// This shouldn't error, but if it does, it will abort.
 #[pyfunction]
 pub fn generate_rule_1_1(problem: QuboData) -> PyResult<Vec<(usize, usize)>> {
     // read in the QUBO from vec form
@@ -513,6 +614,22 @@ pub fn generate_rule_1_1(problem: QuboData) -> PyResult<Vec<(usize, usize)>> {
     Ok(rules)
 }
 
+/// This function generates the rule 2.1 for the QUBO from the glover paper
+/// and returns the rules in vec form
+///
+/// Example
+/// ``` python
+/// import hercules
+///
+/// # read in the QUBO from a file
+/// problem = hercules.read_qubo("file.qubo")
+///
+/// # generate the rules
+/// rules = hercules.generate_rule_2_1(problem)
+/// ```
+///
+/// # Errors
+/// This shouldn't error, but if it does, it will abort.
 #[pyfunction]
 pub fn generate_rule_2_1(problem: QuboData) -> PyResult<Vec<(usize, usize)>> {
     // read in the QUBO from vec form
@@ -532,6 +649,22 @@ pub fn generate_rule_2_1(problem: QuboData) -> PyResult<Vec<(usize, usize)>> {
     Ok(rules)
 }
 
+/// This function solves the QUBO using the k-opt algorithm
+/// and returns the best solution found.
+///
+/// Example
+/// ``` python
+/// import hercules
+///
+/// # read in the QUBO from a file
+/// problem = hercules.read_qubo("file.qubo")
+///
+/// # solve the QUBO using k-opt
+/// x, obj = hercules.k_opt(problem, {}, initial_guess = None)
+/// ```
+///
+/// # Errors
+/// This shouldn't error, but if it does, it will abort.
 #[pyfunction]
 pub fn k_opt(
     problem: QuboData,

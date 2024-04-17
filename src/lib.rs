@@ -8,7 +8,7 @@
 #![allow(clippy::doc_markdown)] // breaks some of the documentation written in latex
 #![allow(clippy::match_bool)]
 #![allow(clippy::suboptimal_flops)] // far to many false positives, e.g. vector and matrix multiplication suggestions
-#![allow(clippy::similar_names)]
+#![allow(clippy::similar_names)] // we are using similar names to the papers we are implementing
 #![allow(clippy::implicit_hasher)] // we are using the default hasher
 #![allow(clippy::needless_pass_by_value)]
 #![allow(clippy::cast_precision_loss)] // we are casting floats to ints, and this is fine as the max int is 1
@@ -49,7 +49,6 @@ use python_interopt::*;
 /// Gives python access to the rust interface
 #[pymodule]
 fn hercules(_py: Python<'_>, m: &PyModule) -> PyResult<()> {
-    m.add_function(wrap_pyfunction!(sum_as_string, m)?)?;
     m.add_function(wrap_pyfunction!(pso_from_file, m)?)?;
     m.add_function(wrap_pyfunction!(gls_from_file, m)?)?;
     m.add_function(wrap_pyfunction!(mls_from_file, m)?)?;

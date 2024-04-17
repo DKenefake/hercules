@@ -60,6 +60,9 @@ pub fn compute_persistent(
 }
 
 /// Finds bounds of the i-th index of the gradients of the QUBO function
+///
+/// # Panics
+/// This function should not panic as the unwraps are bounded on the size of the QUBO matrix
 pub fn grad_bounds(qubo: &Qubo, i: usize, persistent: &HashMap<usize, usize>) -> (f64, f64) {
     // set up tracking variables for each bound
     let mut lower = 0.0;
@@ -154,5 +157,16 @@ mod tests {
         assert_eq!(grad_bounds(&p, 0, &fixed_vars), (2.0, 2.0));
         assert_eq!(grad_bounds(&p, 1, &fixed_vars), (2.0, 3.0));
         assert_eq!(grad_bounds(&p, 2, &fixed_vars), (4.0, 4.0));
+    }
+
+    #[test]
+    fn test_grad_bounds_3() {
+        let zero = CsMat::zero((3, 3));
+        let c = Array1::from_vec(vec![1.0, 2.0, 3.0]);
+        let p = Qubo::new_with_c(zero, c);
+
+        assert_eq!(grad_bounds(&p, 0, &HashMap::new()), (1.0, 1.0));
+        assert_eq!(grad_bounds(&p, 1, &HashMap::new()), (2.0, 2.0));
+        assert_eq!(grad_bounds(&p, 2, &HashMap::new()), (3.0, 3.0));
     }
 }

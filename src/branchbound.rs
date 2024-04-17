@@ -176,10 +176,6 @@ impl BBSolver {
 
     /// main loop of the branch and bound algorithm
     pub fn process_node(&self, node: &QuboBBNode) -> ProcessNodeState {
-        let mut x = ProcessNodeState {
-            prune_action: PruneAction::Dont,
-            event: None,
-        };
 
         // create a mutable copy of the node
         let mut node = node.clone();
@@ -192,10 +188,8 @@ impl BBSolver {
         let (prune_action, event) = self.can_prune_action(&node);
 
         // if we are pruning at this stage then we can early return
-        if let PruneAction::Prune = prune_action {
-            x.prune_action = prune_action;
-            x.event = Some(event);
-            return x;
+        if matches!(prune_action, PruneAction::Prune) {
+            return ProcessNodeState{prune_action, event: Some(event)};
         }
 
         // We now need to solve the node to generate the lower bound and solution
@@ -210,19 +204,17 @@ impl BBSolver {
 
         // if we are integer feasible then we can prune this branch and return the solution
         if is_int_feasible {
-            x.prune_action = PruneAction::Prune;
+            // x.prune_action = PruneAction::Prune;
 
             // compute the objective
             let value = self.qubo.eval_usize(&rounded_sol);
 
             // if it is better, then we will attempt to update the solution otherwise just prune
             if value <= self.best_solution_value {
-                x.event = Some(Event::UpdateBestSolution(rounded_sol, value));
+                return ProcessNodeState{prune_action, event : Some(Event::UpdateBestSolution(rounded_sol, value))};
             } else {
-                x.event = Some(Event::Nill);
+                return ProcessNodeState{prune_action, event : Some(Event::Nill)};
             }
-
-            return x;
         }
 
         // determine what variable we are branching on
@@ -231,10 +223,7 @@ impl BBSolver {
         // generate the branches
         let (zero_branch, one_branch) = Self::branch(node, branch_id, lower_bound, solution);
 
-        // create an add branches event and add the new branches
-        x.event = Some(Event::AddBranches(zero_branch, one_branch));
-
-        x
+        ProcessNodeState{prune_action, event: Some(Event::AddBranches(zero_branch, one_branch))}
     }
 
     pub fn apply_event_option(&mut self, event: Option<Event>) {
@@ -283,7 +272,7 @@ impl BBSolver {
             }
 
             // if we don't prune the node then we can return it
-            if let PruneAction::Dont = prune {
+            if matches!(prune, PruneAction::Dont) {
                 return Some(node);
             }
         }

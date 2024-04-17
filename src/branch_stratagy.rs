@@ -166,8 +166,8 @@ pub fn compute_strong_branch(solver: &BBSolver, node: &QuboBBNode) -> (Array1<f6
         }
 
         // compute the delta values for the zero and one flips
-        delta_zero[i] = -(base_solution[i] as f64);
-        delta_one[i] = 1.0 - (base_solution[i] as f64);
+        delta_zero[i] = -base_solution[i];
+        delta_one[i] = 1.0 - base_solution[i];
     }
 
     // build the intermediate vectors
