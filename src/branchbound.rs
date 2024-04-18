@@ -10,7 +10,7 @@ use crate::branch_subproblem::{
 use crate::branchbound_utils::{check_integer_feasibility, get_current_time};
 use crate::branchboundlogger::SolverOutputLogger;
 use crate::lower_bound::li_lower_bound;
-use crate::persistence::compute_iterative_persistence;
+use crate::preprocess::preprocess_qubo;
 use crate::solver_options::SolverOptions;
 
 /// Struct for the B&B Solver
@@ -85,16 +85,13 @@ impl BBSolver {
     /// The main solve function of the B&B algorithm
     pub fn solve(&mut self) -> (Array1<usize>, f64) {
         // preprocess the problem
-        let initial_fixed = self.options.fixed_variables.clone();
-
-        self.options.fixed_variables =
-            compute_iterative_persistence(&self.qubo, &initial_fixed, self.qubo.num_x());
+        let fixed_variables = preprocess_qubo(&self.qubo, &self.options.fixed_variables);
 
         // create the root node
         let root_node = QuboBBNode {
             lower_bound: f64::NEG_INFINITY,
             solution: Array1::zeros(self.qubo.num_x()),
-            fixed_variables: self.options.fixed_variables.clone(),
+            fixed_variables,
         };
 
         let logger = SolverOutputLogger {
@@ -191,24 +188,26 @@ impl BBSolver {
 
     /// main loop of the branch and bound algorithm
     pub fn process_node(&self, node: &QuboBBNode) -> ProcessNodeState {
-
         // create a mutable copy of the node
         let mut node = node.clone();
 
-        // pass to the presolver to see if there are any variable we can fix
-        node.fixed_variables =
-            compute_iterative_persistence(&self.qubo, &node.fixed_variables, self.qubo.num_x());
+        // pass to the presolver to see if there are any variables we can fix
+        node.fixed_variables = preprocess_qubo(&self.qubo, &node.fixed_variables);
 
         // calculate the lower bound via the li lower bound formula
         let li_bound = li_lower_bound(&self.qubo, &node.fixed_variables);
         node.lower_bound = node.lower_bound.max(li_bound);
 
-        // with this expanded set can we prune the node?
+        // with this expanded set, can we prune the node?
         let (prune_action, event) = self.can_prune_action(&node);
 
-        // if we are pruning at this stage then we can early return
+        // if we are pruning at this stage, then we can early return
         if matches!(prune_action, PruneAction::Prune) {
-            return ProcessNodeState{prune_action, event: Some(event), logging: NodeLoggingAction::Processed};
+            return ProcessNodeState {
+                prune_action,
+                event: Some(event),
+                logging: NodeLoggingAction::Processed,
+            };
         }
 
         // We now need to solve the node to generate the lower bound and solution
@@ -228,11 +227,19 @@ impl BBSolver {
             // compute the objective
             let value = self.qubo.eval_usize(&rounded_sol);
 
-            // if it is better, then we will attempt to update the solution otherwise just prune
+            // if it is better, then we will attempt to update the solution otherwise prune
             if value <= self.best_solution_value {
-                return ProcessNodeState{prune_action, event : Some(Event::UpdateBestSolution(rounded_sol, value)), logging: NodeLoggingAction::Solved};
+                return ProcessNodeState {
+                    prune_action,
+                    event: Some(Event::UpdateBestSolution(rounded_sol, value)),
+                    logging: NodeLoggingAction::Solved,
+                };
             } else {
-                return ProcessNodeState{prune_action, event : Some(Event::Nill), logging: NodeLoggingAction::Solved};
+                return ProcessNodeState {
+                    prune_action,
+                    event: Some(Event::Nill),
+                    logging: NodeLoggingAction::Solved,
+                };
             }
         }
 
@@ -242,7 +249,11 @@ impl BBSolver {
         // generate the branches
         let (zero_branch, one_branch) = Self::branch(node, branch_id, lower_bound, solution);
 
-        ProcessNodeState{prune_action, event: Some(Event::AddBranches(zero_branch, one_branch)), logging: NodeLoggingAction::Solved}
+        ProcessNodeState {
+            prune_action,
+            event: Some(Event::AddBranches(zero_branch, one_branch)),
+            logging: NodeLoggingAction::Solved,
+        }
     }
 
     pub fn apply_event_option(&mut self, event: Option<Event>) {

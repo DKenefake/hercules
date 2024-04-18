@@ -32,14 +32,18 @@ impl Constraint {
             return true;
         }
 
+        // this unwrapping is safe, as we have already checked that both variables are fixed
+        let x_i_value = *persistent.get(&self.x_i).unwrap();
+        let x_j_value = *persistent.get(&self.x_j).unwrap();
+
         // check if we abide by the constraint
         match self.constraint_type {
-            ConstraintType::NoMoreThanOne => self.no_more_than_one(persistent),
-            ConstraintType::AtLeastOne => self.at_least_one(persistent),
-            ConstraintType::ExactlyOne => self.exactly_one(persistent),
-            ConstraintType::GreaterThan => self.greater_than(persistent),
-            ConstraintType::LessThan => self.less_than(persistent),
-            ConstraintType::Equal => self.equal(persistent),
+            ConstraintType::NoMoreThanOne => self.no_more_than_one(x_i_value, x_j_value),
+            ConstraintType::AtLeastOne => self.at_least_one(x_i_value, x_j_value),
+            ConstraintType::ExactlyOne => self.exactly_one(x_i_value, x_j_value),
+            ConstraintType::GreaterThan => self.greater_than(x_i_value, x_j_value),
+            ConstraintType::LessThan => self.less_than(x_i_value, x_j_value),
+            ConstraintType::Equal => self.equal(x_i_value, x_j_value),
         }
     }
 
@@ -68,57 +72,27 @@ impl Constraint {
         }
     }
 
-    pub fn no_more_than_one(&self, persistent: &HashMap<usize, usize>) -> bool {
-        // If we have explicitly checked both keys to be fixed, so this is safe
-        let x_i_val = *persistent.get(&self.x_i).unwrap();
-        let x_j_val = *persistent.get(&self.x_j).unwrap();
-
-        // We can't have both
-        !(x_i_val == 1 && x_j_val == 1)
+    pub fn no_more_than_one(&self, x_i_val: usize, x_j_val: usize) -> bool {
+        x_i_val + x_j_val <= 1
     }
 
-    pub fn at_least_one(&self, persistent: &HashMap<usize, usize>) -> bool {
-        // If we have explicitly checked both keys to be fixed, so this is safe
-        let x_i_val = *persistent.get(&self.x_i).unwrap();
-        let x_j_val = *persistent.get(&self.x_j).unwrap();
-
-        // If either is 1, then we are consistent
-        x_i_val == 1 || x_j_val == 1
+    pub fn at_least_one(&self, x_i_val: usize, x_j_val: usize) -> bool {
+        x_i_val + x_j_val >= 1
     }
 
-    pub fn exactly_one(&self, persistent: &HashMap<usize, usize>) -> bool {
-        // If we have explicitly checked both keys to be fixed, so this is safe
-        let x_i_val = *persistent.get(&self.x_i).unwrap();
-        let x_j_val = *persistent.get(&self.x_j).unwrap();
-
-        // if we can only have one, then we can't have both
+    pub fn exactly_one(&self, x_i_val: usize, x_j_val: usize) -> bool {
         x_i_val + x_j_val == 1
     }
 
-    pub fn greater_than(&self, persistent: &HashMap<usize, usize>) -> bool {
-        // If we have explicitly checked both keys to be fixed, so this is safe
-        let x_i_val = *persistent.get(&self.x_i).unwrap();
-        let x_j_val = *persistent.get(&self.x_j).unwrap();
-
-        // if x_i is 1, then x_j must be 0
+    pub fn greater_than(&self, x_i_val: usize, x_j_val: usize) -> bool {
         x_i_val >= x_j_val
     }
 
-    pub fn less_than(&self, persistent: &HashMap<usize, usize>) -> bool {
-        // If we have explicitly checked both keys to be fixed, so this is safe
-        let x_i_val = *persistent.get(&self.x_i).unwrap();
-        let x_j_val = *persistent.get(&self.x_j).unwrap();
-
-        // if x_i is 1, then x_j must be 0
+    pub fn less_than(&self, x_i_val: usize, x_j_val: usize) -> bool {
         x_i_val <= x_j_val
     }
 
-    pub fn equal(&self, persistent: &HashMap<usize, usize>) -> bool {
-        // If we have explicitly checked both keys to be fixed, so this is safe
-        let x_i_val = *persistent.get(&self.x_i).unwrap();
-        let x_j_val = *persistent.get(&self.x_j).unwrap();
-
-        // if x_i is 1, then x_j must be 0
+    pub fn equal(&self, x_i_val: usize, x_j_val: usize) -> bool {
         x_i_val == x_j_val
     }
 

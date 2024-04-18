@@ -83,7 +83,7 @@ impl SubProblemSolver for ClarabelSubProblemSolver {
         // set up the solver with the matrices
         let mut solver = DefaultSolver::new(
             &self.q,
-            self.c.as_slice().unwrap(),
+            self.c.as_slice().unwrap(), // unwrap is safe because Array1 is stored in contiguous memory
             &A_clara,
             b.as_slice().unwrap(),
             &cones,

@@ -34,6 +34,7 @@ pub mod initial_points;
 mod kopt;
 pub mod local_search;
 pub mod local_search_utils;
+mod lower_bound;
 mod numeric_trait;
 pub mod persistence;
 pub mod python_interopt;
@@ -41,7 +42,7 @@ pub mod qubo;
 mod solver_options;
 pub mod utils;
 pub mod variable_reduction;
-mod lower_bound;
+mod preprocess;
 
 // imports to generate the python interface
 
@@ -81,14 +82,13 @@ mod tests {
             generator: JsfLarge::default(),
         };
 
-        Qubo::make_random_qubo(50, &mut prng, 0.01)
+        Qubo::make_random_qubo(50, &mut prng, 0.1)
     }
 
     pub(crate) fn get_min_obj(p: &Qubo, xs: &Vec<Array1<usize>>) -> f64 {
-        xs.par_iter()
-            .map(|x| p.eval_usize(&x))
-            .min_by(|a, b| a.partial_cmp(b).unwrap())
-            .unwrap()
+        // get minimum objective value
+        xs.into_iter()
+            .fold(f64::INFINITY, |acc, x| p.eval_usize(&x).min(acc))
     }
 
     pub(crate) fn make_test_prng() -> PRNG<JsfLarge> {

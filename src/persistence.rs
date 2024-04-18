@@ -68,10 +68,10 @@ pub fn grad_bounds(qubo: &Qubo, i: usize, persistent: &HashMap<usize, usize>) ->
     let mut lower = 0.0;
     let mut upper = 0.0;
 
-    // get the i-th row of the Q matrix
+    // get the i-th row of the Q matrix, this is safe as we are bounded by the size of the Q matrix
     let x = qubo.q.outer_view(i).unwrap();
 
-    // get the i-th column of the Q matrix
+    // get the i-th column of the Q matrix, this is safe for the same reason
     let binding = qubo.q.transpose_view();
     let y = binding.outer_view(i).unwrap();
 
