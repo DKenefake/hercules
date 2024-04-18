@@ -86,6 +86,9 @@ impl BBSolver {
     pub fn solve(&mut self) -> (Array1<usize>, f64) {
         // preprocess the problem
         let fixed_variables = preprocess_qubo(&self.qubo, &self.options.fixed_variables);
+        self.options.fixed_variables = fixed_variables.clone();
+
+        println!("{:?}", fixed_variables);
 
         // create the root node
         let root_node = QuboBBNode {
@@ -384,6 +387,7 @@ impl BBSolver {
 
 #[cfg(test)]
 mod tests {
+    use std::collections::HashMap;
     use crate::branch_stratagy::BranchStrategySelection;
     use crate::qubo::Qubo;
     use crate::solver_options::SolverOptions;
@@ -391,6 +395,7 @@ mod tests {
     use crate::{branchbound, local_search};
     use ndarray::Array1;
     use sprs::CsMat;
+    use crate::preprocess::preprocess_qubo;
 
     #[test]
     pub fn branch_bound_test() {
@@ -413,6 +418,8 @@ mod tests {
 
         let p = make_solver_qubo();
 
+        let fixed_variables = preprocess_qubo(&p, &HashMap::new());
+
         let p_new = p.make_symmetric();
         // get the eigenvalues of the hessian
         let eig = p_new.hess_eigenvalues();
@@ -428,6 +435,7 @@ mod tests {
         options.max_time = 1000.0;
         options.branch_strategy = BranchStrategySelection::MostViolated;
         options.threads = 200;
+        options.fixed_variables = fixed_variables;
 
         let mut solver = branchbound::BBSolver::new(p_fixed, options);
         solver.warm_start(guess);

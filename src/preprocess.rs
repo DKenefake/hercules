@@ -62,11 +62,13 @@ mod tests{
     use std::collections::HashMap;
     use ndarray::Array1;
     use sprs::CsMat;
+    use crate::persistence::compute_iterative_persistence;
     use crate::preprocess::preprocess_qubo;
     use crate::qubo::Qubo;
+    use crate::tests::make_solver_qubo;
 
     #[test]
-    fn test_preprocess_qubo(){
+    fn test_preprocess_qubo_1(){
         let eye = CsMat::eye(3);
         let c = Array1::from_vec(vec![1.1, 2.0, 3.0]);
         let p = Qubo::new_with_c(eye, c);
@@ -74,6 +76,5 @@ mod tests{
         let fixed_variables = preprocess_qubo(&p, &fixed_variables);
         assert_eq!(fixed_variables.len(), 3);
     }
-
 
 }

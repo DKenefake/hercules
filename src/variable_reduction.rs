@@ -22,7 +22,7 @@ pub fn generate_rule_11(p: &Qubo, fixed: &HashMap<usize, usize>, i: usize) -> Ve
     let d_i = (0..p.num_x())
         .map(|h| get_dih(p, i, h))
         .collect::<Array1<f64>>();
-    let (D_plus, _) = grad_bounds(p, i, fixed);
+    let (D_plus, _) = grad_bounds(p, i, fixed, false);
 
     let mut generated_rules = vec![];
 
@@ -41,7 +41,7 @@ pub fn generate_rule_21(p: &Qubo, fixed: &HashMap<usize, usize>, i: usize) -> Ve
     let d_i = (0..p.num_x())
         .map(|h| get_dih(p, i, h))
         .collect::<Array1<f64>>();
-    let (_, D_minus) = grad_bounds(p, i, fixed);
+    let (_, D_minus) = grad_bounds(p, i, fixed, false);
 
     let mut generated_rules = vec![];
 
