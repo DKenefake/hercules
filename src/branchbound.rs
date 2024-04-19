@@ -88,8 +88,6 @@ impl BBSolver {
         let fixed_variables = preprocess_qubo(&self.qubo, &self.options.fixed_variables);
         self.options.fixed_variables = fixed_variables.clone();
 
-        println!("{:?}", fixed_variables);
-
         // create the root node
         let root_node = QuboBBNode {
             lower_bound: f64::NEG_INFINITY,
@@ -225,8 +223,6 @@ impl BBSolver {
 
         // if we are integer feasible then we can prune this branch and return the solution
         if is_int_feasible {
-            // x.prune_action = PruneAction::Prune;
-
             // compute the objective
             let value = self.qubo.eval_usize(&rounded_sol);
 
@@ -418,9 +414,10 @@ mod tests {
 
         let p = make_solver_qubo();
 
-        let fixed_variables = preprocess_qubo(&p, &HashMap::new());
 
         let p_new = p.make_symmetric();
+        let fixed_variables = preprocess_qubo(&p_new, &HashMap::new());
+
         // get the eigenvalues of the hessian
         let eig = p_new.hess_eigenvalues();
         // get the smallest eigenvalue
@@ -435,10 +432,15 @@ mod tests {
         options.max_time = 1000.0;
         options.branch_strategy = BranchStrategySelection::MostViolated;
         options.threads = 200;
-        options.fixed_variables = fixed_variables;
+        options.fixed_variables = fixed_variables.clone();
 
         let mut solver = branchbound::BBSolver::new(p_fixed, options);
         solver.warm_start(guess);
-        solver.solve();
+        let (solution, obj) = solver.solve();
+
+        for (&index, &val) in fixed_variables.iter() {
+            assert_eq!(val, solution[index]);
+        }
+
     }
 }

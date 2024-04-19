@@ -17,7 +17,7 @@ pub fn compute_iterative_persistence(
 
     // loop over the number of iters
     for iter in 0..iters {
-        let incoming_persistent = compute_persistent(qubo, &new_persistent, iter % 2 == 0);
+        let incoming_persistent = compute_persistent(qubo, &new_persistent, true);
         if new_persistent == incoming_persistent {
             break;
         }
@@ -90,9 +90,6 @@ pub fn grad_bounds(qubo: &Qubo, i: usize, persistent: &HashMap<usize, usize>, ke
             if keep_vars {
                 lower += 1.0 * value * (persistent[&index] as f64);
                 upper += 1.0 * value * (persistent[&index] as f64);
-            }
-            else{
-                continue;
             }
         } else {
             // if it is not in the persistent set, then we can choose the best value
@@ -181,8 +178,9 @@ mod tests {
     fn test_alternating_persistence(){
 
         let p = make_solver_qubo();
-        let persist = compute_iterative_persistence(&p, &HashMap::new(), p.num_x());
+        let p_symm = p.make_symmetric();
+        let persist = compute_iterative_persistence(&p_symm, &HashMap::new(), p.num_x());
 
-        assert_eq!(persist.len(), 46);
+        assert_eq!(persist.len(), 41);
     }
 }

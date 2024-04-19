@@ -11,6 +11,7 @@ use smolprng::{JsfLarge, PRNG};
 
 use crate::branchbound::BBSolver;
 use crate::branchbound_utils::get_current_time;
+use crate::preprocess::preprocess_qubo;
 use crate::solver_options::SolverOptions;
 use crate::variable_reduction::{generate_rule_11, generate_rule_21};
 
@@ -501,6 +502,9 @@ pub fn solve_branch_bound(
 
     let symm_p = p_input.make_symmetric();
 
+    // run preprocessing on the symmetric QUBO
+    let fixed_variables = preprocess_qubo(&symm_p, &HashMap::new());
+
     let eigs = symm_p.hess_eigenvalues();
 
     // get the lowest eigenvalue
@@ -524,6 +528,8 @@ pub fn solve_branch_bound(
     options.verbose = verbose.unwrap_or(1);
 
     options.max_time = timeout;
+
+    options.fixed_variables = fixed_variables;
 
     let mut solver = BBSolver::new(p, options);
 
