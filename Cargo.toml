@@ -21,8 +21,8 @@ ndarray = "0.15.6"
 ndarray-linalg = { version = "0.16.0", features = ["intel-mkl-static"] }
 smolprng = {version = "0.1.6", features = ["no_std"]}
 rayon = "1.8.0"
-pyo3 = { version = "0.20.2", features = ["extension-module"] }
-clarabel = "0.6.0"
+pyo3 = { version = "0.21.2", features = ["extension-module", "abi3-py37"] }
+clarabel = "0.7.1"
 
 [doc]
 rustdocflags = [ "--html-in-header", "docs-header.html" ]
@@ -36,8 +36,8 @@ opt-level = 3
 codegen-units = 1
 
 [profile.dev]
-codegen-units = 1
-opt-level = 3
+codegen-units = 128
+opt-level = 0
 lto = false
 incremental = true
 
