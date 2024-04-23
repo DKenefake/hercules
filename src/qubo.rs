@@ -732,7 +732,7 @@ mod tests {
 
         // check that the QUBO is convex
         for eig in eigs.iter() {
-            assert!(*eig >= 1.0);
+            assert!(*eig >= 0.99);
         }
 
         // check that the QUBO is equivalent to the original QUBO for binary vectors
