@@ -38,12 +38,12 @@ impl Constraint {
 
         // check if we abide by the constraint
         match self.constraint_type {
-            ConstraintType::NoMoreThanOne => self.no_more_than_one(x_i_value, x_j_value),
-            ConstraintType::AtLeastOne => self.at_least_one(x_i_value, x_j_value),
-            ConstraintType::ExactlyOne => self.exactly_one(x_i_value, x_j_value),
-            ConstraintType::GreaterThan => self.greater_than(x_i_value, x_j_value),
-            ConstraintType::LessThan => self.less_than(x_i_value, x_j_value),
-            ConstraintType::Equal => self.equal(x_i_value, x_j_value),
+            ConstraintType::NoMoreThanOne => Self::no_more_than_one(x_i_value, x_j_value),
+            ConstraintType::AtLeastOne => Self::at_least_one(x_i_value, x_j_value),
+            ConstraintType::ExactlyOne => Self::exactly_one(x_i_value, x_j_value),
+            ConstraintType::GreaterThan => Self::greater_than(x_i_value, x_j_value),
+            ConstraintType::LessThan => Self::less_than(x_i_value, x_j_value),
+            ConstraintType::Equal => Self::equal(x_i_value, x_j_value),
         }
     }
 
@@ -72,27 +72,27 @@ impl Constraint {
         }
     }
 
-    pub fn no_more_than_one(&self, x_i_val: usize, x_j_val: usize) -> bool {
+    pub const fn no_more_than_one(x_i_val: usize, x_j_val: usize) -> bool {
         x_i_val + x_j_val <= 1
     }
 
-    pub fn at_least_one(&self, x_i_val: usize, x_j_val: usize) -> bool {
+    pub const fn at_least_one(x_i_val: usize, x_j_val: usize) -> bool {
         x_i_val + x_j_val >= 1
     }
 
-    pub fn exactly_one(&self, x_i_val: usize, x_j_val: usize) -> bool {
+    pub const fn exactly_one(x_i_val: usize, x_j_val: usize) -> bool {
         x_i_val + x_j_val == 1
     }
 
-    pub fn greater_than(&self, x_i_val: usize, x_j_val: usize) -> bool {
+    pub const fn greater_than(x_i_val: usize, x_j_val: usize) -> bool {
         x_i_val >= x_j_val
     }
 
-    pub fn less_than(&self, x_i_val: usize, x_j_val: usize) -> bool {
+    pub const fn less_than(x_i_val: usize, x_j_val: usize) -> bool {
         x_i_val <= x_j_val
     }
 
-    pub fn equal(&self, x_i_val: usize, x_j_val: usize) -> bool {
+    pub const fn equal(x_i_val: usize, x_j_val: usize) -> bool {
         x_i_val == x_j_val
     }
 

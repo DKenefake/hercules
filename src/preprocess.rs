@@ -1,17 +1,17 @@
+use crate::persistence::compute_iterative_persistence;
 /// This file is the main module that defines the preprocessing functions
 ///
 /// Currently the following features are implemented:
 /// - Iterative persistence
-
 use crate::qubo::Qubo;
 use ndarray::Array1;
-use sprs::CsMat;
 use std::collections::HashMap;
-use crate::persistence::compute_iterative_persistence;
 
 /// This is the main entry point for preprocessing
-pub fn preprocess_qubo(qubo: &Qubo, fixed_variables: &HashMap<usize, usize>) -> HashMap<usize, usize>{
-
+pub fn preprocess_qubo(
+    qubo: &Qubo,
+    fixed_variables: &HashMap<usize, usize>,
+) -> HashMap<usize, usize> {
     let initial_fixed = fixed_variables.clone();
 
     // start with an initial persistence check
@@ -28,8 +28,7 @@ pub fn get_fixed_c(qubo: &Qubo, fixed_variables: &HashMap<usize, usize>) -> Arra
     let mut new_c = qubo.c.clone();
 
     // there is likely a better way to do this, but for now we are looping through the Hessian
-    for (&value, (i,j)) in &qubo.q {
-
+    for (&value, (i, j)) in &qubo.q {
         // diagonal elements will never be extracted
         if i == j {
             continue;
@@ -42,7 +41,9 @@ pub fn get_fixed_c(qubo: &Qubo, fixed_variables: &HashMap<usize, usize>) -> Arra
         // if both are fixed, then the term is a constant and it doesn't matter
         if x_i_fixed && x_j_fixed {
             continue;
-        } else if x_i_fixed {
+        }
+
+        if x_i_fixed {
             let x_i = fixed_variables[&i] as f64;
             new_c[j] += value * x_i;
         } else if x_j_fixed {
@@ -56,19 +57,16 @@ pub fn get_fixed_c(qubo: &Qubo, fixed_variables: &HashMap<usize, usize>) -> Arra
     new_c
 }
 
-
 #[cfg(test)]
-mod tests{
-    use std::collections::HashMap;
-    use ndarray::Array1;
-    use sprs::CsMat;
-    use crate::persistence::compute_iterative_persistence;
+mod tests {
     use crate::preprocess::preprocess_qubo;
     use crate::qubo::Qubo;
-    use crate::tests::make_solver_qubo;
+    use ndarray::Array1;
+    use sprs::CsMat;
+    use std::collections::HashMap;
 
     #[test]
-    fn test_preprocess_qubo_1(){
+    fn test_preprocess_qubo_1() {
         let eye = CsMat::eye(3);
         let c = Array1::from_vec(vec![1.1, 2.0, 3.0]);
         let p = Qubo::new_with_c(eye, c);
@@ -76,5 +74,4 @@ mod tests{
         let fixed_variables = preprocess_qubo(&p, &fixed_variables);
         assert_eq!(fixed_variables.len(), 3);
     }
-
 }

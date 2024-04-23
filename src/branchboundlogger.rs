@@ -87,7 +87,6 @@ impl SolverOutputLogger {
             return;
         }
 
-        let num_fixed_vars = solver_instance.options.fixed_variables.len();
         let solution_value = solver_instance.best_solution_value;
         println!("------------------------------------------------------");
         println!("Warm Start Information");

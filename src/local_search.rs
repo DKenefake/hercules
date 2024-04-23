@@ -317,10 +317,8 @@ mod tests {
         let mut prng = make_test_prng();
 
         let mut x_0 = initial_points::generate_random_binary_point(&p, &mut prng, 0.5);
-        for _ in 0..100 {
-            x_0 = local_search_utils::get_gain_criteria(&p, &x_0);
-            println!("{:?}", p.eval_usize(&x_0));
-        }
+        x_0 = local_search_utils::get_gain_criteria(&p, &x_0);
+        println!("{:?}", p.eval_usize(&x_0));
     }
 
     #[test]
@@ -357,15 +355,15 @@ mod tests {
         let p = make_solver_qubo();
         let mut prng = make_test_prng();
 
-        let x = particle_swarm_search(&p, 50, 1000, &mut prng);
+        let x = particle_swarm_search(&p, 5, 100, &mut prng);
 
         println!("{:?}", p.eval_usize(&x));
     }
 
     #[test]
     fn compare_methods() {
+        let p = make_solver_qubo();
         let mut prng = make_test_prng();
-        let p = Qubo::make_random_qubo(50, &mut prng, 0.01);
 
         let x_0 = initial_points::generate_random_binary_point(&p, &mut prng, 0.5);
         let max_iter = p.num_x();

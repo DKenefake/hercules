@@ -37,12 +37,12 @@ pub mod local_search_utils;
 mod lower_bound;
 mod numeric_trait;
 pub mod persistence;
+mod preprocess;
 pub mod python_interopt;
 pub mod qubo;
 mod solver_options;
 pub mod utils;
 pub mod variable_reduction;
-mod preprocess;
 
 // imports to generate the python interface
 
@@ -50,7 +50,7 @@ use python_interopt::*;
 
 /// Gives python access to the rust interface
 #[pymodule]
-fn hercules(_py: Python<'_>, m: &PyModule) -> PyResult<()> {
+fn hercules(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(pso_from_file, m)?)?;
     m.add_function(wrap_pyfunction!(gls_from_file, m)?)?;
     m.add_function(wrap_pyfunction!(mls_from_file, m)?)?;

@@ -434,11 +434,12 @@ impl Qubo {
         let c = self.c.clone();
 
         for (&value, (i, j)) in &self.q {
-            if i != j {
+            if i == j {
+                tri_q.add_triplet(i, j, value);
+
+            } else {
                 tri_q.add_triplet(j, i, 0.5 * value);
                 tri_q.add_triplet(i, j, 0.5 * value);
-            } else {
-                tri_q.add_triplet(i, j, value);
             }
         }
 
@@ -472,6 +473,22 @@ impl Qubo {
         eigs
     }
 
+    /// Creates the convex symmetric form of the QUBO problem. This is an exact operation, and results in a convex symmetric matrix that is equivalent to the original QUBO.
+    pub fn convex_symmetric_form(&self) -> Self {
+        // make the QUBO symmetric
+        let p_sym = self.make_symmetric();
+
+        // calculate the eigenvalues of the QUBO
+        let eigs = p_sym.hess_eigenvalues();
+
+        // find the minimum eigenvalue, create a factor that scales the minimum eigenvalue to 1
+        let min_eig = eigs.iter().fold(f64::INFINITY, |acc, &x| x.min(acc));
+        let s = 1.0 - min_eig;
+
+        // make the QUBO convex
+        p_sym.make_convex(s)
+    }
+
     /// Checks if the QUBO is symmetric
     pub fn is_symmetric(&self) -> bool {
         let error_margin = f64::EPSILON;
@@ -498,6 +515,9 @@ impl Qubo {
 mod tests {
 
     use super::*;
+    use crate::initial_points::generate_random_starting_points;
+    use crate::tests::{make_solver_qubo, make_test_prng};
+    use crate::utils::make_binary_point;
     use ndarray::Array1;
     use sprs::CsMat;
 
@@ -697,6 +717,34 @@ mod tests {
             // now that we have rendered it, it should be symmetric
             let p_sym = p.make_symmetric();
             assert_eq!(p_sym.is_symmetric(), true);
+        }
+    }
+
+    #[test]
+    fn test_convex_symetric_form() {
+        let p = make_solver_qubo();
+        let p_convex = p.convex_symmetric_form();
+
+        let eigs = p_convex.hess_eigenvalues();
+
+        // check that the QUBO is symmetric
+        assert_eq!(p_convex.is_symmetric(), true);
+
+        // check that the QUBO is convex
+        for eig in eigs.iter() {
+            assert!(*eig >= 1.0);
+        }
+
+        // check that the QUBO is equivalent to the original QUBO for binary vectors
+        // make a bunch of random binary points, and check that the objective function is the same
+
+        let mut prng = make_test_prng();
+        let xs = generate_random_starting_points(&p, 50, &mut prng);
+
+        for x in xs.iter() {
+            let obj = p.eval_usize(x);
+            let obj_convex = p_convex.eval_usize(x);
+            assert!((obj - obj_convex).abs() < 1e-5);
         }
     }
 }

@@ -461,8 +461,8 @@ pub fn get_persistence(
 ) -> PyResult<HashMap<usize, usize>> {
     // read in the QUBO from file
     let p = Qubo::from_vec(problem.0, problem.1, problem.2, problem.3, problem.4);
-
-    let new_fixed = compute_iterative_persistence(&p, &fixed, p.num_x());
+    let p_symm = p.make_symmetric();
+    let new_fixed = compute_iterative_persistence(&p_symm, &fixed, p_symm.num_x());
 
     Ok(new_fixed)
 }

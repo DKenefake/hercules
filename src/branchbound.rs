@@ -233,13 +233,12 @@ impl BBSolver {
                     event: Some(Event::UpdateBestSolution(rounded_sol, value)),
                     logging: NodeLoggingAction::Solved,
                 };
-            } else {
-                return ProcessNodeState {
-                    prune_action,
-                    event: Some(Event::Nill),
-                    logging: NodeLoggingAction::Solved,
-                };
             }
+            return ProcessNodeState {
+                prune_action,
+                event: Some(Event::Nill),
+                logging: NodeLoggingAction::Solved,
+            };
         }
 
         // determine what variable we are branching on
@@ -383,15 +382,23 @@ impl BBSolver {
 
 #[cfg(test)]
 mod tests {
-    use std::collections::HashMap;
     use crate::branch_stratagy::BranchStrategySelection;
+    use crate::preprocess::preprocess_qubo;
     use crate::qubo::Qubo;
     use crate::solver_options::SolverOptions;
     use crate::tests::{make_solver_qubo, make_test_prng};
     use crate::{branchbound, local_search};
     use ndarray::Array1;
     use sprs::CsMat;
-    use crate::preprocess::preprocess_qubo;
+    use std::collections::HashMap;
+
+    pub fn get_default_solver_options() -> SolverOptions {
+        let mut options = SolverOptions::new();
+        options.verbose = 1;
+        options.max_time = 1000.0;
+        options.threads = 200;
+        options
+    }
 
     #[test]
     pub fn branch_bound_test() {
@@ -409,38 +416,55 @@ mod tests {
         assert_eq!(solver.best_solution, Array1::from_vec(vec![1, 1, 1]));
     }
     #[test]
-    pub fn branch_bound_bench() {
+    pub fn branch_bound_most_violated_branching() {
+        setup_and_solve_problem(BranchStrategySelection::MostViolated)
+    }
+
+    #[test]
+    pub fn branch_bound_random_branching() {
+        setup_and_solve_problem(BranchStrategySelection::Random)
+    }
+
+    #[test]
+    pub fn branch_bound_worst_approximation_branching() {
+        setup_and_solve_problem(BranchStrategySelection::WorstApproximation)
+    }
+
+    #[test]
+    pub fn branch_bound_best_approximation_branching() {
+        setup_and_solve_problem(BranchStrategySelection::BestApproximation)
+    }
+
+    #[test]
+    pub fn branch_bound_finf_branching() {
+        setup_and_solve_problem(BranchStrategySelection::FirstNotFixed)
+    }
+
+    pub fn setup_and_solve_problem(branch: BranchStrategySelection) {
         let mut prng = make_test_prng();
 
         let p = make_solver_qubo();
 
+        let p_symm = p.make_symmetric();
+        let fixed_variables = preprocess_qubo(&p_symm, &HashMap::new());
 
-        let p_new = p.make_symmetric();
-        let fixed_variables = preprocess_qubo(&p_new, &HashMap::new());
+        let p_symm_conv = p.convex_symmetric_form();
 
-        // get the eigenvalues of the hessian
-        let eig = p_new.hess_eigenvalues();
-        // get the smallest eigenvalue
-        let min_eig = eig.iter().fold(f64::INFINITY, |a, b| a.min(*b));
+        let guess = local_search::particle_swarm_search(&p_symm_conv, 10, 100, &mut prng);
 
-        let p_fixed = p_new.make_convex(min_eig.abs() * 1.1);
+        let mut options = get_default_solver_options();
 
-        let guess = local_search::particle_swarm_search(&p_fixed, 10, 100, &mut prng);
-
-        let mut options = SolverOptions::new();
-        options.verbose = 1;
-        options.max_time = 1000.0;
-        options.branch_strategy = BranchStrategySelection::MostViolated;
-        options.threads = 200;
+        options.branch_strategy = branch;
         options.fixed_variables = fixed_variables.clone();
 
-        let mut solver = branchbound::BBSolver::new(p_fixed, options);
+        let mut solver = branchbound::BBSolver::new(p_symm_conv, options);
         solver.warm_start(guess);
+
         let (solution, obj) = solver.solve();
 
+        // ensure that the solution is actually feasible with the preprocessor
         for (&index, &val) in fixed_variables.iter() {
             assert_eq!(val, solution[index]);
         }
-
     }
 }
