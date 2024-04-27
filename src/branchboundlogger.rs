@@ -54,7 +54,7 @@ impl SolverOutputLogger {
         let gap = 100.0 * (upper_bound - lower_bound) / (upper_bound + 1E-5).abs();
         let gap = gap.max(0.0);
         let lower_bound = lower_bound.min(upper_bound);
-        println!("{num_nodes} | {upper_bound} | {lower_bound} | {gap}");
+        println!("{num_nodes:<13} | {upper_bound:<13.8} | {lower_bound:<11.8} | {gap:<13.8}");
     }
 
     pub fn generate_exit_line(&self, solver_instance: &BBSolver) {
@@ -91,6 +91,17 @@ impl SolverOutputLogger {
         println!("------------------------------------------------------");
         println!("Warm Start Information");
         println!("Warm started objective: {solution_value}");
+        println!("------------------------------------------------------");
+    }
+
+    pub fn early_termination(&self) {
+        if self.output_level < 1 {
+            return;
+        }
+        println!("------------------------------------------------------");
+        println!("Beck Proof of Optimality Found!");
+        println!("Early Termination");
+        println!("------------------------------------------------------");
     }
 }
 

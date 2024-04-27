@@ -41,6 +41,7 @@ pub mod qubo;
 mod solver_options;
 pub mod utils;
 pub mod variable_reduction;
+mod early_termination;
 
 // imports to generate the python interface
 

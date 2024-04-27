@@ -7,6 +7,7 @@ use crate::branch_stratagy::BranchStrategy;
 use crate::branch_subproblem::{
     get_sub_problem_solver, ClarabelSubProblemSolver, SubProblemSolver,
 };
+use crate::early_termination::beck_proof;
 use crate::branchbound_utils::{check_integer_feasibility, get_current_time};
 use crate::branchboundlogger::SolverOutputLogger;
 use crate::lower_bound::li_lower_bound;
@@ -26,6 +27,8 @@ pub struct BBSolver {
     pub branch_strategy: BranchStrategy,
     pub subproblem_solver: ClarabelSubProblemSolver,
     pub options: SolverOptions,
+    pub early_stop: bool,
+    pub solver_logger: SolverOutputLogger,
 }
 
 pub enum Event {
@@ -60,6 +63,7 @@ impl BBSolver {
         let subproblem_solver = get_sub_problem_solver(&qubo, &options.sub_problem_solver);
         let branch_strategy = BranchStrategy::get_branch_strategy(&options.branch_strategy);
         let start_time = get_current_time();
+        let output_level = options.verbose;
 
         Self {
             qubo,
@@ -73,6 +77,10 @@ impl BBSolver {
             branch_strategy,
             subproblem_solver,
             options,
+            early_stop: false,
+            solver_logger : SolverOutputLogger {
+                output_level,
+            },
         }
     }
 
@@ -95,10 +103,6 @@ impl BBSolver {
             fixed_variables,
         };
 
-        let logger = SolverOutputLogger {
-            output_level: self.options.verbose,
-        };
-
         // add the root node to the list of nodes
         self.nodes.push(root_node);
 
@@ -107,11 +111,11 @@ impl BBSolver {
 
         // set up the output of the solver
         // display the header
-        logger.output_header(self);
+        self.solver_logger.output_header(self);
 
         // if the best solution is negative, then we output the warm start information
         if self.best_solution_value < 0.0 {
-            logger.output_warm_start_info(self);
+            self.solver_logger.output_warm_start_info(self);
         }
 
         // until we have hit a termination condition, we will keep iterating
@@ -131,11 +135,11 @@ impl BBSolver {
             }
 
             // display the line, if verbose
-            logger.generate_output_line(self);
+            self.solver_logger.generate_output_line(self);
         }
 
         // display the exit line
-        logger.generate_exit_line(self);
+        self.solver_logger.generate_exit_line(self);
 
         (self.best_solution.clone(), self.best_solution_value)
     }
@@ -274,6 +278,15 @@ impl BBSolver {
         if solution_value < self.best_solution_value {
             self.best_solution = solution.clone();
             self.best_solution_value = solution_value;
+
+            // if we have an early stopping condition, then we can check if we have a solution
+            let beck_proof = beck_proof(&self.qubo, &self.best_solution);
+
+            // if we have a beck proof, then we can stop early
+            if beck_proof {
+                self.early_stop = true;
+                self.solver_logger.early_termination();
+            }
         }
     }
 
@@ -337,6 +350,11 @@ impl BBSolver {
 
         // check if we have no more nodes to process
         if self.nodes.is_empty() {
+            return true;
+        }
+
+        // if we have an early stopping condition, then we can check if we have a solution
+        if self.early_stop {
             return true;
         }
 
