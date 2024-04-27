@@ -451,9 +451,9 @@ impl Qubo {
     ///
     /// Currently, assume that the required factor,'s' is known.
     ///
-    /// $\frac{1}{2}x^TQx + c^Tx = \frac{1}{2}x^T(Q + sI)x + c^Tx - 0.5s^Tx$
+    /// $$\frac{1}{2}x^TQx + c^Tx = \frac{1}{2}x^T(Q + sI)x + c^Tx - 0.5s^Tx$$
     #[must_use]
-    pub fn make_convex(&self, s: f64) -> Self {
+    pub fn make_diag_transform(&self, s: f64) -> Self {
         // generate the scaled (sparse) identity matrix
         let mut s_eye_tri = TriMat::<f64>::new((self.num_x(), self.num_x()));
         for i in 0..self.num_x() {
@@ -464,8 +464,21 @@ impl Qubo {
         Self::new_with_c(&self.q + &s_eye, self.c.clone() - 0.5 * s)
     }
 
-    /// Calculates the eigenvalues of the QUBO matrix this is a somewhat expensive operation. Converts the QUBO to a
-    /// dense matrix and then calculates the eigenvalues. Assume that the QUBO is symmetric.
+    /// Calculates the eigenvalues of the QUBO Hessian matrix this is a somewhat expensive operation.
+    /// Converts the QUBO to a dense matrix and then calculates the eigenvalues. Assume that the QUBO is symmetric.
+    ///
+    /// Example of calculating the eigenvalues of a QUBO:
+    /// ```rust
+    /// use hercules::qubo::Qubo;
+    /// use ndarray::Array1;
+    /// use sprs::CsMat;
+    ///
+    /// let q = CsMat::<f64>::eye(3);
+    /// let c = Array1::<f64>::zeros(3);
+    /// let p = Qubo::new_with_c(q, c);
+    ///
+    /// let eigs = p.hess_eigenvalues();
+    /// ```
     ///
     /// # Panics
     ///  If the eigenvalue calculation fails, The only panic annotation from the ndarray_linalg crate is when the matrix is non-square
@@ -489,7 +502,7 @@ impl Qubo {
         let s = 1.0 - min_eig;
 
         // make the QUBO convex
-        p_sym.make_convex(s)
+        p_sym.make_diag_transform(s)
     }
 
     /// Checks if the QUBO is symmetric
@@ -518,10 +531,10 @@ impl Qubo {
 mod tests {
 
     use super::*;
-    use crate::initial_points::generate_random_starting_points;
     use crate::tests::{make_solver_qubo, make_test_prng};
     use ndarray::Array1;
     use sprs::CsMat;
+    use crate::initial_points::generate_random_binary_points;
 
     #[test]
     fn test_qubo_new() {
@@ -741,7 +754,7 @@ mod tests {
         // make a bunch of random binary points, and check that the objective function is the same
 
         let mut prng = make_test_prng();
-        let xs = generate_random_starting_points(&p, 50, &mut prng);
+        let xs = generate_random_binary_points(p.num_x(), 50, &mut prng);
 
         for x in xs.iter() {
             let obj = p.eval_usize(x);

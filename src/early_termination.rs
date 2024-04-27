@@ -7,8 +7,25 @@ use sprs::TriMat;
 
 use crate::qubo::Qubo;
 
-/// Sufficiency condition for optimality as given by beck2000 as stated by chen2012
-pub(crate) fn beck_proof(qubo: &Qubo, x: &Array1<usize>) -> bool{
+/// Sufficiency condition for optimality as given by beck2000 as stated by chen2012. This allows for
+/// early termination of the optimization algorithm if the condition is met. The condition is as follows:
+///
+/// $$2(2X - I)(Qx + c) <= min(Eig(Q))e$$
+///
+/// Example:
+/// ```rust
+/// use hercules::qubo::Qubo;
+/// use ndarray::Array1;
+///
+/// let q = sprs::TriMat::new((2, 2));
+/// q.add_triplet(0, 0, 1.0);
+/// q.add_triplet(1, 1, 1.0);
+/// let c = Array1::from_vec(vec![1.0, 1.0]);
+/// let p = Qubo::new_with_c(q.to_csc(), c);
+/// let x = Array1::from_vec(vec![1, 1]);
+/// let suff = hercules::early_termination::beck_proof(&p, &x);
+/// ```
+pub fn beck_proof(qubo: &Qubo, x: &Array1<usize>) -> bool{
     // 2(2X - I)(Qx + c) <= min(Eig(Q))e
     // Where X is diag(x), lets just get a naive implementation done first
 

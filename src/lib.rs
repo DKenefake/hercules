@@ -96,4 +96,8 @@ mod tests {
             generator: JsfLarge::default(),
         }
     }
+
+    // pub(crate) fn pardalos_hard_problem(n:usize) -> Qubo{
+    //
+    // }
 }

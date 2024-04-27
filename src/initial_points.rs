@@ -11,38 +11,6 @@ use crate::qubo::Qubo;
 use ndarray::Array1;
 use smolprng::{Algorithm, PRNG};
 
-/// Generates a vector of random starting points, that is binary, meaning that it will return an array of floats
-///
-/// Example:
-/// ``` rust
-/// use hercules::qubo::Qubo;
-/// use smolprng::{PRNG, JsfLarge};
-/// use hercules::initial_points;
-///
-/// let mut prng = PRNG {
-///  generator: JsfLarge::default(),
-/// };
-///
-/// let p = Qubo::make_random_qubo(10, &mut prng, 0.5);
-/// let x_0 = initial_points::generate_random_starting_point(&p, &mut prng);
-/// ```
-pub fn generate_random_starting_point<T: Algorithm>(
-    qubo: &Qubo,
-    prng: &mut PRNG<T>,
-) -> Array1<usize> {
-    // generate a zeroed buffer
-    let mut x = Array1::<usize>::zeros(qubo.num_x());
-
-    // for each variable, set it to a random number between 0.0 and 1.0
-    for i in 0..x.len() {
-        match prng.gen_bool() {
-            true => x[i] = 1,
-            false => x[i] = 0,
-        }
-    }
-    x
-}
-
 /// Generates a vector of random starting points, that is fractional, meaning that it will return a vector of arrays
 /// that are not just 0.0 or 1.0, but also numbers between.
 ///
@@ -58,13 +26,13 @@ pub fn generate_random_starting_point<T: Algorithm>(
 /// let p = Qubo::make_random_qubo(10, &mut prng, 0.5);
 /// let x_0 = initial_points::generate_random_starting_points(&p, 10, &mut prng);
 /// ```
-pub fn generate_random_starting_points<T: Algorithm>(
-    qubo: &Qubo,
+pub fn generate_random_binary_points<T: Algorithm>(
+    n: usize,
     num_points: usize,
     prng: &mut PRNG<T>,
 ) -> Vec<Array1<usize>> {
     (0..num_points)
-        .map(|_| generate_random_starting_point(qubo, prng))
+        .map(|_| generate_random_binary_point(n, prng, 0.5))
         .collect()
 }
 
@@ -82,8 +50,8 @@ pub fn generate_random_starting_points<T: Algorithm>(
 /// let p = Qubo::make_random_qubo(10, &mut prng, 0.5);
 /// let x_0 = initial_points::generate_central_starting_points(&p);
 /// ```
-pub fn generate_central_starting_points(qubo: &Qubo) -> Array1<f64> {
-    Array1::<f64>::zeros(qubo.num_x()) + 0.5f64
+pub fn generate_central_starting_points(n: usize) -> Array1<f64> {
+    Array1::<f64>::zeros(n) + 0.5
 }
 
 /// Generates a starting point based on the alpha heuristic, from the paper boros2007, which is the optimal solution to
@@ -139,12 +107,12 @@ pub fn generate_rho_starting_point(qubo: &Qubo) -> Array1<f64> {
 /// let x_0 = initial_points::generate_random_binary_point(&p, &mut prng, 0.5);
 /// ```
 pub fn generate_random_binary_point<T: Algorithm>(
-    qubo: &Qubo,
+    n:usize,
     prng: &mut PRNG<T>,
     sparsity: f64,
 ) -> Array1<usize> {
     // set up a zeroed buffer
-    let mut x = Array1::<usize>::zeros(qubo.num_x());
+    let mut x = Array1::<usize>::zeros(n);
 
     // for each variable, if the random number is less than sparsity, set it to 1.0
     for i in 0..x.len() {

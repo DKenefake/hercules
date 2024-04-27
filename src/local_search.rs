@@ -315,7 +315,7 @@ mod tests {
         let p = make_solver_qubo();
         let mut prng = make_test_prng();
 
-        let mut x_0 = initial_points::generate_random_binary_point(&p, &mut prng, 0.5);
+        let mut x_0 = initial_points::generate_random_binary_point(p.num_x(), &mut prng, 0.5);
         x_0 = local_search_utils::get_gain_criteria(&p, &x_0);
         println!("{:?}", p.eval_usize(&x_0));
     }
@@ -325,7 +325,7 @@ mod tests {
         let p = make_solver_qubo();
         let mut prng = make_test_prng();
 
-        let mut xs = initial_points::generate_random_starting_points(&p, 10, &mut prng);
+        let mut xs = initial_points::generate_random_binary_points(p.num_x(), 10, &mut prng);
 
         xs = multi_simple_gain_criteria_search(&p, &xs);
 
@@ -338,7 +338,7 @@ mod tests {
         let p = make_solver_qubo();
         let mut prng = make_test_prng();
 
-        let mut xs = initial_points::generate_random_starting_points(&p, 10, &mut prng);
+        let mut xs = initial_points::generate_random_binary_points(p.num_x(), 10, &mut prng);
 
         xs = xs
             .par_iter()
@@ -364,7 +364,7 @@ mod tests {
         let p = make_solver_qubo();
         let mut prng = make_test_prng();
 
-        let x_0 = initial_points::generate_random_binary_point(&p, &mut prng, 0.5);
+        let x_0 = initial_points::generate_random_binary_point(p.num_x(), &mut prng, 0.5);
         let max_iter = p.num_x();
 
         let x_pso = particle_swarm_search(&p, 100, max_iter, &mut prng);

@@ -512,7 +512,7 @@ pub fn solve_branch_bound(
 
     let p = match min_eig > 0.0 {
         true => symm_p,
-        false => symm_p.make_convex(min_eig.abs() + 1.0),
+        false => symm_p.make_diag_transform(min_eig.abs() + 1.0),
     };
 
     let mut options = SolverOptions::new();
@@ -582,7 +582,7 @@ pub fn convex_symmetric_form(problem: QuboData) -> PyResult<QuboData> {
         return Ok(symm_p.to_vec());
     }
 
-    Ok(p.make_symmetric().make_convex(min_eig.abs() * 1.1).to_vec())
+    Ok(p.make_symmetric().make_diag_transform(min_eig.abs() * 1.1).to_vec())
 }
 
 /// This function generates the rule 1.1 for the QUBO from the glover paper

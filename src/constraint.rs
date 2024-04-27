@@ -1,5 +1,6 @@
 use std::collections::HashMap;
 
+/// Enum for the type of constraint that is being used in the Constraint struct
 pub enum ConstraintType {
     AtLeastOne,
     ExactlyOne,
@@ -9,6 +10,7 @@ pub enum ConstraintType {
     Equal,
 }
 
+/// The Constraint struct, that is for storing constraint information from the preprocessor
 pub struct Constraint {
     pub(crate) x_i: usize,
     pub(crate) x_j: usize,
