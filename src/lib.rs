@@ -3,7 +3,7 @@
 #![warn(clippy::all, clippy::pedantic, clippy::cargo, clippy::nursery)]
 #![allow(non_snake_case)] // some of the variable names are taken from papers, and are not snake case
 #![allow(clippy::let_and_return)] // in many instances we are recreating equations as written in papers, and helps with readability
-// #![allow(dead_code)] // this is a library module, so until all the tests are implemented this will needlessly warn
+#![allow(dead_code)] // this is a library module, so until all the tests are implemented this will needlessly warn
 #![allow(clippy::must_use_candidate)] // somewhat of a nuisance introduced by clippy::pedantic
 #![allow(clippy::doc_markdown)] // breaks some of the documentation written in latex
 #![allow(clippy::match_bool)]

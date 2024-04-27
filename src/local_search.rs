@@ -11,8 +11,9 @@
 
 use crate::local_search_utils;
 use crate::qubo::Qubo;
-use crate::utils::{get_best_point, make_binary_point};
+use crate::utils::get_best_point;
 use ndarray::Array1;
+use crate::initial_points::generate_random_binary_point;
 use rayon::iter::{IntoParallelRefIterator, ParallelIterator};
 use smolprng::{Algorithm, PRNG};
 
@@ -226,7 +227,7 @@ pub fn particle_swarm_search<T: Algorithm>(
 
     // generate random starting points
     let mut particles: Vec<_> = (0..num_particles)
-        .map(|_| make_binary_point(num_dim, prng))
+        .map(|_| generate_random_binary_point(num_dim, prng, 0.5))
         .collect();
 
     // select all variables
@@ -282,13 +283,13 @@ pub fn random_search<T: Algorithm>(
     prng: &mut PRNG<T>,
 ) -> Array1<usize> {
     // set up an initial best point and objective
-    let mut best_point = make_binary_point(qubo.num_x(), prng);
+    let mut best_point = generate_random_binary_point(qubo.num_x(), prng, 0.5);
     let mut best_objective = qubo.eval_usize(&best_point);
 
     // loop over the number of points
     for _ in 0..num_points {
         // generate a new point and evaluate it
-        let new_point = make_binary_point(qubo.num_x(), prng);
+        let new_point = generate_random_binary_point(qubo.num_x(), prng, 0.5);
         let new_obj = qubo.eval_usize(&new_point);
 
         // if the new point is better, update the best point

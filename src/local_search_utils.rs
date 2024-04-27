@@ -31,7 +31,7 @@ use ndarray::Array1;
 /// let p = Qubo::make_random_qubo(10, &mut prng, 0.5);
 ///
 /// // generate a random point inside with x in {0, 1}^10 with
-/// let x_0 = utils::make_binary_point(p.num_x(), &mut prng);
+/// let x_0 = initial_points::generate_random_binary_point(p.num_x(), &mut prng, 0.5);
 ///
 /// // perform a single step of local search
 /// let x_1 = local_search_utils::one_step_local_search_improved(&p, &x_0, &vec![0, 1, 2, 3, 4, 5, 6, 7, 8, 9]);
@@ -199,8 +199,8 @@ pub fn one_step_local_search(
 /// let p = Qubo::make_random_qubo(10, &mut prng, 0.5);
 ///
 /// // generate random points inside with x in {0, 1}^10
-/// let mut x_0 = utils::make_binary_point(p.num_x(), &mut prng);
-/// let mut x_1 = utils::make_binary_point(p.num_x(), &mut prng);
+/// let mut x_0 = initial_points::generate_random_binary_point(p.num_x(), &mut prng, 0.5);
+/// let mut x_1 = initial_points::generate_random_binary_point(p.num_x(), &mut prng, 0.5);
 ///
 /// let mut x_s = vec![x_0, x_1];
 ///

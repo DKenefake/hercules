@@ -122,3 +122,39 @@ pub fn generate_random_binary_point<T: Algorithm>(
     }
     x
 }
+
+/// Given a vector of probabilities of each bit being 1, generate a binary point.
+///
+/// Example:
+/// ``` rust
+/// use hercules::qubo::Qubo;
+/// use smolprng::{PRNG, JsfLarge};
+/// use hercules::{initial_points, utils};
+///
+/// // generate a random QUBO
+/// let mut prng = PRNG {
+///  generator: JsfLarge::default(),
+/// };
+/// let p = Qubo::make_random_qubo(10, &mut prng, 0.5);
+///
+/// // starting point with 50% chance of each bit being 1
+/// let x_0 = initial_points::generate_central_starting_points(p.num_x());
+///
+/// let x_rand = initial_points::gen_binary_point_from_dist(&mut prng, &x_0);
+/// ```
+pub fn gen_binary_point_from_dist<T: Algorithm>(
+    prng: &mut PRNG<T>,
+    dist: &Array1<f64>,
+) -> Array1<f64> {
+    // generate a zeroed buffer
+    let mut x = Array1::<f64>::zeros(dist.len());
+
+    // for each variable, set it to either 0 or 1, based on the dist array
+    for i in 0..x.len() {
+        if prng.gen_f64() < dist[i] {
+            x[i] = 1.0;
+        }
+    }
+
+    x
+}
