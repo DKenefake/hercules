@@ -15,7 +15,7 @@ pub fn preprocess_qubo(
     let initial_fixed = fixed_variables.clone();
 
     // start with an initial persistence check
-    let fixed_variables = compute_iterative_persistence(&qubo, &initial_fixed, qubo.num_x());
+    let fixed_variables = compute_iterative_persistence(qubo, &initial_fixed, qubo.num_x());
 
     fixed_variables
 }

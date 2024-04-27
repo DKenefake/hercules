@@ -45,6 +45,7 @@ impl SolverOptions {
 
     pub fn set_sub_problem_strategy(&mut self, strategy: Option<String>) {
         // currently only one strategy is implemented but the structure is left for extension
+        #[allow(clippy::redundant_pattern_matching)]
         if let Some(_) = strategy {
             self.sub_problem_solver = SubProblemSelection::Clarabel;
         }

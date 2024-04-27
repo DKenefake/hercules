@@ -15,7 +15,7 @@ Hercules is currently in the early stages of development. The following features
 - [x] QUBO Heuristics
 - [x] Initial Branch & Bound Solver
 
-When refereing to the solver, there is a world of a difference between naive implimentations and useful for real world implimentations. I am trying to oterativley move the solver to the category of usefull for real world problems, without punting to much of the responsibilities to dependencies. This is documented in a very high level on my [personal blog](https://dkenefake.github.io/blog/bb1). As it stands, it can generally solve dense and sparse problems below 80 binaries. But I hope to push the capabilities to larger problem sizes, and solve the problems we can much faster. 
+When referring to the solver, there is a world of a difference between naive implementations and useful for real world implementations. I am trying to iteratively move the solver to the category of useful for real world problems, without punting to much of the responsibilities to dependencies. This is documented in a very high level on my [personal blog](https://dkenefake.github.io/blog/bb1). As it stands, it can generally solve dense and sparse problems below 80 binaries. But I hope to push the capabilities to larger problem sizes, and solve the problems we can much faster. 
 
 - [x] Initial Branch and Bound
 - [x] Initial Presolver
@@ -24,6 +24,7 @@ When refereing to the solver, there is a world of a difference between naive imp
 - [x] Multithreaded B&B solver
 - [ ] Modern Presolver
 - [ ] Warm starting subproblems
+- [ ] Beck Optimality Proofs
 
 
 ## Simple: Read and solve QUBO example

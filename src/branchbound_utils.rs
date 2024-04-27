@@ -8,19 +8,19 @@ pub fn check_integer_feasibility(node: &QuboBBNode) -> (bool, Array1<usize>) {
     let num_x = node.solution.len();
     let mut buffer = Array1::zeros(num_x);
 
-    let epsilon = 1E-10;
+    let epsilon = 1E-6;
 
     for i in 0..num_x {
         if let Some(val) = node.fixed_variables.get(&i) {
             sum += 1;
             buffer[i] = *val;
         } else {
-            if node.solution[i].abs() <= epsilon {
+            if node.solution[i] <= epsilon {
                 sum += 1;
                 buffer[i] = 0;
             }
 
-            if (node.solution[i] - 1.0).abs() <= epsilon {
+            if node.solution[i] >= 1.0 - epsilon {
                 sum += 1;
                 buffer[i] = 1;
             }

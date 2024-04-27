@@ -93,8 +93,8 @@ pub fn grad_bounds(
         // if it is a fixed variable, we have effectively removed this variable from the QUBO
         if persistent.contains_key(&index) {
             if keep_vars {
-                lower += 1.0 * value * (persistent[&index] as f64);
-                upper += 1.0 * value * (persistent[&index] as f64);
+                lower += value * (persistent[&index] as f64);
+                upper += value * (persistent[&index] as f64);
             }
         } else {
             // if it is not in the persistent set, then we can choose the best value

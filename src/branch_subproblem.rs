@@ -23,7 +23,7 @@ pub fn get_sub_problem_solver(
     sub_problem_selection: &SubProblemSelection,
 ) -> ClarabelSubProblemSolver {
     match sub_problem_selection {
-        SubProblemSelection::Clarabel => ClarabelSubProblemSolver::new(&qubo),
+        SubProblemSelection::Clarabel => ClarabelSubProblemSolver::new(qubo),
     }
 }
 
@@ -101,5 +101,28 @@ impl ClarabelSubProblemSolver {
     pub fn make_cb_form(p0: &CsMat<f64>) -> CscMatrix {
         let (t, y, u) = p0.to_csc().into_raw_storage();
         CscMatrix::new(p0.rows(), p0.cols(), t, y, u)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::branch_subproblem::ClarabelSubProblemSolver;
+    use crate::tests::make_solver_qubo;
+
+    #[test]
+    fn ensure_matrix_equivlence() {
+        // the idea of this test is to make sure that the conversion from sprs to clarabel is correct
+
+        let qubo = make_solver_qubo();
+
+        let clarabel_matrix = ClarabelSubProblemSolver::make_cb_form(&qubo.q);
+
+        // check the number of non-zero elements
+        assert_eq!(qubo.q.nnz(), clarabel_matrix.nnz());
+
+        // check the values of the non-zero elements
+        for (&val, (i, j)) in qubo.q.iter() {
+            assert_eq!(val, clarabel_matrix.get_entry((i, j)).unwrap());
+        }
     }
 }

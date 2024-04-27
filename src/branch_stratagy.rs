@@ -112,8 +112,8 @@ pub fn worst_approximation(solver: &BBSolver, node: &QuboBBNode) -> usize {
             continue;
         }
 
-        // find the minimum of the two objective changes
-        let min_obj_gain = zero_flip[i].min(one_flip[i]);
+        // take the product of the approximate objective change for the zero and one flips as the metric
+        let min_obj_gain = (zero_flip[i]).abs() * (one_flip[i]).abs();
 
         // if it is the highest growing variable, then update the tracking variables
         if min_obj_gain > worst_approximation {

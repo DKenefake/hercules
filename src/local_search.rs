@@ -306,9 +306,8 @@ mod tests {
     use crate::local_search::*;
     use crate::qubo::Qubo;
     use crate::tests::{make_solver_qubo, make_test_prng};
-    use crate::{initial_points, local_search, local_search_utils};
+    use crate::{initial_points, local_search_utils};
     use ndarray::Array1;
-    use rayon::prelude::*;
     use sprs::CsMat;
 
     #[test]
@@ -328,7 +327,7 @@ mod tests {
 
         let mut xs = initial_points::generate_random_starting_points(&p, 10, &mut prng);
 
-        xs = local_search::multi_simple_gain_criteria_search(&p, &xs);
+        xs = multi_simple_gain_criteria_search(&p, &xs);
 
         let min_obj = crate::tests::get_min_obj(&p, &xs);
         println!("{:?}", min_obj);

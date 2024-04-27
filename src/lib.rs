@@ -3,7 +3,7 @@
 #![warn(clippy::all, clippy::pedantic, clippy::cargo, clippy::nursery)]
 #![allow(non_snake_case)] // some of the variable names are taken from papers, and are not snake case
 #![allow(clippy::let_and_return)] // in many instances we are recreating equations as written in papers, and helps with readability
-#![allow(dead_code)] // this is a library module, so until all the tests are implemented this will needlessly warn
+// #![allow(dead_code)] // this is a library module, so until all the tests are implemented this will needlessly warn
 #![allow(clippy::must_use_candidate)] // somewhat of a nuisance introduced by clippy::pedantic
 #![allow(clippy::doc_markdown)] // breaks some of the documentation written in latex
 #![allow(clippy::match_bool)]
@@ -11,11 +11,10 @@
 #![allow(clippy::similar_names)] // we are using similar names to the papers we are implementing
 #![allow(clippy::implicit_hasher)] // we are using the default hasher
 #![allow(clippy::needless_pass_by_value)]
+// This is fine as it is lighting up functions that will eventually be interfaces that will consume the values
 #![allow(clippy::cast_precision_loss)] // we are casting floats to ints, and this is fine as the max int is 1
-#![allow(clippy::cast_sign_loss)] //
-#![allow(clippy::cast_possible_truncation)]
-// we are casting floats to ints, and this is fine as the max int is 1
-// This is fine as it is lighting up functions that will eventurally be interfaces that will consume the values
+#![allow(clippy::cast_sign_loss)] // we are casting floats to uints, and this is fine as the lowerbound is 0
+#![allow(clippy::cast_possible_truncation)] // we are casting floats to uints, and this is fine as the max int is 1
 #![allow(clippy::module_name_repetitions)] // some names are just repeated, and that is fine
 
 const VERSION: &str = env!("CARGO_PKG_VERSION");
@@ -35,7 +34,6 @@ mod kopt;
 pub mod local_search;
 pub mod local_search_utils;
 mod lower_bound;
-mod numeric_trait;
 pub mod persistence;
 mod preprocess;
 pub mod python_interopt;
@@ -46,6 +44,8 @@ pub mod variable_reduction;
 
 // imports to generate the python interface
 
+#[allow(clippy::wildcard_imports)]
+// wildcard importing makes sense are we are importing everything anyway
 use python_interopt::*;
 
 /// Gives python access to the rust interface
@@ -74,7 +74,6 @@ fn hercules(m: &Bound<'_, PyModule>) -> PyResult<()> {
 mod tests {
     use crate::qubo::Qubo;
     use ndarray::Array1;
-    use rayon::prelude::*;
     use smolprng::*;
 
     pub(crate) fn make_solver_qubo() -> Qubo {

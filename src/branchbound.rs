@@ -460,7 +460,7 @@ mod tests {
         let mut solver = branchbound::BBSolver::new(p_symm_conv, options);
         solver.warm_start(guess);
 
-        let (solution, obj) = solver.solve();
+        let (solution, _) = solver.solve();
 
         // ensure that the solution is actually feasible with the preprocessor
         for (&index, &val) in fixed_variables.iter() {

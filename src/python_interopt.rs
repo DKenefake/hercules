@@ -400,19 +400,19 @@ pub fn read_qubo(filename: String) -> PyResult<QuboData> {
     // read in the QUBO from file
     let p = Qubo::read_qubo(filename.as_str());
 
-    let mut i = Vec::new();
-    let mut j = Vec::new();
-    let mut q = Vec::new();
-    let c = p.c.to_vec();
+    let mut i_indexs = Vec::new();
+    let mut j_indexs = Vec::new();
+    let mut q_values = Vec::new();
+    let c_values = p.c.to_vec();
     let num_x = p.num_x();
 
     for (k, v) in &p.q {
-        i.push(v.0);
-        j.push(v.1);
-        q.push(*k);
+        i_indexs.push(v.0);
+        j_indexs.push(v.1);
+        q_values.push(*k);
     }
 
-    Ok((i, j, q, c, num_x))
+    Ok((i_indexs, j_indexs, q_values, c_values, num_x))
 }
 
 /// This reads in the QUBO from a .qubo file
@@ -681,8 +681,7 @@ pub fn k_opt(
     let p = Qubo::from_vec(problem.0, problem.1, problem.2, problem.3, problem.4);
     let persistent = fixed;
 
-    match initial_guess {
-        Some(x) => Ok(kopt::solve_kopt(&p, &persistent, Some(Array1::<usize>::from(x))).to_vec()),
-        None => Ok(kopt::solve_kopt(&p, &persistent, None).to_vec()),
-    }
+    let warm_start = initial_guess.map(Array1::<usize>::from);
+
+    Ok(kopt::solve_kopt(&p, &persistent, warm_start).to_vec())
 }

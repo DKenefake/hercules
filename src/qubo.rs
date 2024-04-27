@@ -369,6 +369,7 @@ impl Qubo {
     /// # Panics
     ///
     /// Will panic if there is not a file at the given filename in the .qubo format.
+    #[must_use]
     pub fn read_qubo(filename: &str) -> Self {
         // open the file
         let file = std::fs::File::open(filename).unwrap();
@@ -428,6 +429,7 @@ impl Qubo {
     /// // make a symmetric QUBO from this QUBO
     /// let p_sym = p.make_symmetric();
     /// ```
+    #[must_use]
     pub fn make_symmetric(&self) -> Self {
         let mut tri_q = TriMat::<f64>::new((self.num_x(), self.num_x()));
 
@@ -436,7 +438,6 @@ impl Qubo {
         for (&value, (i, j)) in &self.q {
             if i == j {
                 tri_q.add_triplet(i, j, value);
-
             } else {
                 tri_q.add_triplet(j, i, 0.5 * value);
                 tri_q.add_triplet(i, j, 0.5 * value);
@@ -451,6 +452,7 @@ impl Qubo {
     /// Currently, assume that the required factor,'s' is known.
     ///
     /// $\frac{1}{2}x^TQx + c^Tx = \frac{1}{2}x^T(Q + sI)x + c^Tx - 0.5s^Tx$
+    #[must_use]
     pub fn make_convex(&self, s: f64) -> Self {
         // generate the scaled (sparse) identity matrix
         let mut s_eye_tri = TriMat::<f64>::new((self.num_x(), self.num_x()));
@@ -474,6 +476,7 @@ impl Qubo {
     }
 
     /// Creates the convex symmetric form of the QUBO problem. This is an exact operation, and results in a convex symmetric matrix that is equivalent to the original QUBO.
+    #[must_use]
     pub fn convex_symmetric_form(&self) -> Self {
         // make the QUBO symmetric
         let p_sym = self.make_symmetric();
@@ -517,7 +520,6 @@ mod tests {
     use super::*;
     use crate::initial_points::generate_random_starting_points;
     use crate::tests::{make_solver_qubo, make_test_prng};
-    use crate::utils::make_binary_point;
     use ndarray::Array1;
     use sprs::CsMat;
 

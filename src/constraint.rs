@@ -12,7 +12,7 @@ pub enum ConstraintType {
 pub struct Constraint {
     pub(crate) x_i: usize,
     pub(crate) x_j: usize,
-    constraint_type: ConstraintType,
+    constr_type: ConstraintType,
 }
 
 impl Constraint {
@@ -21,7 +21,7 @@ impl Constraint {
         Self {
             x_i,
             x_j,
-            constraint_type,
+            constr_type: constraint_type,
         }
     }
 
@@ -37,7 +37,7 @@ impl Constraint {
         let x_j_value = *persistent.get(&self.x_j).unwrap();
 
         // check if we abide by the constraint
-        match self.constraint_type {
+        match self.constr_type {
             ConstraintType::NoMoreThanOne => Self::no_more_than_one(x_i_value, x_j_value),
             ConstraintType::AtLeastOne => Self::at_least_one(x_i_value, x_j_value),
             ConstraintType::ExactlyOne => Self::exactly_one(x_i_value, x_j_value),
@@ -62,7 +62,7 @@ impl Constraint {
         let (_, free, fixed_value) = self.get_standard_form(persistent).unwrap();
 
         // if we have only one fixed, then we can make an inference
-        match self.constraint_type {
+        match self.constr_type {
             ConstraintType::NoMoreThanOne => Self::no_more_then_one_inference(free, fixed_value),
             ConstraintType::ExactlyOne => Self::exactly_one_inference(free, fixed_value),
             ConstraintType::AtLeastOne => Self::at_least_one_inference(free, fixed_value),
@@ -119,6 +119,7 @@ impl Constraint {
             return None;
         }
 
+        #[allow(clippy::option_if_let_else)]
         match persistent.get(&self.x_i) {
             Some(x_i_value) => Some((self.x_i, self.x_j, *x_i_value)),
             None => Some((self.x_j, self.x_i, *persistent.get(&self.x_j).unwrap())),
@@ -128,6 +129,7 @@ impl Constraint {
     /// Given a constraint of the type x_i + x_j <= 1, computes if we can make an inference on
     /// either x_i or x_j, given some fixed variables. If so, returns the index and value of the
     /// fixed value, otherwise returns None
+    #[allow(clippy::unnecessary_wraps)]
     pub const fn no_more_then_one_inference(
         free_var: usize,
         fixed_value: usize,
@@ -139,6 +141,7 @@ impl Constraint {
         }
     }
 
+    #[allow(clippy::unnecessary_wraps)]
     pub const fn exactly_one_inference(
         free_var: usize,
         fixed_value: usize,
@@ -213,6 +216,7 @@ impl Constraint {
     /// Given a constraint of the type x_i = x_j, solves if we can make an inference on it
     ///
     /// In this case, we always can, as we can always set the free variable to the fixed value
+    #[allow(clippy::unnecessary_wraps)]
     pub const fn equal_inference(free_var: usize, fixed_value: usize) -> Option<(usize, usize)> {
         Some((free_var, fixed_value))
     }
