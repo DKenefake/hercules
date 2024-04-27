@@ -24,7 +24,7 @@ When referring to the solver, there is a world of a difference between naive imp
 - [x] Multithreaded B&B solver
 - [ ] Modern Presolver
 - [ ] Warm starting subproblems
-- [ ] Beck Optimality Proofs
+- [x] Beck Optimality Proof
 
 
 ## Simple: Read and solve QUBO example
