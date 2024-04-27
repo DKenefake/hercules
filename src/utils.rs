@@ -30,17 +30,17 @@ use smolprng::{Algorithm, PRNG};
 /// let x_2 = utils::mutate_solution(&x_0, 2, &mut prng);
 /// ```
 pub fn mutate_solution<T: Algorithm>(
-    x: &Array1<f64>,
+    x: &Array1<usize>,
     sites: usize,
     prng: &mut PRNG<T>,
-) -> Array1<f64> {
+) -> Array1<usize> {
     let mut x_1 = x.clone();
 
     for _ in 0..sites {
         #[allow(clippy::cast_possible_truncation)]
         // the max value that sparse matrices are addressable is usize::MAX
         let i = prng.gen_u64() as usize % x_1.len();
-        x_1[i] = 1.0 - x_1[i];
+        x_1[i] = 1 - x_1[i];
     }
 
     x_1
@@ -66,8 +66,8 @@ pub fn mutate_solution<T: Algorithm>(
 /// // flip all of the bits
 /// let x_1 = utils::invert(&x_0);
 /// ```
-pub fn invert(x: &Array1<f64>) -> Array1<f64> {
-    1.0f64 - x
+pub fn invert(x: &Array1<usize>) -> Array1<usize> {
+    1 - x
 }
 
 /// Computes the hamming distance two points.
@@ -92,11 +92,9 @@ pub fn invert(x: &Array1<f64>) -> Array1<f64> {
 /// // calculate the hamming distance
 /// let distance = utils::calculate_hamming_distance(&x_0, &x_1);
 /// ```
-pub fn calculate_hamming_distance(x_0: &Array1<f64>, x_1: &Array1<f64>) -> usize {
+pub fn calculate_hamming_distance(x_0: &Array1<usize>, x_1: &Array1<usize>) -> usize {
     let mut distance = 0;
     for i in 0..x_0.len() {
-        #[allow(clippy::float_cmp)]
-        // This is a false positive, as we are checking for fractional values
         if x_0[i] != x_1[i] {
             distance += 1;
         }
@@ -119,7 +117,7 @@ pub fn calculate_hamming_distance(x_0: &Array1<f64>, x_1: &Array1<f64>) -> usize
 /// let p = Qubo::make_random_qubo(10, &mut prng, 0.5);
 ///
 /// // generate a random point inside with x in {0, 1}^10 with
-/// let x_0 = utils::make_binary_point(p.num_x(), &mut prng);
+/// let x_0 = initial_points::generate_central_starting_points(p.num_x());
 ///
 /// // check if the point is fractional
 /// let is_fractional = utils::is_fractional(&x_0);
@@ -177,7 +175,7 @@ pub fn make_binary_point<T: Algorithm>(num_dim: usize, prng: &mut PRNG<T>) -> Ar
 /// let p = Qubo::make_random_qubo(10, &mut prng, 0.5);
 ///
 /// // starting point with 50% chance of each bit being 1
-/// let x_0 = initial_points::generate_central_starting_points(&p);
+/// let x_0 = initial_points::generate_central_starting_points(p.num_x());
 ///
 /// let x_rand = utils::gen_binary_point_from_dist(&mut prng, &x_0);
 /// ```
@@ -248,8 +246,8 @@ mod tests {
 
     #[test]
     fn test_flip() {
-        let x_0 = Array1::from_vec(vec![1.0, 0.0, 1.0]);
-        let target = Array1::from_vec(vec![0.0, 1.0, 0.0]);
+        let x_0 = Array1::from_vec(vec![1, 0, 1]);
+        let target = Array1::from_vec(vec![0, 1, 0]);
         let x_1 = invert(&x_0);
 
         assert_eq!(x_1, target);
@@ -258,8 +256,8 @@ mod tests {
     #[test]
     fn test_mutate() {
         let mut prng = make_test_prng();
-        let x_0 = Array1::from_vec(vec![1.0, 0.0, 1.0]);
-        let target = Array1::from_vec(vec![0.0, 0.0, 1.0]);
+        let x_0 = Array1::from_vec(vec![1, 0, 1]);
+        let target = Array1::from_vec(vec![0, 0, 1]);
         let x_1 = mutate_solution(&x_0, 1, &mut prng);
 
         assert_eq!(x_1, target);

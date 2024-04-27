@@ -32,7 +32,7 @@ use smolprng::{Algorithm, PRNG};
 /// let p = Qubo::make_random_qubo(10, &mut prng, 0.5);
 ///
 /// // generate a random point inside with x in {0, 1}^10 with
-/// let x_0 = initial_points::generate_random_binary_point(&p, &mut prng, 0.5);
+/// let x_0 = initial_points::generate_random_binary_point(p.num_x(), &mut prng, 0.5);
 ///
 /// // perform a simple local search starting at x_0
 /// let x_sol = local_search::simple_local_search(&p, &x_0, 1000);
@@ -69,9 +69,9 @@ pub fn simple_local_search(qubo: &Qubo, x_0: &Array1<usize>, max_steps: usize) -
 /// let p = Qubo::make_random_qubo(10, &mut prng, 0.5);
 ///
 /// // generate a random point inside with x in {0, 1}^10
-/// let x_0 = initial_points::generate_random_binary_point(&p, &mut prng, 0.5);
-/// let x_1 = initial_points::generate_random_binary_point(&p, &mut prng, 0.5);
-/// let x_2 = initial_points::generate_random_binary_point(&p, &mut prng, 0.5);
+/// let x_0 = initial_points::generate_random_binary_point(p.num_x(), &mut prng, 0.5);
+/// let x_1 = initial_points::generate_random_binary_point(p.num_x(), &mut prng, 0.5);
+/// let x_2 = initial_points::generate_random_binary_point(p.num_x(), &mut prng, 0.5);
 ///
 /// let xs = vec![x_0, x_1, x_2];
 ///
@@ -101,7 +101,7 @@ pub fn multi_simple_local_search(qubo: &Qubo, xs: &Vec<Array1<usize>>) -> Vec<Ar
 /// let p = Qubo::make_random_qubo(10, &mut prng, 0.5);
 ///
 /// // generate a random point inside with x in {0, 1}^10
-/// let x_0 = initial_points::generate_random_binary_point(&p, &mut prng, 0.5);
+/// let x_0 = initial_points::generate_random_binary_point(p.num_x(), &mut prng, 0.5);
 ///
 /// // perform a simple gain criteria search starting at x_0
 /// let x_sol = local_search::simple_gain_criteria_search(&p, &x_0, 1000);
@@ -140,9 +140,9 @@ pub fn simple_gain_criteria_search(
 /// let p = Qubo::make_random_qubo(10, &mut prng, 0.5);
 ///
 /// // generate a random point inside with x in {0, 1}^10
-/// let x_0 = initial_points::generate_random_binary_point(&p, &mut prng, 0.5);
-/// let x_1 = initial_points::generate_random_binary_point(&p, &mut prng, 0.5);
-/// let x_2 = initial_points::generate_random_binary_point(&p, &mut prng, 0.5);
+/// let x_0 = initial_points::generate_random_binary_point(p.num_x(), &mut prng, 0.5);
+/// let x_1 = initial_points::generate_random_binary_point(p.num_x(), &mut prng, 0.5);
+/// let x_2 = initial_points::generate_random_binary_point(p.num_x(), &mut prng, 0.5);
 ///
 /// let xs = vec![x_0, x_1, x_2];
 ///
@@ -176,7 +176,7 @@ pub fn multi_simple_gain_criteria_search(
 /// let p = Qubo::make_random_qubo(10, &mut prng, 0.5);
 ///
 /// // generate a random point inside with x in {0, 1}^10
-/// let x_0 = initial_points::generate_random_binary_point(&p, &mut prng, 0.5);
+/// let x_0 = initial_points::generate_random_binary_point(p.num_x(), &mut prng, 0.5);
 ///
 /// // perform a simple mixed search starting at x_0
 /// let x_sol = local_search::simple_mixed_search(&p, &x_0, 1000);

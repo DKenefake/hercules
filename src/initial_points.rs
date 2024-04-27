@@ -24,7 +24,7 @@ use smolprng::{Algorithm, PRNG};
 ///   generator: JsfLarge::default(),
 /// };
 /// let p = Qubo::make_random_qubo(10, &mut prng, 0.5);
-/// let x_0 = initial_points::generate_random_starting_points(&p, 10, &mut prng);
+/// let x_0 = initial_points::generate_random_binary_points(p.num_x(), 10, &mut prng);
 /// ```
 pub fn generate_random_binary_points<T: Algorithm>(
     n: usize,
@@ -48,7 +48,7 @@ pub fn generate_random_binary_points<T: Algorithm>(
 ///    generator: JsfLarge::default(),
 /// };
 /// let p = Qubo::make_random_qubo(10, &mut prng, 0.5);
-/// let x_0 = initial_points::generate_central_starting_points(&p);
+/// let x_0 = initial_points::generate_central_starting_points(p.num_x());
 /// ```
 pub fn generate_central_starting_points(n: usize) -> Array1<f64> {
     Array1::<f64>::zeros(n) + 0.5
@@ -104,7 +104,7 @@ pub fn generate_rho_starting_point(qubo: &Qubo) -> Array1<f64> {
 ///    generator: JsfLarge::default(),
 /// };
 /// let p = Qubo::make_random_qubo(10, &mut prng, 0.5);
-/// let x_0 = initial_points::generate_random_binary_point(&p, &mut prng, 0.5);
+/// let x_0 = initial_points::generate_random_binary_point(p.num_x(), &mut prng, 0.5);
 /// ```
 pub fn generate_random_binary_point<T: Algorithm>(
     n:usize,

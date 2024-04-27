@@ -15,15 +15,16 @@ use crate::qubo::Qubo;
 /// Example:
 /// ```rust
 /// use hercules::qubo::Qubo;
+/// use hercules::early_termination;
 /// use ndarray::Array1;
 ///
-/// let q = sprs::TriMat::new((2, 2));
+/// let mut q = sprs::TriMat::new((2, 2));
 /// q.add_triplet(0, 0, 1.0);
 /// q.add_triplet(1, 1, 1.0);
 /// let c = Array1::from_vec(vec![1.0, 1.0]);
 /// let p = Qubo::new_with_c(q.to_csc(), c);
 /// let x = Array1::from_vec(vec![1, 1]);
-/// let suff = hercules::early_termination::beck_proof(&p, &x);
+/// let suff = early_termination::beck_proof(&p, &x);
 /// ```
 pub fn beck_proof(qubo: &Qubo, x: &Array1<usize>) -> bool{
     // 2(2X - I)(Qx + c) <= min(Eig(Q))e

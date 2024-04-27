@@ -424,7 +424,7 @@ impl Qubo {
     /// };
     ///
     /// // make a random QUBO of 50 variables with an approximate sparsity of 0.1
-    /// let p = Qubo::make_random_qubo(50, &mut prng, 0.1)
+    /// let p = Qubo::make_random_qubo(50, &mut prng, 0.1);
     ///
     /// // make a symmetric QUBO from this QUBO
     /// let p_sym = p.make_symmetric();
