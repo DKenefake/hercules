@@ -9,11 +9,11 @@
 //! - Multi simple gain criteria search
 //! - Simple Particle Swarm Search
 
+use crate::initial_points::generate_random_binary_point;
 use crate::local_search_utils;
 use crate::qubo::Qubo;
 use crate::utils::get_best_point;
 use ndarray::Array1;
-use crate::initial_points::generate_random_binary_point;
 use rayon::iter::{IntoParallelRefIterator, ParallelIterator};
 use smolprng::{Algorithm, PRNG};
 

@@ -7,9 +7,9 @@ use crate::branch_stratagy::BranchStrategy;
 use crate::branch_subproblem::{
     get_sub_problem_solver, ClarabelSubProblemSolver, SubProblemSolver,
 };
-use crate::early_termination::beck_proof;
 use crate::branchbound_utils::{check_integer_feasibility, get_current_time};
 use crate::branchboundlogger::SolverOutputLogger;
+use crate::early_termination::beck_proof;
 use crate::lower_bound::li_lower_bound;
 use crate::preprocess::preprocess_qubo;
 use crate::solver_options::SolverOptions;
@@ -78,9 +78,7 @@ impl BBSolver {
             subproblem_solver,
             options,
             early_stop: false,
-            solver_logger : SolverOutputLogger {
-                output_level,
-            },
+            solver_logger: SolverOutputLogger { output_level },
         }
     }
 

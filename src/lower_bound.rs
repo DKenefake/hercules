@@ -110,7 +110,7 @@ pub fn li_lower_bound(qubo: &Qubo, fixed_variables: &HashMap<usize, usize>) -> f
 mod tests {
     use crate::lower_bound::{li_lower_bound, pardalos_rodgers_lower_bound};
     use crate::qubo::Qubo;
-    use crate::tests::{make_solver_qubo};
+    use crate::tests::make_solver_qubo;
     use ndarray::Array1;
     use sprs::TriMat;
     use std::collections::HashMap;

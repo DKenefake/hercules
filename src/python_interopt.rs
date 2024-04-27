@@ -582,7 +582,9 @@ pub fn convex_symmetric_form(problem: QuboData) -> PyResult<QuboData> {
         return Ok(symm_p.to_vec());
     }
 
-    Ok(p.make_symmetric().make_diag_transform(min_eig.abs() * 1.1).to_vec())
+    Ok(p.make_symmetric()
+        .make_diag_transform(min_eig.abs() * 1.1)
+        .to_vec())
 }
 
 /// This function generates the rule 1.1 for the QUBO from the glover paper

@@ -29,6 +29,7 @@ pub mod branchbound_utils;
 mod branchboundlogger;
 mod constraint;
 pub mod constraint_reduction;
+pub mod early_termination;
 pub mod initial_points;
 mod kopt;
 pub mod local_search;
@@ -41,7 +42,6 @@ pub mod qubo;
 mod solver_options;
 pub mod utils;
 pub mod variable_reduction;
-pub mod early_termination;
 
 // imports to generate the python interface
 

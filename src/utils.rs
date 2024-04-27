@@ -133,7 +133,6 @@ pub fn is_fractional(x: &Array1<f64>) -> bool {
     false
 }
 
-
 /// Given a vector of points, return the best point, based on objective.
 ///
 /// Example:

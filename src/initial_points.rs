@@ -107,7 +107,7 @@ pub fn generate_rho_starting_point(qubo: &Qubo) -> Array1<f64> {
 /// let x_0 = initial_points::generate_random_binary_point(p.num_x(), &mut prng, 0.5);
 /// ```
 pub fn generate_random_binary_point<T: Algorithm>(
-    n:usize,
+    n: usize,
     prng: &mut PRNG<T>,
     sparsity: f64,
 ) -> Array1<usize> {

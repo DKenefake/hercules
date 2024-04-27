@@ -531,10 +531,10 @@ impl Qubo {
 mod tests {
 
     use super::*;
+    use crate::initial_points::generate_random_binary_points;
     use crate::tests::{make_solver_qubo, make_test_prng};
     use ndarray::Array1;
     use sprs::CsMat;
-    use crate::initial_points::generate_random_binary_points;
 
     #[test]
     fn test_qubo_new() {
