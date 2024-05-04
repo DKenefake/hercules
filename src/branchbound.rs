@@ -13,13 +13,14 @@ use crate::early_termination::beck_proof;
 use crate::lower_bound::li_lower_bound;
 use crate::preprocess::preprocess_qubo;
 use crate::solver_options::SolverOptions;
+use std::collections::BinaryHeap;
 
 /// Struct for the B&B Solver
 pub struct BBSolver {
     pub qubo: Qubo,
     pub best_solution: Array1<usize>,
     pub best_solution_value: f64,
-    pub nodes: Vec<QuboBBNode>,
+    pub nodes: BinaryHeap<QuboBBNode>,
     pub nodes_processed: usize,
     pub nodes_solved: usize,
     pub nodes_visited: usize,
@@ -69,7 +70,7 @@ impl BBSolver {
             qubo,
             best_solution: Array1::zeros(num_x),
             best_solution_value: 0.0,
-            nodes: Vec::new(),
+            nodes: BinaryHeap::new(),
             nodes_processed: 0,
             nodes_visited: 0,
             nodes_solved: 0,
@@ -412,7 +413,7 @@ mod tests {
         let mut options = SolverOptions::new();
         options.verbose = 1;
         options.max_time = 1000.0;
-        options.threads = 200;
+        options.threads = 1;
         options
     }
 

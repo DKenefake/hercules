@@ -1,3 +1,4 @@
+use std::cmp::Ordering;
 use ndarray::Array1;
 use std::collections::HashMap;
 
@@ -7,4 +8,27 @@ pub struct QuboBBNode {
     pub lower_bound: f64,
     pub solution: Array1<f64>,
     pub fixed_variables: HashMap<usize, usize>,
+}
+
+impl Eq for QuboBBNode {
+
+}
+
+impl PartialEq<Self> for QuboBBNode {
+    fn eq(&self, other: &Self) -> bool {
+        self.fixed_variables == other.fixed_variables
+    }
+
+}
+
+impl PartialOrd<Self> for QuboBBNode {
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        other.lower_bound.partial_cmp(&self.lower_bound)
+    }
+}
+
+impl Ord for QuboBBNode {
+    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
+        other.lower_bound.partial_cmp(&self.lower_bound).unwrap()
+    }
 }
