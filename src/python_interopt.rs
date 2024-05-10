@@ -505,15 +505,7 @@ pub fn solve_branch_bound(
     // run preprocessing on the symmetric QUBO
     let fixed_variables = preprocess_qubo(&symm_p, &HashMap::new());
 
-    let eigs = symm_p.hess_eigenvalues();
-
-    // get the lowest eigenvalue
-    let min_eig = eigs.iter().fold(f64::INFINITY, |a, &b| a.min(b));
-
-    let p = match min_eig > 0.0 {
-        true => symm_p,
-        false => symm_p.make_diag_transform(min_eig.abs() + 1.0),
-    };
+    let p = symm_p.convex_symmetric_form();
 
     let mut options = SolverOptions::new();
 

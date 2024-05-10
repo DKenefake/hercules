@@ -413,7 +413,7 @@ mod tests {
         let mut options = SolverOptions::new();
         options.verbose = 1;
         options.max_time = 1000.0;
-        options.threads = 1;
+        options.threads = 20;
         options
     }
 
