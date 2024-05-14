@@ -87,6 +87,15 @@ impl BBSolver {
     pub fn warm_start(&mut self, initial_solution: Array1<usize>) {
         self.best_solution = initial_solution;
         self.best_solution_value = self.qubo.eval_usize(&self.best_solution);
+
+        // if we have an early stopping condition, then we can check if we have a solution
+        let beck_proof = beck_proof(&self.qubo, &self.best_solution);
+
+        // if we have a beck proof, then we can stop early
+        if beck_proof {
+            self.early_stop = true;
+            self.solver_logger.early_termination();
+        }
     }
 
     /// The main solve function of the B&B algorithm
