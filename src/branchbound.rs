@@ -224,7 +224,7 @@ impl BBSolver {
         // if not all variables are fixed, we can still check if we are 'near' integer-feasible (within 1E-10) of 0 or 1
         let (is_int_feasible, rounded_sol) = check_integer_feasibility(&node);
 
-        // if we are integer feasible then we can prune this branch and return the solution
+        // if we are integer-feasible, then we can prune this branch and return the solution
         if is_int_feasible {
             // compute the objective
             let value = self.qubo.eval_usize(&rounded_sol);
