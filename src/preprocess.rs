@@ -6,6 +6,7 @@ use crate::persistence::compute_iterative_persistence;
 use crate::qubo::Qubo;
 use ndarray::Array1;
 use std::collections::HashMap;
+use sprs::TriMat;
 
 /// This is the main entry point for preprocessing
 pub fn preprocess_qubo(
@@ -24,8 +25,12 @@ pub fn preprocess_qubo(
         initial_fixed.insert(key, value);
     }
 
-    // start with an initial persistence check
-    let fixed_variables = compute_iterative_persistence(qubo, &initial_fixed, qubo.num_x());
+    // create an auxiliary QUBO were we have zeroed out the diagonal elements
+    let qubo_shift = shift_qubo(qubo);
+
+    // start with an initial persistence check against the zero diagonal QUBO
+    // This is provably the tightest bound we can get for this calculation
+    let fixed_variables = compute_iterative_persistence(&qubo_shift, &initial_fixed, qubo_shift.num_x());
 
     fixed_variables
 }
@@ -93,7 +98,7 @@ pub fn find_no_effect_variables(qubo: &Qubo) -> Vec<usize> {
         .collect()
 }
 
-/// fixes variables that have no effect in the QUBO, where the linear term is zero and the quadratic
+/// Fixes variables that have no effect in the QUBO, where the linear term is zero and the quadratic
 /// terms are zero. This is useful for reducing the size of the QUBO.
 pub fn fix_no_effect_variables(qubo: &Qubo) -> HashMap<usize, usize> {
     let no_effect_vars = find_no_effect_variables(qubo);
@@ -102,6 +107,23 @@ pub fn fix_no_effect_variables(qubo: &Qubo) -> HashMap<usize, usize> {
         .iter()
         .map(|&i| (i, 0))
         .collect()
+}
+
+/// Creates a new QUBO where the diagonal elements are zeroed out and the linear term is adjusted
+/// accordingly
+pub fn shift_qubo(qubo: &Qubo) -> Qubo {
+    let mut new_q = TriMat::new((qubo.num_x(), qubo.num_x()));
+    let mut new_c = qubo.c.clone();
+
+    for (&value, (i, j)) in &qubo.q {
+        if i == j {
+            new_c[i] += 0.5*value;
+        } else {
+            new_q.add_triplet(i, j, value);
+        }
+    }
+
+    Qubo::new_with_c(new_q.to_csr(), new_c)
 }
 
 #[cfg(test)]
