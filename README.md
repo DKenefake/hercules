@@ -141,3 +141,12 @@ end = time.time()
 print('Solution: ', obj, ' in ', end - start, ' seconds')
 
 ```
+
+## Docker
+
+A Docker image is available [here](https://hub.docker.com/repository/docker/dkenefake/hercules/general).
+To run this, pull down the image and run the following:
+
+```
+docker run --platform linux/amd64 dkenefake/hercules:test python pyhercules.py
+```
