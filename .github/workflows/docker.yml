@@ -12,7 +12,12 @@ name: Publish Docker image
 on:
   release:
     types: [published]
-  workflow_dispatch
+  workflow_dispatch:
+    inputs:
+      description: 'Build Docker File'
+      required: true
+      options:
+        - run
   
 jobs:
   push_to_registry:
