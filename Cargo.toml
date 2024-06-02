@@ -1,6 +1,6 @@
 [package]
 name = "hercules"
-version = "0.2.0"
+version = "0.3.0"
 edition = "2021"
 authors = ["Dustin Kenefake"]
 license = "BSD-3-Clause"
@@ -39,7 +39,7 @@ codegen-units = 1
 codegen-units = 1
 opt-level = 3
 lto = true
-incremental = true
+incremental = false
 
 [profile.bench]
 opt-level = 3
