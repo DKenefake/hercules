@@ -1,4 +1,3 @@
-use std::collections::HashMap;
 use crate::branch_node::QuboBBNode;
 use crate::branchbound::BBSolver;
 use crate::qubo::Qubo;
@@ -6,6 +5,7 @@ use clarabel::algebra::CscMatrix;
 use clarabel::solver::{DefaultSettings, DefaultSolver, IPSolver, NonnegativeConeT};
 use ndarray::Array1;
 use sprs::{CsMat, TriMat};
+use std::collections::HashMap;
 
 type SubProblemResult = (f64, Array1<f64>);
 
@@ -52,7 +52,8 @@ impl SubProblemSolver for ClarabelSubProblemSolver {
         };
 
         // find projected subproblem
-        let (trial_sub_qubo, unfixed_map, _constant) = make_sub_problem(&bbsolver.qubo, node.fixed_variables.clone());
+        let (trial_sub_qubo, unfixed_map, _constant) =
+            make_sub_problem(&bbsolver.qubo, node.fixed_variables.clone());
 
         let min_eig = trial_sub_qubo.hess_eigenvalues();
         let min_eig = min_eig.iter().fold(f64::INFINITY, |acc, &x| x.min(acc));
@@ -77,9 +78,7 @@ impl SubProblemSolver for ClarabelSubProblemSolver {
         let A_clara = Self::make_cb_form(&A_csc);
 
         // generate the cones for the solver
-        let cones = [
-            NonnegativeConeT(2 * sub_qubo.num_x()),
-        ];
+        let cones = [NonnegativeConeT(2 * sub_qubo.num_x())];
 
         // set up the solver with the matrices
         let mut solver = DefaultSolver::new(
@@ -98,12 +97,12 @@ impl SubProblemSolver for ClarabelSubProblemSolver {
         let mut x = Array1::<f64>::zeros(bbsolver.qubo.num_x());
 
         // map out the unfixed variables
-        for (&original, &new) in unfixed_map.iter() {
+        for (&original, &new) in &unfixed_map {
             x[original] = solver.solution.x[new];
         }
 
         // map out the fixed variables
-        for (&i, &val) in node.fixed_variables.iter() {
+        for (&i, &val) in &node.fixed_variables {
             x[i] = val as f64;
         }
 
@@ -119,8 +118,10 @@ impl ClarabelSubProblemSolver {
     }
 }
 
-fn make_sub_problem(qubo: &Qubo, fixed_vars:HashMap<usize, usize>) -> (Qubo, HashMap<usize, usize>, f64) {
-
+fn make_sub_problem(
+    qubo: &Qubo,
+    fixed_vars: HashMap<usize, usize>,
+) -> (Qubo, HashMap<usize, usize>, f64) {
     // do some accounting
     let num_fixed = fixed_vars.len();
     let num_unfixed = qubo.num_x() - num_fixed;
@@ -133,34 +134,35 @@ fn make_sub_problem(qubo: &Qubo, fixed_vars:HashMap<usize, usize>) -> (Qubo, Has
     // make a map between the unfixed variables and the new index
     let mut unfixed_map = HashMap::new();
 
-    for i in 0..qubo.num_x(){
-        if fixed_vars.contains_key(&i){
+    for i in 0..qubo.num_x() {
+        if fixed_vars.contains_key(&i) {
             continue;
-        }else{
-            let new_index = unfixed_map.len();
-            unfixed_map.insert(i, new_index);
         }
+        let new_index = unfixed_map.len();
+        unfixed_map.insert(i, new_index);
     }
 
-    for (&q_ij, (i,j)) in &qubo.q{
-
+    for (&q_ij, (i, j)) in &qubo.q {
         let i_fixed = fixed_vars.contains_key(&i);
         let j_fixed = fixed_vars.contains_key(&j);
 
         // if both variables are fixed, then we can ignore this
-        if i_fixed && j_fixed{
-            constant += 0.5*q_ij*(*fixed_vars.get(&i).unwrap() as f64)*(*fixed_vars.get(&j).unwrap() as f64);
-        }else if i_fixed && !j_fixed{
+        if i_fixed && j_fixed {
+            constant += 0.5
+                * q_ij
+                * (*fixed_vars.get(&i).unwrap() as f64)
+                * (*fixed_vars.get(&j).unwrap() as f64);
+        } else if i_fixed && !j_fixed {
             // we know that i is fixed and j is not
             let j_new = *unfixed_map.get(&j).unwrap();
 
-            c_new[j_new] += 0.5*q_ij*(*fixed_vars.get(&i).unwrap() as f64);
-        }else if !i_fixed && j_fixed {
+            c_new[j_new] += 0.5 * q_ij * (*fixed_vars.get(&i).unwrap() as f64);
+        } else if !i_fixed && j_fixed {
             // we know that j is fixed and i is not
             let i_new = *unfixed_map.get(&i).unwrap();
 
-            c_new[i_new] += 0.5*q_ij*(*fixed_vars.get(&j).unwrap() as f64);
-        }else{
+            c_new[i_new] += 0.5 * q_ij * (*fixed_vars.get(&j).unwrap() as f64);
+        } else {
             // both variables are unfixed
             let i_new = *unfixed_map.get(&i).unwrap();
             let j_new = *unfixed_map.get(&j).unwrap();
@@ -169,26 +171,29 @@ fn make_sub_problem(qubo: &Qubo, fixed_vars:HashMap<usize, usize>) -> (Qubo, Has
         }
     }
 
-    for (i, &c_i) in qubo.c.iter().enumerate(){
-        if fixed_vars.contains_key(&i){
+    for (i, &c_i) in qubo.c.iter().enumerate() {
+        if fixed_vars.contains_key(&i) {
             continue;
-        }else{
-            let i_new = *unfixed_map.get(&i).unwrap();
-            c_new[i_new] += c_i;
         }
+        let i_new = *unfixed_map.get(&i).unwrap();
+        c_new[i_new] += c_i;
     }
 
-    return (Qubo::new_with_c(Q_tri.to_csc(), c_new), unfixed_map, constant);
+    (
+        Qubo::new_with_c(Q_tri.to_csc(), c_new),
+        unfixed_map,
+        constant,
+    )
 }
 
 #[cfg(test)]
 mod tests {
-    use std::collections::HashMap;
-    use ndarray::Array1;
-    use sprs::{CsMat, TriMat};
     use crate::branch_subproblem::ClarabelSubProblemSolver;
     use crate::qubo::Qubo;
     use crate::tests::make_solver_qubo;
+    use ndarray::Array1;
+    use sprs::{CsMat, TriMat};
+    use std::collections::HashMap;
 
     #[test]
     fn ensure_matrix_equivlence() {
@@ -208,7 +213,7 @@ mod tests {
     }
 
     #[test]
-    fn test_generate_sub_problem_1(){
+    fn test_generate_sub_problem_1() {
         // the idea of this test is, given a QUBO & some fixed variables, generate an equivalent problem
 
         // f(x) = 0.5<x,x>
@@ -231,14 +236,17 @@ mod tests {
         let c_target = Array1::<f64>::zeros(2);
 
         // check the linear term
-        for i in 0..2{
+        for i in 0..2 {
             assert_eq!(c_target[i], sub_p.c[i]);
         }
 
         // check the quadratic term
-        for i in 0..2{
-            for j in 0..2{
-                assert_eq!(q_target.get(i,j).unwrap_or(&0.0), sub_p.q.get(i,j).unwrap_or(&0.0));
+        for i in 0..2 {
+            for j in 0..2 {
+                assert_eq!(
+                    q_target.get(i, j).unwrap_or(&0.0),
+                    sub_p.q.get(i, j).unwrap_or(&0.0)
+                );
             }
         }
 
@@ -247,23 +255,23 @@ mod tests {
     }
 
     #[test]
-    fn test_generate_sub_problem_2(){
+    fn test_generate_sub_problem_2() {
         // the idea of this test is, given a QUBO & some fixed variables, generate an equivalent problem
 
         // f(x) = 0.5<x,x>
-        let mut q = TriMat::<f64>::new((3,3));
+        let mut q = TriMat::<f64>::new((3, 3));
 
-        q.add_triplet(0,0,1.0);
-        q.add_triplet(0,1,2.0);
-        q.add_triplet(0,2,3.0);
+        q.add_triplet(0, 0, 1.0);
+        q.add_triplet(0, 1, 2.0);
+        q.add_triplet(0, 2, 3.0);
 
-        q.add_triplet(1,0,5.0);
-        q.add_triplet(1,1,0.0);
-        q.add_triplet(1,2,1.0);
+        q.add_triplet(1, 0, 5.0);
+        q.add_triplet(1, 1, 0.0);
+        q.add_triplet(1, 2, 1.0);
 
-        q.add_triplet(2,0,1.0);
-        q.add_triplet(2,1,5.0);
-        q.add_triplet(2,2,6.0);
+        q.add_triplet(2, 0, 1.0);
+        q.add_triplet(2, 1, 5.0);
+        q.add_triplet(2, 2, 6.0);
 
         let c = Array1::<f64>::from_vec(vec![0.0, 1.0, 3.0]);
         let p = Qubo::new_with_c(q.to_csr(), c);
@@ -279,26 +287,29 @@ mod tests {
         let (sub_p, _, constant) = super::make_sub_problem(&p, fixed_variables);
 
         // fix the expected matrix
-        let mut q_target_tri = TriMat::<f64>::new((2,2));
+        let mut q_target_tri = TriMat::<f64>::new((2, 2));
 
-        q_target_tri.add_triplet(0,0,0.0);
-        q_target_tri.add_triplet(0,1,1.0);
-        q_target_tri.add_triplet(1,0,5.0);
-        q_target_tri.add_triplet(1,1,6.0);
+        q_target_tri.add_triplet(0, 0, 0.0);
+        q_target_tri.add_triplet(0, 1, 1.0);
+        q_target_tri.add_triplet(1, 0, 5.0);
+        q_target_tri.add_triplet(1, 1, 6.0);
 
-        let q_target:CsMat<f64> = q_target_tri.to_csr();
+        let q_target: CsMat<f64> = q_target_tri.to_csr();
 
         let c_target = Array1::<f64>::from_vec(vec![4.5, 5.0]);
 
         // check the linear term
-        for i in 0..2{
+        for i in 0..2 {
             assert_eq!(c_target[i], sub_p.c[i]);
         }
 
         // check the quadratic term
-        for i in 0..2{
-            for j in 0..2{
-                assert_eq!(q_target.get(i,j).unwrap_or(&0.0), sub_p.q.get(i,j).unwrap_or(&0.0));
+        for i in 0..2 {
+            for j in 0..2 {
+                assert_eq!(
+                    q_target.get(i, j).unwrap_or(&0.0),
+                    sub_p.q.get(i, j).unwrap_or(&0.0)
+                );
             }
         }
 

@@ -1,5 +1,5 @@
-use std::cmp::Ordering;
 use ndarray::Array1;
+use std::cmp::Ordering;
 use std::collections::HashMap;
 
 /// Struct the describes the branch and bound tree nodes
@@ -10,20 +10,17 @@ pub struct QuboBBNode {
     pub fixed_variables: HashMap<usize, usize>,
 }
 
-impl Eq for QuboBBNode {
-
-}
+impl Eq for QuboBBNode {}
 
 impl PartialEq<Self> for QuboBBNode {
     fn eq(&self, other: &Self) -> bool {
         self.fixed_variables == other.fixed_variables
     }
-
 }
 
 impl PartialOrd<Self> for QuboBBNode {
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
-        other.lower_bound.partial_cmp(&self.lower_bound)
+        Some(self.cmp(other))
     }
 }
 

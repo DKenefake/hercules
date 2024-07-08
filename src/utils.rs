@@ -3,6 +3,7 @@
 
 use crate::qubo::Qubo;
 use ndarray::Array1;
+use ndarray_linalg::Norm;
 use smolprng::{Algorithm, PRNG};
 
 /// Given a point, x, flip sites number of bits and return the new point, this can include a bit that is already flipped.
@@ -131,6 +132,17 @@ pub fn is_fractional(x: &Array1<f64>) -> bool {
         }
     }
     false
+}
+
+/// Generate a random point on a circle of radius 1 in n dimensions.
+pub fn sample_circle<T: Algorithm>(n: usize, prng: &mut PRNG<T>) -> Array1<f64> {
+    let mut x = Array1::zeros(n);
+    for i in 0..n {
+        x[i] = prng.normal();
+    }
+    let x_norm = x.norm_l2();
+
+    x / x_norm
 }
 
 /// Given a vector of points, return the best point, based on objective.

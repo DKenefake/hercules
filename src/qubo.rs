@@ -533,7 +533,6 @@ impl Qubo {
 
         true
     }
-
 }
 
 #[cfg(test)]
@@ -771,5 +770,4 @@ mod tests {
             assert!((obj - obj_convex).abs() < 1e-5);
         }
     }
-
 }

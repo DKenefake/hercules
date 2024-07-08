@@ -5,15 +5,14 @@ use crate::persistence::compute_iterative_persistence;
 /// - Iterative persistence
 use crate::qubo::Qubo;
 use ndarray::Array1;
-use std::collections::HashMap;
 use sprs::TriMat;
+use std::collections::HashMap;
 
 /// This is the main entry point for preprocessing
 pub fn preprocess_qubo(
     qubo: &Qubo,
     fixed_variables: &HashMap<usize, usize>,
 ) -> HashMap<usize, usize> {
-
     // copy the fixed variables
     let mut initial_fixed = fixed_variables.clone();
 
@@ -30,7 +29,8 @@ pub fn preprocess_qubo(
 
     // start with an initial persistence check against the zero diagonal QUBO
     // This is provably the tightest bound we can get for this calculation
-    let fixed_variables = compute_iterative_persistence(&qubo_shift, &initial_fixed, qubo_shift.num_x());
+    let fixed_variables =
+        compute_iterative_persistence(&qubo_shift, &initial_fixed, qubo_shift.num_x());
 
     fixed_variables
 }
@@ -75,11 +75,10 @@ pub fn get_fixed_c(qubo: &Qubo, fixed_variables: &HashMap<usize, usize>) -> Arra
 /// Find variables that have no effect in the QUBO, where the linear term is zero and the quadratic
 /// terms are zero. This is useful for reducing the size of the QUBO.
 pub fn find_no_effect_variables(qubo: &Qubo) -> Vec<usize> {
-
     let mut is_no_effect_var = Array1::from_elem(qubo.num_x(), true);
 
     // check the quadratic terms
-    for (&_value, (i,j)) in &qubo.q {
+    for (&_value, (i, j)) in &qubo.q {
         is_no_effect_var[i] = false;
         is_no_effect_var[j] = false;
     }
@@ -103,10 +102,7 @@ pub fn find_no_effect_variables(qubo: &Qubo) -> Vec<usize> {
 pub fn fix_no_effect_variables(qubo: &Qubo) -> HashMap<usize, usize> {
     let no_effect_vars = find_no_effect_variables(qubo);
 
-    no_effect_vars
-        .iter()
-        .map(|&i| (i, 0))
-        .collect()
+    no_effect_vars.iter().map(|&i| (i, 0)).collect()
 }
 
 /// Creates a new QUBO where the diagonal elements are zeroed out and the linear term is adjusted
@@ -117,7 +113,7 @@ pub fn shift_qubo(qubo: &Qubo) -> Qubo {
 
     for (&value, (i, j)) in &qubo.q {
         if i == j {
-            new_c[i] += 0.5*value;
+            new_c[i] += 0.5 * value;
         } else {
             new_q.add_triplet(i, j, value);
         }
