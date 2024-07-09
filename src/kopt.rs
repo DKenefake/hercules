@@ -8,6 +8,7 @@ use crate::qubo::Qubo;
 use crate::solver_options::SolverOptions;
 use ndarray::Array1;
 use std::collections::HashMap;
+use crate::heuristic_stratagy::HeuristicSelection;
 
 /// run k-opt on a given QUBO
 pub fn solve_kopt(
@@ -28,6 +29,7 @@ pub fn solve_kopt(
         fixed_variables: persistent,
         branch_strategy: BranchStrategySelection::MostViolated,
         sub_problem_solver: SubProblemSelection::Clarabel,
+        heuristic: HeuristicSelection::SimpleRounding,
         max_time: 100.0,
         seed: 0,
         verbose: 1,

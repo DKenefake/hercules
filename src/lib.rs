@@ -42,7 +42,7 @@ pub mod qubo;
 mod solver_options;
 pub mod utils;
 pub mod variable_reduction;
-
+mod heuristic_stratagy;
 // imports to generate the python interface
 
 #[allow(clippy::wildcard_imports)]

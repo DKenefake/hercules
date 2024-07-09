@@ -14,6 +14,7 @@ use crate::lower_bound::li_lower_bound;
 use crate::preprocess::preprocess_qubo;
 use crate::solver_options::SolverOptions;
 use std::collections::BinaryHeap;
+use crate::branchbound::Event::UpdateBestSolution;
 
 /// Struct for the B&B Solver
 pub struct BBSolver {
@@ -51,7 +52,7 @@ pub enum PruneAction {
 
 pub struct ProcessNodeState {
     pub prune_action: PruneAction,
-    pub event: Option<Event>,
+    pub events: Vec<Event>,
     pub logging: NodeLoggingAction,
 }
 
@@ -138,7 +139,7 @@ impl BBSolver {
 
             // apply all the events from the parallel loop back to the solver
             for state in process_results {
-                self.apply_event_option(state.event);
+                self.apply_events(state.events);
                 self.apply_logging_action(state.logging);
             }
 
@@ -218,7 +219,7 @@ impl BBSolver {
         if matches!(prune_action, PruneAction::Prune) {
             return ProcessNodeState {
                 prune_action,
-                event: Some(event),
+                events: vec![event],
                 logging: NodeLoggingAction::Processed,
             };
         }
@@ -242,16 +243,19 @@ impl BBSolver {
             if value <= self.best_solution_value {
                 return ProcessNodeState {
                     prune_action,
-                    event: Some(Event::UpdateBestSolution(rounded_sol, value)),
+                    events: vec![Event::UpdateBestSolution(rounded_sol, value)],
                     logging: NodeLoggingAction::Solved,
                 };
             }
             return ProcessNodeState {
                 prune_action,
-                event: Some(Event::Nill),
+                events: vec![Event::Nill],
                 logging: NodeLoggingAction::Solved,
             };
         }
+
+        // if we are going to branch then we can generate a heuristic solution
+        let (heur_sol,heur_obj) = self.options.heuristic.make_heuristic(self, &node);
 
         // determine what variable we are branching on
         let branch_id = self.make_branch(&node);
@@ -261,13 +265,14 @@ impl BBSolver {
 
         ProcessNodeState {
             prune_action,
-            event: Some(Event::AddBranches(zero_branch, one_branch)),
+            events: vec![Event::AddBranches(zero_branch, one_branch), Event::UpdateBestSolution(heur_sol,heur_obj)],
             logging: NodeLoggingAction::Solved,
         }
     }
 
-    pub fn apply_event_option(&mut self, event: Option<Event>) {
-        if let Some(action) = event {
+    pub fn apply_events(&mut self, events: Vec<Event>) {
+
+        for action in events {
             match action {
                 Event::UpdateBestSolution(solution, value) => {
                     self.update_solution_if_better(&solution, value);
@@ -278,7 +283,8 @@ impl BBSolver {
                 }
                 Event::Nill => {}
             }
-        };
+        }
+
     }
 
     /// update the best solution if better than the current best solution
