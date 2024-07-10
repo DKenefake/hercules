@@ -14,7 +14,6 @@ use crate::lower_bound::li_lower_bound;
 use crate::preprocess::preprocess_qubo;
 use crate::solver_options::SolverOptions;
 use std::collections::BinaryHeap;
-use crate::branchbound::Event::UpdateBestSolution;
 
 /// Struct for the B&B Solver
 pub struct BBSolver {

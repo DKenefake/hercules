@@ -25,7 +25,7 @@ impl PartialOrd<Self> for QuboBBNode {
 }
 
 impl Ord for QuboBBNode {
-    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
-        other.lower_bound.partial_cmp(&self.lower_bound).unwrap()
+    fn cmp(&self, other: &Self) -> Ordering {
+        self.fixed_variables.len().partial_cmp(&other.fixed_variables.len()).unwrap()
     }
 }

@@ -21,7 +21,7 @@ impl SolverOptions {
             fixed_variables: HashMap::new(),
             branch_strategy: BranchStrategySelection::MostViolated,
             sub_problem_solver: SubProblemSelection::Clarabel,
-            heuristic: HeuristicSelection::SimpleRounding,
+            heuristic: HeuristicSelection::LocalSearch,
             max_time: 100.0,
             seed: 0,
             verbose: 1,

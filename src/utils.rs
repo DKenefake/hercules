@@ -187,6 +187,21 @@ pub fn get_best_point(qubo: &Qubo, points: &Vec<Array1<usize>>) -> Array1<usize>
     best_point
 }
 
+/// Given a floating point vector, round it to the nearest 0 or 1.
+pub fn rounded_vector(x:&Array1<f64>) -> Array1<usize>{
+    let mut rounded_solution = Array1::zeros(x.len());
+
+    for (i, &z) in x.iter().enumerate() {
+        if z > 0.5 {
+            rounded_solution[i] = 1;
+        } else {
+            rounded_solution[i] = 0;
+        }
+    }
+
+    rounded_solution
+}
+
 #[cfg(test)]
 mod tests {
     use crate::tests::make_test_prng;
