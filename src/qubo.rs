@@ -744,7 +744,7 @@ mod tests {
     }
 
     #[test]
-    fn test_convex_symetric_form() {
+    fn test_convex_symmetric_form() {
         let p = make_solver_qubo();
         let p_convex = p.convex_symmetric_form();
 

@@ -188,7 +188,7 @@ pub fn get_best_point(qubo: &Qubo, points: &Vec<Array1<usize>>) -> Array1<usize>
 }
 
 /// Given a floating point vector, round it to the nearest 0 or 1.
-pub fn rounded_vector(x:&Array1<f64>) -> Array1<usize>{
+pub fn rounded_vector(x: &Array1<f64>) -> Array1<usize> {
     let mut rounded_solution = Array1::zeros(x.len());
 
     for (i, &z) in x.iter().enumerate() {
@@ -225,5 +225,14 @@ mod tests {
         let x_1 = mutate_solution(&x_0, 1, &mut prng);
 
         assert_eq!(x_1, target);
+    }
+
+    #[test]
+    fn test_round_vector() {
+        let point = Array1::from_vec(vec![0.1, 0.9, 0.51, 0.6, 0.4]);
+        let sol = Array1::from_vec(vec![0, 1, 1, 1, 0]);
+        let rounded = rounded_vector(&point);
+
+        assert_eq!(rounded, sol);
     }
 }

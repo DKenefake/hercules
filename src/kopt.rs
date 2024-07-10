@@ -3,12 +3,12 @@
 use crate::branch_stratagy::BranchStrategySelection;
 use crate::branch_subproblem::SubProblemSelection;
 use crate::branchbound::BBSolver;
+use crate::heuristic_stratagy::HeuristicSelection;
 use crate::persistence::compute_iterative_persistence;
 use crate::qubo::Qubo;
 use crate::solver_options::SolverOptions;
 use ndarray::Array1;
 use std::collections::HashMap;
-use crate::heuristic_stratagy::HeuristicSelection;
 
 /// run k-opt on a given QUBO
 pub fn solve_kopt(

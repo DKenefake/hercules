@@ -1,7 +1,7 @@
 use crate::branch_stratagy::BranchStrategySelection;
 use crate::branch_subproblem::SubProblemSelection;
-use std::collections::HashMap;
 use crate::heuristic_stratagy::HeuristicSelection;
+use std::collections::HashMap;
 
 /// Options for the B&B solver for run time
 pub struct SolverOptions {

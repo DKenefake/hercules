@@ -13,7 +13,6 @@ use crate::branchbound::BBSolver;
 use crate::branchbound_utils::get_current_time;
 use crate::preprocess::preprocess_qubo;
 use crate::solver_options::SolverOptions;
-use crate::variable_reduction::{generate_rule_11, generate_rule_21};
 
 // type alias for the qubo data object from python
 type QuboData = (Vec<usize>, Vec<usize>, Vec<f64>, Vec<f64>, usize);
@@ -487,6 +486,7 @@ pub fn get_persistence(
 ///
 /// This shouldn't error, but if it does, it will abort.
 #[pyfunction]
+#[pyo3(signature = (problem, timeout, warm_start=None, seed=None, branch_strategy=None, sub_problem_solver=None, threads=None, verbose=None))]
 pub fn solve_branch_bound(
     problem: QuboData,
     timeout: f64,
@@ -579,76 +579,6 @@ pub fn convex_symmetric_form(problem: QuboData) -> PyResult<QuboData> {
         .to_vec())
 }
 
-/// This function generates the rule 1.1 for the QUBO from the glover paper
-/// and returns the rules in vec form
-///
-/// Example
-/// ``` python
-/// import hercules
-///
-/// # read in the QUBO from a file
-/// problem = hercules.read_qubo("file.qubo")
-///
-/// # generate the rules
-/// rules = hercules.generate_rule_1_1(problem)
-/// ```
-///
-/// # Errors
-/// This shouldn't error, but if it does, it will abort.
-#[pyfunction]
-pub fn generate_rule_1_1(problem: QuboData) -> PyResult<Vec<(usize, usize)>> {
-    // read in the QUBO from vec form
-    let p = Qubo::from_vec(problem.0, problem.1, problem.2, problem.3, problem.4);
-
-    let persist = compute_iterative_persistence(&p, &HashMap::new(), p.num_x());
-
-    // generate the rules
-    let mut rules = Vec::new();
-    for i in 0..p.num_x() {
-        let rule_i = generate_rule_11(&p, &persist, i);
-        for rule in rule_i {
-            rules.push((rule.x_i, rule.x_j));
-        }
-    }
-
-    Ok(rules)
-}
-
-/// This function generates the rule 2.1 for the QUBO from the glover paper
-/// and returns the rules in vec form
-///
-/// Example
-/// ``` python
-/// import hercules
-///
-/// # read in the QUBO from a file
-/// problem = hercules.read_qubo("file.qubo")
-///
-/// # generate the rules
-/// rules = hercules.generate_rule_2_1(problem)
-/// ```
-///
-/// # Errors
-/// This shouldn't error, but if it does, it will abort.
-#[pyfunction]
-pub fn generate_rule_2_1(problem: QuboData) -> PyResult<Vec<(usize, usize)>> {
-    // read in the QUBO from vec form
-    let p = Qubo::from_vec(problem.0, problem.1, problem.2, problem.3, problem.4);
-
-    let persist = compute_iterative_persistence(&p, &HashMap::new(), p.num_x());
-
-    // generate the rules
-    let mut rules = Vec::new();
-    for i in 0..p.num_x() {
-        let rule_i = generate_rule_21(&p, &persist, i);
-        for rule in rule_i {
-            rules.push((rule.x_i, rule.x_j));
-        }
-    }
-
-    Ok(rules)
-}
-
 /// This function solves the QUBO using the k-opt algorithm
 /// and returns the best solution found.
 ///
@@ -666,6 +596,7 @@ pub fn generate_rule_2_1(problem: QuboData) -> PyResult<Vec<(usize, usize)>> {
 /// # Errors
 /// This shouldn't error, but if it does, it will abort.
 #[pyfunction]
+#[pyo3(signature = (problem, fixed, initial_guess=None))]
 pub fn k_opt(
     problem: QuboData,
     fixed: HashMap<usize, usize>,

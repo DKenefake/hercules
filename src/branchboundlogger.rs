@@ -71,6 +71,18 @@ impl SolverOutputLogger {
 
         let current_time = get_current_time();
         let time_passed = current_time - solver_instance.time_start;
+
+        let upper_bound = solver_instance.best_solution_value;
+        let lower_bound = solver_instance
+            .nodes
+            .iter()
+            .map(|x| x.lower_bound)
+            .fold(f64::INFINITY, f64::min);
+        let gap = 100.0 * (upper_bound - lower_bound) / (upper_bound + 1E-5).abs();
+        let gap = gap.max(0.0);
+
+        let status = if gap < 1E-5 { "Optimal" } else { "Suboptimal" };
+
         println!("------------------------------------------------------");
         println!("Branch and Bound Solver Finished");
         println!("Best Solution: {solution}");
@@ -79,6 +91,7 @@ impl SolverOutputLogger {
         println!("Nodes Processed: {nodes_processed}");
         println!("Nodes Visited: {nodes_visited}");
         println!("Time to Solve: {time_passed}");
+        println!("Solver Status: {status}");
         println!("------------------------------------------------------");
     }
 

@@ -307,49 +307,49 @@ pub fn random_search<T: Algorithm>(
     best_point
 }
 
-/// Perform Goemans-Williamson rounding on a QUBO. For some cases, such as MAX-CUT, this can be used
-/// to get a guaranteed approximate solution (2/pi).
-pub fn goemans_williamson_rounding<T: Algorithm>(qubo: &Qubo, prng: &mut PRNG<T>) -> Array1<usize> {
-    let new_qubo = qubo.convex_symmetric_form();
-
-    // TODO: some technical debt, we need to change the sub-problem solver to take in qubos instead
-    // of the
-
-    let mut bb = BBSolver::new(new_qubo, SolverOptions::new());
-
-    let fixed_variables = preprocess_qubo(&bb.qubo, &bb.options.fixed_variables);
-    bb.options.fixed_variables = fixed_variables.clone();
-
-    // create the root node
-    let root_node = QuboBBNode {
-        lower_bound: f64::NEG_INFINITY,
-        solution: Array1::zeros(bb.qubo.num_x()),
-        fixed_variables,
-    };
-
-    let qp_sol = bb.subproblem_solver.solve_lower_bound(&bb, &root_node).1;
-
-    // let random_point = generate_random_binary_point(qubo.num_x(), &prng, 0.5);
-    let mut rounded_sol = Array1::zeros(qubo.num_x());
-
-    for i in 0..qp_sol.len() {
-        // if we have already fixed the variable via persistence, use that value
-        if root_node.fixed_variables.contains_key(&i) {
-            rounded_sol[i] = root_node.fixed_variables[&i];
-        } else {
-            let r = sample_circle(qp_sol.len(), prng);
-            let random_prod = qp_sol.dot(&r);
-
-            if random_prod >= 0.0 {
-                rounded_sol[i] = 1;
-            } else {
-                rounded_sol[i] = 0;
-            }
-        }
-    }
-
-    rounded_sol
-}
+// Perform Goemans-Williamson rounding on a QUBO. For some cases, such as MAX-CUT, this can be used
+// to get a guaranteed approximate solution (2/pi).
+// pub fn goemans_williamson_rounding<T: Algorithm>(qubo: &Qubo, prng: &mut PRNG<T>) -> Array1<usize> {
+//     let new_qubo = qubo.convex_symmetric_form();
+//
+//     // TODO: some technical debt, we need to change the sub-problem solver to take in qubos instead
+//     // of the
+//
+//     let mut bb = BBSolver::new(new_qubo, SolverOptions::new());
+//
+//     let fixed_variables = preprocess_qubo(&bb.qubo, &bb.options.fixed_variables);
+//     bb.options.fixed_variables = fixed_variables.clone();
+//
+//     // create the root node
+//     let root_node = QuboBBNode {
+//         lower_bound: f64::NEG_INFINITY,
+//         solution: Array1::zeros(bb.qubo.num_x()),
+//         fixed_variables,
+//     };
+//
+//     let qp_sol = bb.subproblem_solver.solve_lower_bound(&bb, &root_node).1;
+//
+//     // let random_point = generate_random_binary_point(qubo.num_x(), &prng, 0.5);
+//     let mut rounded_sol = Array1::zeros(qubo.num_x());
+//
+//     for i in 0..qp_sol.len() {
+//         // if we have already fixed the variable via persistence, use that value
+//         if root_node.fixed_variables.contains_key(&i) {
+//             rounded_sol[i] = root_node.fixed_variables[&i];
+//         } else {
+//             let r = sample_circle(qp_sol.len(), prng);
+//             let random_prod = qp_sol.dot(&r);
+//
+//             if random_prod >= 0.0 {
+//                 rounded_sol[i] = 1;
+//             } else {
+//                 rounded_sol[i] = 0;
+//             }
+//         }
+//     }
+//
+//     rounded_sol
+// }
 
 #[cfg(test)]
 mod tests {
@@ -422,16 +422,14 @@ mod tests {
         let x_gain = simple_gain_criteria_search(&p, &x_0, max_iter);
         let x_opt = simple_local_search(&p, &x_0, max_iter);
         let x_rand = random_search(&p, 100, &mut prng);
-        let x_geo = goemans_williamson_rounding(&p, &mut prng);
 
         println!(
-            "PSO: {:?}, MIXED: {:?}, GAIN: {:?}, 1OPT: {:?}, Rand: {:?}, GeoWill: {:?}",
+            "PSO: {:?}, MIXED: {:?}, GAIN: {:?}, 1OPT: {:?}, Rand: {:?}",
             p.eval_usize(&x_pso),
             p.eval_usize(&x_mixed),
             p.eval_usize(&x_gain),
             p.eval_usize(&x_opt),
-            p.eval_usize(&x_rand),
-            p.eval_usize(&x_geo)
+            p.eval_usize(&x_rand)
         );
     }
 
@@ -458,10 +456,10 @@ mod tests {
         print!("{:?}", x_3);
     }
 
-    #[test]
-    fn test_goemans_williamson_rounding() {
-        let p = make_solver_qubo();
-        let x = goemans_williamson_rounding(&p, &mut make_test_prng());
-        println!("{:?}", x);
-    }
+    // #[test]
+    // fn test_goemans_williamson_rounding() {
+    //     let p = make_solver_qubo();
+    //     let x = goemans_williamson_rounding(&p, &mut make_test_prng());
+    //     println!("{:?}", x);
+    // }
 }

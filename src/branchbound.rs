@@ -55,6 +55,11 @@ pub struct ProcessNodeState {
     pub logging: NodeLoggingAction,
 }
 
+pub enum SolverResult {
+    OptimalSolution(Array1<f64>, f64),
+    SubOptimalSolution(Array1<f64>, f64),
+}
+
 impl BBSolver {
     /// Creates a new B&B solver
     pub fn new(qubo: Qubo, options: SolverOptions) -> Self {
@@ -254,7 +259,7 @@ impl BBSolver {
         }
 
         // if we are going to branch then we can generate a heuristic solution
-        let (heur_sol,heur_obj) = self.options.heuristic.make_heuristic(self, &node);
+        let (heur_sol, heur_obj) = self.options.heuristic.make_heuristic(self, &node);
 
         // determine what variable we are branching on
         let branch_id = self.make_branch(&node);
@@ -264,13 +269,15 @@ impl BBSolver {
 
         ProcessNodeState {
             prune_action,
-            events: vec![Event::AddBranches(zero_branch, one_branch), Event::UpdateBestSolution(heur_sol,heur_obj)],
+            events: vec![
+                Event::AddBranches(zero_branch, one_branch),
+                Event::UpdateBestSolution(heur_sol, heur_obj),
+            ],
             logging: NodeLoggingAction::Solved,
         }
     }
 
     pub fn apply_events(&mut self, events: Vec<Event>) {
-
         for action in events {
             match action {
                 Event::UpdateBestSolution(solution, value) => {
@@ -283,7 +290,6 @@ impl BBSolver {
                 Event::Nill => {}
             }
         }
-
     }
 
     /// update the best solution if better than the current best solution

@@ -30,6 +30,7 @@ mod branchboundlogger;
 mod constraint;
 pub mod constraint_reduction;
 pub mod early_termination;
+mod heuristic_stratagy;
 pub mod initial_points;
 mod kopt;
 pub mod local_search;
@@ -42,7 +43,6 @@ pub mod qubo;
 mod solver_options;
 pub mod utils;
 pub mod variable_reduction;
-mod heuristic_stratagy;
 // imports to generate the python interface
 
 #[allow(clippy::wildcard_imports)]
@@ -65,8 +65,6 @@ fn hercules(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(get_persistence, m)?)?;
     m.add_function(wrap_pyfunction!(solve_branch_bound, m)?)?;
     m.add_function(wrap_pyfunction!(convex_symmetric_form, m)?)?;
-    m.add_function(wrap_pyfunction!(generate_rule_1_1, m)?)?;
-    m.add_function(wrap_pyfunction!(generate_rule_2_1, m)?)?;
     Ok(())
 }
 
