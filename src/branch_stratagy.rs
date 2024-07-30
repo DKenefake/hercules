@@ -2,6 +2,7 @@ use crate::branch_node::QuboBBNode;
 use crate::branchbound::BBSolver;
 use ndarray::Array1;
 use smolprng::{JsfLarge, PRNG};
+use crate::preprocess::preprocess_qubo;
 
 pub enum BranchStrategy {
     FirstNotFixed,
@@ -9,6 +10,9 @@ pub enum BranchStrategy {
     Random,
     WorstApproximation,
     BestApproximation,
+    MostEdges,
+    LargestEdges,
+    MostFixed,
 }
 
 pub enum BranchStrategySelection {
@@ -17,6 +21,9 @@ pub enum BranchStrategySelection {
     Random,
     WorstApproximation,
     BestApproximation,
+    MostEdges,
+    LargestEdges,
+    MostFixed,
 }
 
 impl BranchStrategy {
@@ -27,6 +34,9 @@ impl BranchStrategy {
             Self::Random => random(bb_solver, node),
             Self::WorstApproximation => worst_approximation(bb_solver, node),
             Self::BestApproximation => best_approximation(bb_solver, node),
+            Self::MostEdges => most_edges(bb_solver, node),
+            Self::LargestEdges => largest_edges(bb_solver, node),
+            Self::MostFixed => most_fixed(bb_solver, node),
         }
     }
 
@@ -37,8 +47,114 @@ impl BranchStrategy {
             BranchStrategySelection::Random => Self::Random,
             BranchStrategySelection::WorstApproximation => Self::WorstApproximation,
             BranchStrategySelection::BestApproximation => Self::BestApproximation,
+            BranchStrategySelection::MostEdges => Self::MostEdges,
+            BranchStrategySelection::LargestEdges => Self::LargestEdges,
+            BranchStrategySelection::MostFixed => Self::MostFixed,
         }
     }
+}
+
+/// Branches on the variable that has the most edges in the graph equivalent to the QUBO
+fn most_edges(solver: &BBSolver, node: &QuboBBNode) -> usize {
+    // as a QUBO can be viewed as a graph, we can find the variable with the most (remaining) edges
+    let mut edge_count = Array1::<usize>::zeros(solver.qubo.num_x());
+
+    // scan through the Q matrix and count the number of edges
+    for (_, (i, j)) in &solver.qubo.q {
+
+        // if we have a fixed variable, then we can skip it
+        if node.fixed_variables.contains_key(&i){
+            continue;
+        }
+
+        // same again
+        if node.fixed_variables.contains_key(&j){
+            continue;
+        }
+
+        edge_count[i] += 1;
+        edge_count[j] += 1;
+    }
+
+    // find the variable with the most edges (fixed variables in the node are not counted)
+    let mut max_edges = 0;
+    let mut index_max_edges = 0;
+
+    for i in 0..solver.qubo.num_x() {
+        if !node.fixed_variables.contains_key(&i) && edge_count[i] > max_edges {
+            max_edges = edge_count[i];
+            index_max_edges = i;
+        }
+    }
+
+    index_max_edges
+}
+
+/// Branches on the largest edges in the qubo, ones that are most likely to be the largest
+/// determaning factor in the problem
+fn largest_edges(solver: &BBSolver, node: &QuboBBNode) -> usize {
+    // as a QUBO can be viewed as a graph, we can find the variable with the most (remaining) edges
+    let mut edge_count = Array1::<f64>::zeros(solver.qubo.num_x());
+
+    // scan through the Q matrix and count the number of edges
+    for (&value, (i, j)) in &solver.qubo.q {
+
+        // if we have a fixed variable, then we can skip it
+        if node.fixed_variables.contains_key(&i){
+            continue;
+        }
+
+        // same again
+        if node.fixed_variables.contains_key(&j){
+            continue;
+        }
+
+        edge_count[i] += value.abs();
+        edge_count[j] += value.abs();
+    }
+
+    // find the variable with the most edges (fixed variables in the node are not counted)
+    let mut min_edge_value = 0.0;
+    let mut index_max_edges = 0;
+
+    for i in 0..solver.qubo.num_x() {
+        if !node.fixed_variables.contains_key(&i) && edge_count[i] > min_edge_value {
+            min_edge_value = edge_count[i];
+            index_max_edges = i;
+        }
+    }
+
+    index_max_edges
+}
+
+/// Computes what branch will generate the most fixed variables via the preprocesser
+pub fn most_fixed(solver: &BBSolver, node: &QuboBBNode) -> usize {
+
+    let mut most_fixed = 0;
+    let mut branch_var = 0;
+
+    for i in 0..solver.qubo.num_x() {
+        if !node.fixed_variables.contains_key(&i) {
+
+            let mut list_0 = node.fixed_variables.clone();
+            let mut list_1 = node.fixed_variables.clone();
+
+            list_0.insert(i, 0);
+            list_1.insert(i, 1);
+
+            let fixed_0 = preprocess_qubo(&solver.qubo, &list_0).len();
+            let fixed_1 = preprocess_qubo(&solver.qubo, &list_1).len();
+
+            let min_fixed = fixed_0.min(fixed_1);
+
+            if min_fixed > most_fixed {
+                most_fixed = min_fixed;
+                branch_var = i;
+            }
+        }
+    }
+
+    branch_var
 }
 
 /// #Panics if the node does not have an unfixed variable
@@ -113,7 +229,7 @@ pub fn worst_approximation(solver: &BBSolver, node: &QuboBBNode) -> usize {
         }
 
         // take the product of the approximate objective change for the zero and one flips as the metric
-        let min_obj_gain = (zero_flip[i]).abs() * (one_flip[i]).abs();
+        let min_obj_gain = zero_flip[i].abs().max(one_flip[i].abs());
 
         // if it is the highest growing variable, then update the tracking variables
         if min_obj_gain > worst_approximation {
@@ -141,7 +257,7 @@ pub fn best_approximation(solver: &BBSolver, node: &QuboBBNode) -> usize {
         }
 
         // find the minimum of the two objective changes
-        let max_obj_gain = zero_flip[i].max(one_flip[i]);
+        let max_obj_gain = zero_flip[i].abs().max(one_flip[i].abs());
 
         // if it is the highest growing variable, then update the tracking variables
         if max_obj_gain <= worst_approximation {

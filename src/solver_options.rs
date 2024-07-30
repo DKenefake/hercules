@@ -41,6 +41,9 @@ impl SolverOptions {
                 "BestApproximation" => {
                     self.branch_strategy = BranchStrategySelection::BestApproximation;
                 }
+                "MostEdges" => self.branch_strategy = BranchStrategySelection::MostEdges,
+                "LargestEdges" => self.branch_strategy = BranchStrategySelection::LargestEdges,
+                "MostFixed" => self.branch_strategy = BranchStrategySelection::MostFixed,
                 _ => {}
             }
         }
