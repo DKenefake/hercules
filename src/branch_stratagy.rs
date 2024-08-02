@@ -35,7 +35,7 @@ pub enum BranchStrategySelection {
 
 impl BranchStrategy {
     pub fn make_branch(&self, bb_solver: &BBSolver, node: &QuboBBNode) -> usize {
-        match self {
+        let branch_variable = match self {
             Self::FirstNotFixed => first_not_fixed(bb_solver, node),
             Self::MostViolated => most_violated(bb_solver, node),
             Self::Random => random(bb_solver, node),
@@ -47,7 +47,13 @@ impl BranchStrategy {
             Self::FullStrongBranching => full_strong_branching(bb_solver, node),
             Self::PartialStrongBranching => partial_strong_branching(bb_solver, node),
             Self::RoundRobin => round_robin(bb_solver, node),
+        };
+
+        if node.fixed_variables.contains_key(&branch_variable) {
+            panic!("Branching on a fixed variable")
         }
+
+        branch_variable
     }
 
     pub const fn get_branch_strategy(branch_strategy_selection: &BranchStrategySelection) -> Self {
@@ -225,6 +231,7 @@ pub fn full_strong_branching(solver: &BBSolver, node: &QuboBBNode) -> usize {
 
         let bound_0 = solver.subproblem_solver.solve_lower_bound(solver, &node_0);
         let bound_1 = solver.subproblem_solver.solve_lower_bound(solver, &node_1);
+
 
         let score = bound_0.0.min(bound_1.0);
 

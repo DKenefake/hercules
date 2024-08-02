@@ -482,6 +482,33 @@ mod tests {
         setup_and_solve_problem(BranchStrategySelection::FirstNotFixed)
     }
 
+    #[test]
+    pub fn solve_with_all_permutations(){
+        let branch_options = vec![
+            BranchStrategySelection::FirstNotFixed,
+            BranchStrategySelection::MostViolated,
+            BranchStrategySelection::Random,
+            BranchStrategySelection::WorstApproximation,
+            BranchStrategySelection::BestApproximation,
+            BranchStrategySelection::MostEdges,
+            BranchStrategySelection::LargestEdges,
+            BranchStrategySelection::MostFixed,
+            BranchStrategySelection::FullStrongBranching,
+            BranchStrategySelection::PartialStrongBranching,
+            BranchStrategySelection::RoundRobin,
+        ];
+
+        // let heuristic_options = vec![
+        //     HeuristicSelection::LocalSearch,
+        //     HeuristicSelection::SimpleRounding,
+        // ];
+
+        for branch in branch_options {
+            setup_and_solve_problem(branch);
+        }
+
+    }
+
     pub fn setup_and_solve_problem(branch: BranchStrategySelection) {
         let mut prng = make_test_prng();
 
@@ -504,7 +531,7 @@ mod tests {
 
         let (solution, _) = solver.solve();
 
-        // ensure that the solution is actually feasible with the preprocessor
+        // ensure that the solution is actually possible with the preprocessor
         for (&index, &val) in fixed_variables.iter() {
             assert_eq!(val, solution[index]);
         }
