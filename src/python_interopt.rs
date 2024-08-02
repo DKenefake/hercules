@@ -486,7 +486,7 @@ pub fn get_persistence(
 ///
 /// This shouldn't error, but if it does, it will abort.
 #[pyfunction]
-#[pyo3(signature = (problem, timeout, warm_start=None, seed=None, branch_strategy=None, sub_problem_solver=None, threads=None, verbose=None))]
+#[pyo3(signature = (problem, timeout, warm_start=None, seed=None, branch_strategy=None, sub_problem_solver=None, heuristic_selection = None, threads=None, verbose=None))]
 pub fn solve_branch_bound(
     problem: QuboData,
     timeout: f64,
@@ -494,6 +494,7 @@ pub fn solve_branch_bound(
     seed: Option<usize>,
     branch_strategy: Option<String>,
     sub_problem_solver: Option<String>,
+    heuristic_selection: Option<String>,
     threads: Option<usize>,
     verbose: Option<usize>,
 ) -> PyResult<(Vec<usize>, f64, f64, usize, usize)> {
@@ -514,6 +515,8 @@ pub fn solve_branch_bound(
     options.set_branch_strategy(branch_strategy);
 
     options.set_sub_problem_strategy(sub_problem_solver);
+
+    options.set_heuristic_strategy(heuristic_selection);
 
     options.threads = threads.unwrap_or(1);
 

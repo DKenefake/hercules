@@ -65,10 +65,14 @@ impl SolverOptions {
     }
 
     pub fn set_heuristic_strategy(&mut self, strategy: Option<String>) {
-        // currently only one strategy is implemented but the structure is left for extension
-        #[allow(clippy::redundant_pattern_matching)]
-        if let Some(_) = strategy {
-            self.heuristic = HeuristicSelection::SimpleRounding;
+        if let Some(s) = strategy {
+            match s.as_str() {
+                "LocalSearch" => self.heuristic = HeuristicSelection::LocalSearch,
+                "SimpleRounding" => {
+                    self.heuristic = HeuristicSelection::SimpleRounding;
+                }
+                _ => {}
+            }
         }
     }
 }
