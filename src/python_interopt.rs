@@ -503,7 +503,7 @@ pub fn solve_branch_bound(
     let symm_p = p_input.make_symmetric();
 
     // run preprocessing on the symmetric QUBO
-    let fixed_variables = preprocess_qubo(&symm_p, &HashMap::new());
+    let fixed_variables = preprocess_qubo(&symm_p, &HashMap::new(), false);
 
     let p = symm_p.convex_symmetric_form();
 

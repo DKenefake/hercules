@@ -11,6 +11,7 @@ use crate::branchbound_utils::{check_integer_feasibility, get_current_time};
 use crate::branchboundlogger::SolverOutputLogger;
 use crate::early_termination::beck_proof;
 use crate::lower_bound::li_lower_bound;
+use crate::preprocess;
 use crate::preprocess::preprocess_qubo;
 use crate::solver_options::SolverOptions;
 use std::collections::BinaryHeap;
@@ -18,6 +19,7 @@ use std::collections::BinaryHeap;
 /// Struct for the B&B Solver
 pub struct BBSolver {
     pub qubo: Qubo,
+    pub qubo_pp_form: Qubo,
     pub best_solution: Array1<usize>,
     pub best_solution_value: f64,
     pub nodes: BinaryHeap<QuboBBNode>,
@@ -70,9 +72,11 @@ impl BBSolver {
         let branch_strategy = BranchStrategy::get_branch_strategy(&options.branch_strategy);
         let start_time = get_current_time();
         let output_level = options.verbose;
+        let pp_form = preprocess::shift_qubo(&qubo);
 
         Self {
             qubo,
+            qubo_pp_form: pp_form,
             best_solution: Array1::zeros(num_x),
             best_solution_value: 0.0,
             nodes: BinaryHeap::new(),
@@ -106,7 +110,8 @@ impl BBSolver {
     /// The main solve function of the B&B algorithm
     pub fn solve(&mut self) -> (Array1<usize>, f64) {
         // preprocess the problem
-        let fixed_variables = preprocess_qubo(&self.qubo, &self.options.fixed_variables);
+        let fixed_variables =
+            preprocess_qubo(&self.qubo_pp_form, &self.options.fixed_variables, true);
         self.options.fixed_variables = fixed_variables.clone();
 
         // create the root node
@@ -210,7 +215,7 @@ impl BBSolver {
         let mut node = node.clone();
 
         // pass to the presolver to see if there are any variables we can fix
-        node.fixed_variables = preprocess_qubo(&self.qubo, &node.fixed_variables);
+        node.fixed_variables = preprocess_qubo(&self.qubo_pp_form, &node.fixed_variables, true);
 
         // calculate the lower bound via the li lower bound formula
         let li_bound = li_lower_bound(&self.qubo, &node.fixed_variables);
@@ -244,7 +249,7 @@ impl BBSolver {
             let value = self.qubo.eval_usize(&rounded_sol);
 
             // if it is better, then we will attempt to update the solution otherwise prune
-            if value <= self.best_solution_value {
+            if value < self.best_solution_value {
                 return ProcessNodeState {
                     prune_action,
                     events: vec![Event::UpdateBestSolution(rounded_sol, value)],
@@ -483,7 +488,7 @@ mod tests {
         let p = make_solver_qubo();
 
         let p_symm = p.make_symmetric();
-        let fixed_variables = preprocess_qubo(&p_symm, &HashMap::new());
+        let fixed_variables = preprocess_qubo(&p_symm, &HashMap::new(), false);
 
         let p_symm_conv = p.convex_symmetric_form();
 

@@ -12,6 +12,7 @@ use std::collections::HashMap;
 pub fn preprocess_qubo(
     qubo: &Qubo,
     fixed_variables: &HashMap<usize, usize>,
+    in_standard_form: bool,
 ) -> HashMap<usize, usize> {
     // copy the fixed variables
     let mut initial_fixed = fixed_variables.clone();
@@ -25,6 +26,10 @@ pub fn preprocess_qubo(
     }
 
     // create an auxiliary QUBO were we have zeroed out the diagonal elements
+    if in_standard_form {
+        return compute_iterative_persistence(qubo, &initial_fixed, qubo.num_x());
+    }
+
     let qubo_shift = shift_qubo(qubo);
 
     // start with an initial persistence check against the zero diagonal QUBO
@@ -136,7 +141,7 @@ mod tests {
         let c = Array1::from_vec(vec![1.1, 2.0, 3.0]);
         let p = Qubo::new_with_c(eye, c);
         let fixed_variables = HashMap::new();
-        let fixed_variables = preprocess_qubo(&p, &fixed_variables);
+        let fixed_variables = preprocess_qubo(&p, &fixed_variables, false);
         assert_eq!(fixed_variables.len(), 3);
     }
 }

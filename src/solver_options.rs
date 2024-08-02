@@ -44,6 +44,13 @@ impl SolverOptions {
                 "MostEdges" => self.branch_strategy = BranchStrategySelection::MostEdges,
                 "LargestEdges" => self.branch_strategy = BranchStrategySelection::LargestEdges,
                 "MostFixed" => self.branch_strategy = BranchStrategySelection::MostFixed,
+                "FullStrongBranching" => {
+                    self.branch_strategy = BranchStrategySelection::FullStrongBranching
+                }
+                "PartialStrongBranching" => {
+                    self.branch_strategy = BranchStrategySelection::PartialStrongBranching
+                }
+                "RoundRobin" => self.branch_strategy = BranchStrategySelection::RoundRobin,
                 _ => {}
             }
         }
