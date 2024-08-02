@@ -35,8 +35,8 @@ impl SolverOutputLogger {
         println!("Problem size: {num_variables}");
         println!("Fixed variables: {fixed_vars}");
 
-        println!("------------------------------------------------------");
-        println!("Nodes Visited | Best Solution | Lower Bound | Gap (%)");
+        println!("----------------------------------------------------------------------------");
+        println!("Nodes Visited |  Best Solution |   Lower Bound  |    Gap (%)    | Time (sec)");
     }
 
     pub fn generate_output_line(&self, solver_instance: &BBSolver) {
@@ -54,7 +54,8 @@ impl SolverOutputLogger {
         let gap = 100.0 * (upper_bound - lower_bound) / (upper_bound + 1E-5).abs();
         let gap = gap.max(0.0);
         let lower_bound = lower_bound.min(upper_bound);
-        println!("{num_nodes:<13} | {upper_bound:<13.8} | {lower_bound:<11.8} | {gap:<13.8}");
+        let current_time = get_current_time() - solver_instance.time_start;
+        println!("{num_nodes:<13} | {upper_bound:<13.8} | {lower_bound:<11.8} | {gap:<13.8} | {current_time:<13.8}");
     }
 
     pub fn generate_exit_line(&self, solver_instance: &BBSolver) {
@@ -83,7 +84,7 @@ impl SolverOutputLogger {
 
         let status = if gap < 1E-5 { "Optimal" } else { "Suboptimal" };
 
-        println!("------------------------------------------------------");
+        println!("----------------------------------------------------------------------------");
         println!("Branch and Bound Solver Finished");
         println!("Best Solution: {solution}");
         println!("Best Solution Value: {solution_value}");
@@ -92,7 +93,7 @@ impl SolverOutputLogger {
         println!("Nodes Visited: {nodes_visited}");
         println!("Time to Solve: {time_passed}");
         println!("Solver Status: {status}");
-        println!("------------------------------------------------------");
+        println!("----------------------------------------------------------------------------");
     }
 
     pub fn output_warm_start_info(&self, solver_instance: &BBSolver) {
@@ -101,20 +102,20 @@ impl SolverOutputLogger {
         }
 
         let solution_value = solver_instance.best_solution_value;
-        println!("------------------------------------------------------");
+        println!("----------------------------------------------------------------------------");
         println!("Warm Start Information");
         println!("Warm started objective: {solution_value}");
-        println!("------------------------------------------------------");
+        println!("----------------------------------------------------------------------------");
     }
 
     pub fn early_termination(&self) {
         if self.output_level < 1 {
             return;
         }
-        println!("------------------------------------------------------");
+        println!("----------------------------------------------------------------------------");
         println!("Beck Proof of Optimality Found!");
         println!("Early Termination");
-        println!("------------------------------------------------------");
+        println!("----------------------------------------------------------------------------");
     }
 }
 
