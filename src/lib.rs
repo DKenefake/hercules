@@ -43,7 +43,12 @@ pub mod qubo;
 mod solver_options;
 pub mod utils;
 pub mod variable_reduction;
+
 // imports to generate the python interface
+
+pub mod subproblemsolvers {
+    pub mod clarabel_qp;
+}
 
 #[allow(clippy::wildcard_imports)]
 // wildcard importing makes sense are we are importing everything anyway

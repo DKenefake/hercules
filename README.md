@@ -32,16 +32,22 @@ When referring to the solver, there is a world of a difference between naive imp
 
 This can be used to generate get and generate high quality (depending on the search heuristic) solutions to the QUBO problem being considered. For example, the following code shows how to use the gain criteria search to find a local minimum of a QUBO problem.
 
-```rust no_run
+```rust
 use hercules::qubo::Qubo;
 use hercules::local_search::simple_gain_criteria_search;
-use hercules::initial_points::generate_central_starting_points;
+use hercules::initial_points::generate_random_binary_point;
+use smolprng::{PRNG, JsfLarge};
 
-// read in a QUBO problem from a file
-let p = Qubo::read_qubo("test.qubo");
+// generate a make a random number generator
+let mut prng = PRNG {
+    generator: JsfLarge::default(),
+};
+
+// generate a random QUBO
+let p = Qubo::make_random_qubo(10, &mut prng, 0.5);
 
 // generate an initial point of 0.5 for each variable
-let x_0 = generate_central_starting_points(&p);
+let x_0 = generate_random_binary_point(p.num_x(), &mut prng, 0.5);
 
 // use the gain criteria search to find a local minimum with an upper bound of 1000 iterations
 let x_1 = simple_gain_criteria_search(&p, &x_0, 1000);
@@ -51,7 +57,7 @@ let x_1 = simple_gain_criteria_search(&p, &x_0, 1000);
 
 The subcomponents of Hercules can be used independently and interchangeably allowing us to create new heuristics on the fly. For example, the following code shows how to make a new local search function based on 1-opt and gain search. Each iteration of the algorithm is defined as finding the lowest energy point in the neighborhood of the current point and then doing a large-scale flipping operation, flipping bits based on the gains of the function. This allows for simple, easy-to-understand, and easy-to-implement local search algorithms (amongst other ideas).
     
-```rust no_run
+```rust
 use hercules::qubo::Qubo;
 use hercules::local_search::*;
 use hercules::local_search_utils::*;
@@ -61,7 +67,7 @@ use hercules::initial_points;
 use smolprng::{PRNG, JsfLarge};
 
 // A simple local search heuristic that uses 1-opt and gain-criteria search
-pub fn simple_mixed_search(qubo: &Qubo, x_0: &Array1<f64>, max_steps:usize) -> Array1<f64>{
+pub fn simple_mixed_search(qubo: &Qubo, x_0: &Array1<usize>, max_steps:usize) -> Array1<usize>{
     // create a mutable copy of the initial point
     let mut x = x_0.clone();
     // flip the bits maximize the 1D gains
@@ -86,21 +92,23 @@ pub fn simple_mixed_search(qubo: &Qubo, x_0: &Array1<f64>, max_steps:usize) -> A
 let mut prng = PRNG {
     generator: JsfLarge::default(),
 };
+
+// generate a random QUBO
 let p = Qubo::make_random_qubo(1000, &mut prng, 0.1);
 
 // generate 8 random starting points
-let mut x_s = initial_points::generate_random_starting_points(&p, 8, &mut prng);
+let mut x_s = initial_points::generate_random_binary_points(p.num_x(), 8, &mut prng);
 
 // solve each initial point, in parallel
 let x_sols: Vec<_> = x_s
     .par_iter()
-    .map(|x| simple_mixed_search(&p, &x, 1000))
+    .map(|x| simple_mixed_search(&p, &x, 10))
     .collect();
 
 // find the best solution
 let min_obj = x_sols
     .iter()
-    .map(|x| p.eval(&x))
+    .map(|x| p.eval_usize(&x))
     .min_by(|a, b| a.partial_cmp(b).unwrap())
     .unwrap();
 ```
@@ -147,6 +155,6 @@ print('Solution: ', obj, ' in ', end - start, ' seconds')
 A Docker image is available [here](https://hub.docker.com/repository/docker/dkenefake/hercules/general).
 To run this, pull down the image and run the following:
 
-```
+```bash
 docker run --platform linux/amd64 dkenefake/hercules:test python pyhercules.py
 ```

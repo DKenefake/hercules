@@ -5,7 +5,7 @@ use rayon::prelude::*;
 use crate::branch_node::QuboBBNode;
 use crate::branch_stratagy::BranchStrategy;
 use crate::branch_subproblem::{
-    get_sub_problem_solver, ClarabelSubProblemSolver, SubProblemSolver,
+    get_sub_problem_solver, SubProblemSolver
 };
 use crate::branchbound_utils::{check_integer_feasibility, get_current_time};
 use crate::branchboundlogger::SolverOutputLogger;
@@ -14,6 +14,7 @@ use crate::lower_bound::li_lower_bound;
 use crate::preprocess;
 use crate::preprocess::preprocess_qubo;
 use crate::solver_options::SolverOptions;
+use crate::subproblemsolvers::clarabel_qp::ClarabelSubProblemSolver;
 use std::collections::BinaryHeap;
 
 /// Struct for the B&B Solver

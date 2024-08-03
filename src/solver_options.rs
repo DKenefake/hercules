@@ -20,7 +20,7 @@ impl SolverOptions {
         Self {
             fixed_variables: HashMap::new(),
             branch_strategy: BranchStrategy::MostViolated,
-            sub_problem_solver: SubProblemSelection::Clarabel,
+            sub_problem_solver: SubProblemSelection::ClarabelQP,
             heuristic: HeuristicSelection::LocalSearch,
             max_time: 100.0,
             seed: 0,
@@ -58,7 +58,7 @@ impl SolverOptions {
         // currently only one strategy is implemented but the structure is left for extension
         #[allow(clippy::redundant_pattern_matching)]
         if let Some(_) = strategy {
-            self.sub_problem_solver = SubProblemSelection::Clarabel;
+            self.sub_problem_solver = SubProblemSelection::ClarabelQP;
         }
     }
 
