@@ -5,6 +5,7 @@ use crate::preprocess::preprocess_qubo;
 use ndarray::Array1;
 use smolprng::{JsfLarge, PRNG};
 
+#[derive(Copy, Clone)]
 pub enum BranchStrategy {
     FirstNotFixed,
     MostViolated,
@@ -19,22 +20,8 @@ pub enum BranchStrategy {
     RoundRobin,
 }
 
-pub enum BranchStrategySelection {
-    FirstNotFixed,
-    MostViolated,
-    Random,
-    WorstApproximation,
-    BestApproximation,
-    MostEdges,
-    LargestEdges,
-    MostFixed,
-    FullStrongBranching,
-    PartialStrongBranching,
-    RoundRobin,
-}
-
 impl BranchStrategy {
-    pub fn make_branch(&self, bb_solver: &BBSolver, node: &QuboBBNode) -> usize {
+    pub fn make_branch(self, bb_solver: &BBSolver, node: &QuboBBNode) -> usize {
         let branch_variable = match self {
             Self::FirstNotFixed => first_not_fixed(bb_solver, node),
             Self::MostViolated => most_violated(bb_solver, node),
@@ -49,27 +36,10 @@ impl BranchStrategy {
             Self::RoundRobin => round_robin(bb_solver, node),
         };
 
-        if node.fixed_variables.contains_key(&branch_variable) {
-            panic!("Branching on a fixed variable")
-        }
+        // hard assert that the variable is not fixed
+        assert!(!node.fixed_variables.contains_key(&branch_variable), "Branching on a fixed variable");
 
         branch_variable
-    }
-
-    pub const fn get_branch_strategy(branch_strategy_selection: &BranchStrategySelection) -> Self {
-        match branch_strategy_selection {
-            BranchStrategySelection::FirstNotFixed => Self::FirstNotFixed,
-            BranchStrategySelection::MostViolated => Self::MostViolated,
-            BranchStrategySelection::Random => Self::Random,
-            BranchStrategySelection::WorstApproximation => Self::WorstApproximation,
-            BranchStrategySelection::BestApproximation => Self::BestApproximation,
-            BranchStrategySelection::MostEdges => Self::MostEdges,
-            BranchStrategySelection::LargestEdges => Self::LargestEdges,
-            BranchStrategySelection::MostFixed => Self::MostFixed,
-            BranchStrategySelection::FullStrongBranching => Self::FullStrongBranching,
-            BranchStrategySelection::PartialStrongBranching => Self::PartialStrongBranching,
-            BranchStrategySelection::RoundRobin => Self::RoundRobin,
-        }
     }
 }
 
@@ -231,7 +201,6 @@ pub fn full_strong_branching(solver: &BBSolver, node: &QuboBBNode) -> usize {
 
         let bound_0 = solver.subproblem_solver.solve_lower_bound(solver, &node_0);
         let bound_1 = solver.subproblem_solver.solve_lower_bound(solver, &node_1);
-
 
         let score = bound_0.0.min(bound_1.0);
 

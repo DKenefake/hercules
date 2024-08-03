@@ -1,9 +1,6 @@
 // Main Backend for running K-Opt via the branch and bound algorithm
 
-use crate::branch_stratagy::BranchStrategySelection;
-use crate::branch_subproblem::SubProblemSelection;
 use crate::branchbound::BBSolver;
-use crate::heuristic_stratagy::HeuristicSelection;
 use crate::persistence::compute_iterative_persistence;
 use crate::qubo::Qubo;
 use crate::solver_options::SolverOptions;
@@ -25,16 +22,9 @@ pub fn solve_kopt(
     // create a new QUBO to store the reduced QUBO
     let reduced_qubo = qubo.clone();
 
-    let options = SolverOptions {
-        fixed_variables: persistent,
-        branch_strategy: BranchStrategySelection::MostViolated,
-        sub_problem_solver: SubProblemSelection::Clarabel,
-        heuristic: HeuristicSelection::SimpleRounding,
-        max_time: 100.0,
-        seed: 0,
-        verbose: 1,
-        threads: 1,
-    };
+    let mut options = SolverOptions::new();
+
+    options.fixed_variables = persistent;
 
     // use branch and bound to solve the problem
     let mut solver = BBSolver::new(reduced_qubo, options);

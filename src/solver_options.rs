@@ -1,4 +1,4 @@
-use crate::branch_stratagy::BranchStrategySelection;
+use crate::branch_stratagy::BranchStrategy;
 use crate::branch_subproblem::SubProblemSelection;
 use crate::heuristic_stratagy::HeuristicSelection;
 use std::collections::HashMap;
@@ -6,7 +6,7 @@ use std::collections::HashMap;
 /// Options for the B&B solver for run time
 pub struct SolverOptions {
     pub fixed_variables: HashMap<usize, usize>,
-    pub branch_strategy: BranchStrategySelection,
+    pub branch_strategy: BranchStrategy,
     pub sub_problem_solver: SubProblemSelection,
     pub heuristic: HeuristicSelection,
     pub max_time: f64,
@@ -19,7 +19,7 @@ impl SolverOptions {
     pub fn new() -> Self {
         Self {
             fixed_variables: HashMap::new(),
-            branch_strategy: BranchStrategySelection::MostViolated,
+            branch_strategy: BranchStrategy::MostViolated,
             sub_problem_solver: SubProblemSelection::Clarabel,
             heuristic: HeuristicSelection::LocalSearch,
             max_time: 100.0,
@@ -32,25 +32,23 @@ impl SolverOptions {
     pub fn set_branch_strategy(&mut self, strategy: Option<String>) {
         if let Some(s) = strategy {
             match s.as_str() {
-                "FirstNotFixed" => self.branch_strategy = BranchStrategySelection::FirstNotFixed,
-                "MostViolated" => self.branch_strategy = BranchStrategySelection::MostViolated,
-                "Random" => self.branch_strategy = BranchStrategySelection::Random,
+                "FirstNotFixed" => self.branch_strategy = BranchStrategy::FirstNotFixed,
+                "MostViolated" => self.branch_strategy = BranchStrategy::MostViolated,
+                "Random" => self.branch_strategy = BranchStrategy::Random,
                 "WorstApproximation" => {
-                    self.branch_strategy = BranchStrategySelection::WorstApproximation;
+                    self.branch_strategy = BranchStrategy::WorstApproximation;
                 }
                 "BestApproximation" => {
-                    self.branch_strategy = BranchStrategySelection::BestApproximation;
+                    self.branch_strategy = BranchStrategy::BestApproximation;
                 }
-                "MostEdges" => self.branch_strategy = BranchStrategySelection::MostEdges,
-                "LargestEdges" => self.branch_strategy = BranchStrategySelection::LargestEdges,
-                "MostFixed" => self.branch_strategy = BranchStrategySelection::MostFixed,
-                "FullStrongBranching" => {
-                    self.branch_strategy = BranchStrategySelection::FullStrongBranching
-                }
+                "MostEdges" => self.branch_strategy = BranchStrategy::MostEdges,
+                "LargestEdges" => self.branch_strategy = BranchStrategy::LargestEdges,
+                "MostFixed" => self.branch_strategy = BranchStrategy::MostFixed,
+                "FullStrongBranching" => self.branch_strategy = BranchStrategy::FullStrongBranching,
                 "PartialStrongBranching" => {
-                    self.branch_strategy = BranchStrategySelection::PartialStrongBranching
+                    self.branch_strategy = BranchStrategy::PartialStrongBranching;
                 }
-                "RoundRobin" => self.branch_strategy = BranchStrategySelection::RoundRobin,
+                "RoundRobin" => self.branch_strategy = BranchStrategy::RoundRobin,
                 _ => {}
             }
         }

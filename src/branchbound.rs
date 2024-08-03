@@ -69,7 +69,7 @@ impl BBSolver {
         let num_x = qubo.num_x();
 
         let subproblem_solver = get_sub_problem_solver(&qubo, &options.sub_problem_solver);
-        let branch_strategy = BranchStrategy::get_branch_strategy(&options.branch_strategy);
+        let branch_strategy = options.branch_strategy;
         let start_time = get_current_time();
         let output_level = options.verbose;
         let pp_form = preprocess::shift_qubo(&qubo);
@@ -263,7 +263,7 @@ impl BBSolver {
             };
         }
 
-        // if we are going to branch then we can generate a heuristic solution
+        // if we are going to branch, then we can generate a heuristic solution
         let (heur_sol, heur_obj) = self.options.heuristic.make_heuristic(self, &node);
 
         // determine what variable we are branching on
@@ -424,7 +424,7 @@ impl BBSolver {
 
 #[cfg(test)]
 mod tests {
-    use crate::branch_stratagy::BranchStrategySelection;
+    use crate::branch_stratagy::BranchStrategy;
     use crate::preprocess::preprocess_qubo;
     use crate::qubo::Qubo;
     use crate::solver_options::SolverOptions;
@@ -459,43 +459,43 @@ mod tests {
     }
     #[test]
     pub fn branch_bound_most_violated_branching() {
-        setup_and_solve_problem(BranchStrategySelection::MostViolated)
+        setup_and_solve_problem(BranchStrategy::MostViolated)
     }
 
     #[test]
     pub fn branch_bound_random_branching() {
-        setup_and_solve_problem(BranchStrategySelection::Random)
+        setup_and_solve_problem(BranchStrategy::Random)
     }
 
     #[test]
     pub fn branch_bound_worst_approximation_branching() {
-        setup_and_solve_problem(BranchStrategySelection::WorstApproximation)
+        setup_and_solve_problem(BranchStrategy::WorstApproximation)
     }
 
     #[test]
     pub fn branch_bound_best_approximation_branching() {
-        setup_and_solve_problem(BranchStrategySelection::BestApproximation)
+        setup_and_solve_problem(BranchStrategy::BestApproximation)
     }
 
     #[test]
     pub fn branch_bound_finf_branching() {
-        setup_and_solve_problem(BranchStrategySelection::FirstNotFixed)
+        setup_and_solve_problem(BranchStrategy::FirstNotFixed)
     }
 
     #[test]
-    pub fn solve_with_all_permutations(){
+    pub fn solve_with_all_permutations() {
         let branch_options = vec![
-            BranchStrategySelection::FirstNotFixed,
-            BranchStrategySelection::MostViolated,
-            BranchStrategySelection::Random,
-            BranchStrategySelection::WorstApproximation,
-            BranchStrategySelection::BestApproximation,
-            BranchStrategySelection::MostEdges,
-            BranchStrategySelection::LargestEdges,
-            BranchStrategySelection::MostFixed,
-            BranchStrategySelection::FullStrongBranching,
-            BranchStrategySelection::PartialStrongBranching,
-            BranchStrategySelection::RoundRobin,
+            BranchStrategy::FirstNotFixed,
+            BranchStrategy::MostViolated,
+            BranchStrategy::Random,
+            BranchStrategy::WorstApproximation,
+            BranchStrategy::BestApproximation,
+            BranchStrategy::MostEdges,
+            BranchStrategy::LargestEdges,
+            BranchStrategy::MostFixed,
+            BranchStrategy::FullStrongBranching,
+            BranchStrategy::PartialStrongBranching,
+            BranchStrategy::RoundRobin,
         ];
 
         // let heuristic_options = vec![
@@ -506,10 +506,9 @@ mod tests {
         for branch in branch_options {
             setup_and_solve_problem(branch);
         }
-
     }
 
-    pub fn setup_and_solve_problem(branch: BranchStrategySelection) {
+    pub fn setup_and_solve_problem(branch: BranchStrategy) {
         let mut prng = make_test_prng();
 
         let p = make_solver_qubo();
