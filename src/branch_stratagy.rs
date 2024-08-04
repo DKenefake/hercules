@@ -210,6 +210,8 @@ pub fn full_strong_branching(solver: &BBSolver, node: &QuboBBNode) -> usize {
         }
     }
 
+
+
     best_variable
 }
 
@@ -224,11 +226,11 @@ pub fn partial_strong_branching(solver: &BBSolver, node: &QuboBBNode) -> usize {
     // scan through the unfixed variable and compute the scores
     for &i in &unfixed_vars {
         // find the minimum of the two objective changes
-        score[i] = zero_flip[i].abs().max(one_flip[i].abs());
+        score[i] = zero_flip[i].abs()*(one_flip[i].abs());
     }
 
     let mut indx = unfixed_vars.clone();
-    indx.sort_by(|&i, &j| score[i].total_cmp(&score[j]));
+    indx.sort_by(|&i, &j| score[i].total_cmp(&score[j]).reverse());
 
     // test strong branching on the most likely candidate set of 5 variables
 
@@ -262,10 +264,10 @@ pub fn partial_strong_branching(solver: &BBSolver, node: &QuboBBNode) -> usize {
         let bound_0 = solver.subproblem_solver.solve_lower_bound(solver, &node_0);
         let bound_1 = solver.subproblem_solver.solve_lower_bound(solver, &node_1);
 
-        let score = bound_0.0.min(bound_1.0);
+        let score_i = (bound_0.0 - node.lower_bound).abs()*(bound_1.0 - node.lower_bound).abs();
 
-        if score > best_score {
-            best_score = score;
+        if score_i > best_score {
+            best_score = score_i;
             best_variable = j;
         }
     }
@@ -316,7 +318,7 @@ pub fn worst_approximation(solver: &BBSolver, node: &QuboBBNode) -> usize {
         }
 
         // take the product of the approximate objective change for the zero and one flips as the metric
-        let min_obj_gain = zero_flip[i].abs().max(one_flip[i].abs());
+        let min_obj_gain = zero_flip[i].abs()*(one_flip[i].abs());
 
         // if it is the highest growing variable, then update the tracking variables
         if min_obj_gain > worst_approximation {

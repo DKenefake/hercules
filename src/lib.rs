@@ -48,6 +48,7 @@ pub mod variable_reduction;
 
 pub mod subproblemsolvers {
     pub mod clarabel_qp;
+    pub mod clarabel_lp;
 }
 
 #[allow(clippy::wildcard_imports)]

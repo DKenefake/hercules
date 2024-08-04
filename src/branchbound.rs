@@ -14,7 +14,6 @@ use crate::lower_bound::li_lower_bound;
 use crate::preprocess;
 use crate::preprocess::preprocess_qubo;
 use crate::solver_options::SolverOptions;
-use crate::subproblemsolvers::clarabel_qp::ClarabelSubProblemSolver;
 use std::collections::BinaryHeap;
 
 /// Struct for the B&B Solver
@@ -29,7 +28,7 @@ pub struct BBSolver {
     pub nodes_visited: usize,
     pub time_start: f64,
     pub branch_strategy: BranchStrategy,
-    pub subproblem_solver: ClarabelSubProblemSolver,
+    pub subproblem_solver: Box<dyn SubProblemSolver + Sync>,
     pub options: SolverOptions,
     pub early_stop: bool,
     pub solver_logger: SolverOutputLogger,
