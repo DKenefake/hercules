@@ -33,23 +33,19 @@ impl SubProblemSolver for ClarabelLPSolver {
 
     fn solve_lower_bound(&self, bbsolver: &BBSolver, node: &QuboBBNode) -> SubProblemResult {
 
-        let mut settings = DefaultSettings {
-            verbose: false,
-            ..Default::default()
-        };
 
         // this solves the glover's reformulation of the problem, e.g. the QUBO is transformed into a linear problem
 
-        settings.presolve_enable = true;
-
-        // first find the number of edges that we are dealing with in this qubo
-        let edges = &bbsolver.qubo.q.iter().filter(|(_, (i,j))| i < j).collect::<Vec<_>>();
-        let edge_weights = Array1::from(edges.iter().map(|&v| v.0));
-        let num_aux_vars = edge_weights.count();
-
-        let num_unfixed = bbsolver.qubo.num_x() - node.fixed_variables.len();
-
-        let P = CscMatrix::zeros((num_unfixed + num_aux_vars, num_unfixed + num_aux_vars));
+        // settings.presolve_enable = true;
+        //
+        // // first find the number of edges that we are dealing with in this qubo
+        // let edges = &bbsolver.qubo.q.iter().filter(|(_, (i,j))| i < j).collect::<Vec<_>>();
+        // let edge_weights = Array1::from(edges.iter().map(|&v| v.0));
+        // let num_aux_vars = edge_weights.count();
+        //
+        // let num_unfixed = bbsolver.qubo.num_x() - node.fixed_variables.len();
+        //
+        // let P = CscMatrix::zeros((num_unfixed + num_aux_vars, num_unfixed + num_aux_vars));
 
         !unimplemented!("This function is not implemented yet")
     }
