@@ -26,12 +26,12 @@ impl SubProblemSolver for ClarabelQPSolver {
         };
 
         // find projected subproblem
-        let (trial_sub_qubo, unfixed_map, _constant) =
+        let (sub_qubo, unfixed_map, _constant) =
             make_sub_problem(&bbsolver.qubo, node.fixed_variables.clone());
 
-        let min_eig = trial_sub_qubo.hess_eigenvalues();
-        let min_eig = min_eig.iter().fold(f64::INFINITY, |acc, &x| x.min(acc));
-        let sub_qubo = trial_sub_qubo.make_diag_transform(0.0001 - min_eig);
+        // let min_eig = trial_sub_qubo.hess_eigenvalues();
+        // let min_eig = min_eig.iter().fold(f64::INFINITY, |acc, &x| x.min(acc));
+        // let sub_qubo = trial_sub_qubo.make_diag_transform(0.0001 - min_eig);
 
         // generate the constraint matrix
         let A_size = 2 * sub_qubo.num_x();
