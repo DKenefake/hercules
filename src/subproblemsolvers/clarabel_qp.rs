@@ -10,19 +10,12 @@ use crate::qubo::Qubo;
 use crate::branch_subproblem::SubProblemResult;
 
 #[derive(Clone)]
-pub struct ClarabelSubProblemSolver {
+pub struct ClarabelQPSolver {
     pub q: CscMatrix,
     pub c: Array1<f64>,
 }
 
-impl SubProblemSolver for ClarabelSubProblemSolver {
-    fn new(qubo: &Qubo) -> Self {
-        let q_new = Self::make_cb_form(&(qubo.q));
-        Self {
-            q: q_new,
-            c: qubo.c.clone(),
-        }
-    }
+impl SubProblemSolver for ClarabelQPSolver {
 
     fn solve_lower_bound(&self, bbsolver: &BBSolver, node: &QuboBBNode) -> SubProblemResult {
         // solve QP associated with the node
@@ -92,7 +85,14 @@ impl SubProblemSolver for ClarabelSubProblemSolver {
     }
 }
 
-impl ClarabelSubProblemSolver {
+impl ClarabelQPSolver {
+    pub fn new(qubo: &Qubo) -> Self {
+        let q_new = Self::make_cb_form(&(qubo.q));
+        Self {
+            q: q_new,
+            c: qubo.c.clone(),
+        }
+    }
     pub fn make_cb_form(p0: &CsMat<f64>) -> CscMatrix {
         let (t, y, u) = p0.to_csc().into_raw_storage();
         CscMatrix::new(p0.rows(), p0.cols(), t, y, u)
@@ -169,7 +169,7 @@ fn make_sub_problem(
 
 #[cfg(test)]
 mod tests {
-    use crate::subproblemsolvers::clarabel_qp::ClarabelSubProblemSolver;
+    use crate::subproblemsolvers::clarabel_qp::ClarabelQPSolver;
     use crate::qubo::Qubo;
     use crate::tests::make_solver_qubo;
     use ndarray::Array1;
@@ -182,7 +182,7 @@ mod tests {
 
         let qubo = make_solver_qubo();
 
-        let clarabel_matrix = ClarabelSubProblemSolver::make_cb_form(&qubo.q);
+        let clarabel_matrix = ClarabelQPSolver::make_cb_form(&qubo.q);
 
         // check the number of non-zero elements
         assert_eq!(qubo.q.nnz(), clarabel_matrix.nnz());
