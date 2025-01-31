@@ -1,12 +1,11 @@
-use clarabel::algebra::CscMatrix;
-use clarabel::solver::DefaultSettings;
-use ndarray::Array1;
-use sprs::CsMat;
 use crate::branch_node::QuboBBNode;
+use crate::branch_subproblem::SubProblemResult;
 use crate::branch_subproblem::SubProblemSolver;
 use crate::branchbound::BBSolver;
 use crate::qubo::Qubo;
-use crate::branch_subproblem::SubProblemResult;
+use clarabel::algebra::CscMatrix;
+use ndarray::Array1;
+use sprs::CsMat;
 
 #[derive(Clone)]
 pub struct ClarabelLPSolver {
@@ -29,24 +28,7 @@ impl ClarabelLPSolver {
     }
 }
 impl SubProblemSolver for ClarabelLPSolver {
-
-
-    fn solve_lower_bound(&self, bbsolver: &BBSolver, node: &QuboBBNode) -> SubProblemResult {
-
-
-        // this solves the glover's reformulation of the problem, e.g. the QUBO is transformed into a linear problem
-
-        // settings.presolve_enable = true;
-        //
-        // // first find the number of edges that we are dealing with in this qubo
-        // let edges = &bbsolver.qubo.q.iter().filter(|(_, (i,j))| i < j).collect::<Vec<_>>();
-        // let edge_weights = Array1::from(edges.iter().map(|&v| v.0));
-        // let num_aux_vars = edge_weights.count();
-        //
-        // let num_unfixed = bbsolver.qubo.num_x() - node.fixed_variables.len();
-        //
-        // let P = CscMatrix::zeros((num_unfixed + num_aux_vars, num_unfixed + num_aux_vars));
-
+    fn solve_lower_bound(&self, _bbsolver: &BBSolver, _node: &QuboBBNode) -> SubProblemResult {
         !unimplemented!("This function is not implemented yet")
     }
 }
