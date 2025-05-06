@@ -38,8 +38,8 @@ fn project(mut x: Array1<f64>, node: &QuboBBNode) -> Array1<f64> {
     x
 }
 
-fn step(x: Array1<f64>, qubo: &Qubo, node: &QuboBBNode) -> Array1<f64> {
-    let Qx = qubo.q.dot(&x);
+fn step(x: &Array1<f64>, qubo: &Qubo, node: &QuboBBNode) -> Array1<f64> {
+    let Qx = qubo.q.dot(x);
 
     let dx = Qx + qubo.c.clone();
 
@@ -57,23 +57,25 @@ fn step(x: Array1<f64>, qubo: &Qubo, node: &QuboBBNode) -> Array1<f64> {
 fn pgd_main_loop(x_0: Array1<f64>, qubo: &Qubo, node: &QuboBBNode) -> Array1<f64> {
     // start with projecting the initial guess to the feasible set of the node
     let mut x = project(x_0, node);
-    let mut x_next = x.clone();
 
     let mut i = 0;
-    let iteration_max = 100_000;
+    let iteration_max:usize = 100_000;
 
     while i <= iteration_max {
-        // iterate the iteration counter
-        i += 1;
 
         // take a step in the direction of the gradient
-        x_next = step(x.clone(), qubo, node);
+        let x_next = step(&x, qubo, node);
 
-        if (x_next.clone() - x.clone()).norm_l2() < 1E-12 {
+
+        // check if the solution has converged, if so exit
+        let diff = &x_next - &x;
+        x = x_next;
+        if diff.norm_l1() < 1E-12 {
             break;
         }
 
-        x = x_next;
+        // iterate the iteration counter
+        i += 1;
     }
 
     x

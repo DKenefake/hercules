@@ -63,7 +63,7 @@ mod tests {
 
     #[test]
     fn test_beck_proof() {
-        // basically the idea here is to make a QUBO where the sufficiency condition is met for a point
+        // basically, the idea here is to make a QUBO where the sufficiency condition is met for a point
         // a really easy way to do this is to make a QUBO with a single variable, where the magnitude
         // of Q is dominated by c
         let mut Q = TriMat::new((1, 1));
