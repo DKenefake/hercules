@@ -21,7 +21,7 @@ ndarray = "0.16.1"
 ndarray-linalg = { version = "0.17.0", features = ["intel-mkl-static"] }
 smolprng = {version = "0.1.6", features = ["std"]}
 rayon = "1.10.0"
-pyo3 = { version = "0.24.0", features = ["extension-module", "abi3-py37"] }
+pyo3 = { version = "0.25.0", features = ["extension-module", "abi3-py37"] }
 clarabel = "0.10.0"
 
 [doc]
