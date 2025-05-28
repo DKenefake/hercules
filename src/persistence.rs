@@ -1,6 +1,7 @@
 use crate::qubo::Qubo;
 use std::cmp::min;
 use std::collections::HashMap;
+use ndarray::Array1;
 
 /// This function takes a QUBO and a set of persistent variables and returns a new set of persistent variables by repeatedly re
 /// computing the persistent variables until.
@@ -59,6 +60,25 @@ pub fn compute_persistent(
 
     new_persistent
 }
+
+pub fn all_grad_bounds(
+    qubo: &Qubo,
+    persistent: &HashMap<usize, usize>,
+    keep_vars: bool,
+) -> (Array1<f64>, Array1<f64>) {
+    let mut lb_bounds = Array1::<f64>::zeros(qubo.num_x());
+    let mut ub_bounds = Array1::<f64>::zeros(qubo.num_x());
+
+    for i in 0..qubo.num_x() {
+        let x = grad_bounds(qubo, i, persistent, keep_vars);
+        lb_bounds[i] = x.0;
+        ub_bounds[i] = x.1;
+    }
+
+    (lb_bounds, ub_bounds)
+}
+
+
 
 /// Finds bounds of the i-th index of the gradients of the QUBO function
 ///

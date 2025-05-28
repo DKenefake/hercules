@@ -4,9 +4,7 @@ use rayon::prelude::*;
 
 use crate::branch_node::QuboBBNode;
 use crate::branch_stratagy::BranchStrategy;
-use crate::branch_subproblem::{
-    get_sub_problem_solver, SubProblemSolver
-};
+use crate::branch_subproblem::{get_sub_problem_solver, SubProblemSolver};
 use crate::branchbound_utils::{check_integer_feasibility, get_current_time};
 use crate::branchboundlogger::SolverOutputLogger;
 use crate::early_termination::beck_proof;

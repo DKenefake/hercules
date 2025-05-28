@@ -57,8 +57,11 @@ impl SolverOptions {
     pub fn set_sub_problem_strategy(&mut self, strategy: Option<String>) {
         // currently only one strategy is implemented but the structure is left for extension
         #[allow(clippy::redundant_pattern_matching)]
-        if let Some(_) = strategy {
-            self.sub_problem_solver = SubProblemSelection::ClarabelQP;
+        if let Some(s) = strategy {
+            match s.as_str() {
+                "hercules" => self.sub_problem_solver = SubProblemSelection::HerculesPGDQP,
+                _ => self.sub_problem_solver = SubProblemSelection::ClarabelQP,
+            }
         }
     }
 

@@ -47,8 +47,10 @@ pub mod variable_reduction;
 // imports to generate the python interface
 
 pub mod subproblemsolvers {
-    pub mod clarabel_qp;
     pub mod clarabel_lp;
+    pub mod clarabel_qp;
+
+    pub mod hercules_pgd_qp;
 }
 
 #[allow(clippy::wildcard_imports)]

@@ -1,13 +1,13 @@
-use std::collections::HashMap;
+use crate::branch_node::QuboBBNode;
+use crate::branch_subproblem::SubProblemResult;
+use crate::branch_subproblem::SubProblemSolver;
+use crate::branchbound::BBSolver;
+use crate::qubo::Qubo;
 use clarabel::algebra::CscMatrix;
 use clarabel::solver::{DefaultSettings, DefaultSolver, IPSolver, NonnegativeConeT};
 use ndarray::Array1;
 use sprs::{CsMat, TriMat};
-use crate::branch_node::QuboBBNode;
-use crate::branch_subproblem::SubProblemSolver;
-use crate::branchbound::BBSolver;
-use crate::qubo::Qubo;
-use crate::branch_subproblem::SubProblemResult;
+use std::collections::HashMap;
 
 #[derive(Clone)]
 pub struct ClarabelQPSolver {
@@ -16,7 +16,6 @@ pub struct ClarabelQPSolver {
 }
 
 impl SubProblemSolver for ClarabelQPSolver {
-
     fn solve_lower_bound(&self, bbsolver: &BBSolver, node: &QuboBBNode) -> SubProblemResult {
         // solve QP associated with the node
         // generate default settings
@@ -169,8 +168,8 @@ fn make_sub_problem(
 
 #[cfg(test)]
 mod tests {
-    use crate::subproblemsolvers::clarabel_qp::ClarabelQPSolver;
     use crate::qubo::Qubo;
+    use crate::subproblemsolvers::clarabel_qp::ClarabelQPSolver;
     use crate::tests::make_solver_qubo;
     use ndarray::Array1;
     use sprs::{CsMat, TriMat};

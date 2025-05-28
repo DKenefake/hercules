@@ -509,9 +509,7 @@ impl Qubo {
     /// The Hessian matrix. This is an exact operation, and generates an equivalent form.
     ///
     /// $$ 0.5 x^T Q x + c^Tx = 0.5 x^T (Q + 2diag(c)) x $$
-    // pub fn hessian_only_form(&self) -> Self {
-    //
-    // }
+
 
     /// Checks if the QUBO is symmetric
     pub fn is_symmetric(&self) -> bool {
