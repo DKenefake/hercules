@@ -464,6 +464,18 @@ impl Qubo {
         Self::new_with_c(&self.q + &s_eye, self.c.clone() - 0.5 * s)
     }
 
+    #[must_use]
+    pub fn make_diag_array_transform(&self, s: &Array1<f64>) -> Self {
+        // generate the scaled (dense) identity matrix
+        let mut s_eye_tri = TriMat::<f64>::new((self.num_x(), self.num_x()));
+        for i in 0..self.num_x() {
+            s_eye_tri.add_triplet(i, i, s[i]);
+        }
+        let s_eye = s_eye_tri.to_csr();
+
+        Self::new_with_c(&self.q + &s_eye, self.c.clone() - 0.5 * s)
+    }
+
     /// Calculates the eigenvalues of the QUBO Hessian matrix this is a somewhat expensive operation.
     /// Converts the QUBO to a dense matrix and then calculates the eigenvalues. Assume that the QUBO is symmetric.
     ///
@@ -493,6 +505,12 @@ impl Qubo {
     pub fn convex_symmetric_form(&self) -> Self {
         // make the QUBO symmetric
         let p_sym = self.make_symmetric();
+
+        // compute the diag shift via mixing cut
+        let rank = (2 * self.num_x()).isqrt() + 1;
+        let diag_shift = -mixingcut::sdp_solver::compute_approx_perturbation(&self.q, Some(rank), None, None, None, None);
+
+        let p_sym = p_sym.make_diag_array_transform(&diag_shift);
 
         // calculate the eigenvalues of the QUBO
         let eigs = p_sym.hess_eigenvalues();
