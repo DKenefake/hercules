@@ -40,7 +40,7 @@ impl HeuristicSelection {
         let mut steps = 0;
 
         while x_1 != x && steps <= usize::min(variables.len(), 50) {
-            x = x_1.clone();
+            x.clone_from(&x_1);
             x_1 = local_search_utils::one_step_local_search_improved(&solver.qubo, &x, &variables);
             steps += 1;
         }

@@ -49,6 +49,9 @@ impl SolverOptions {
                     self.branch_strategy = BranchStrategy::PartialStrongBranching;
                 }
                 "RoundRobin" => self.branch_strategy = BranchStrategy::RoundRobin,
+                "LargestDiag" => {
+                    self.branch_strategy = BranchStrategy::LargestDiag;
+                }
                 _ => {}
             }
         }
@@ -60,6 +63,9 @@ impl SolverOptions {
         if let Some(s) = strategy {
             match s.as_str() {
                 "hercules" => self.sub_problem_solver = SubProblemSelection::HerculesPGDQP,
+                "hercules_cd" => {
+                    self.sub_problem_solver = SubProblemSelection::HerculesCDQP;
+                }
                 _ => self.sub_problem_solver = SubProblemSelection::ClarabelQP,
             }
         }

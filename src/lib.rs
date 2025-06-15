@@ -51,6 +51,8 @@ pub mod subproblemsolvers {
     pub mod clarabel_qp;
 
     pub mod hercules_pgd_qp;
+    
+    pub mod hercules_cd_qp;
 }
 
 #[allow(clippy::wildcard_imports)]

@@ -110,7 +110,7 @@ impl BBSolver {
         // preprocess the problem
         let fixed_variables =
             preprocess_qubo(&self.qubo_pp_form, &self.options.fixed_variables, true);
-        self.options.fixed_variables = fixed_variables.clone();
+        self.options.fixed_variables.clone_from(&fixed_variables);
 
         // create the root node
         let root_node = QuboBBNode {
@@ -133,10 +133,10 @@ impl BBSolver {
         if self.best_solution_value < 0.0 {
             self.solver_logger.output_warm_start_info(self);
         }
-
+        
         // until we have hit a termination condition, we will keep iterating
         while !(*self).termination_condition() {
-            // get the most recent 25 nodes to process
+            // get the most recent K nodes to process
             let nodes = self.get_next_nodes(self.options.threads);
 
             let process_results = nodes
@@ -235,7 +235,7 @@ impl BBSolver {
         let (lower_bound, solution) = self.solve_node(&node);
 
         // inject the solution back into the node
-        node.solution = solution.clone();
+        node.solution.clone_from(&solution);
 
         // check if integer-feasible solution
         // if not all variables are fixed, we can still check if we are 'near' integer-feasible (within 1E-10) of 0 or 1
@@ -298,7 +298,7 @@ impl BBSolver {
     /// update the best solution if better than the current best solution
     pub fn update_solution_if_better(&mut self, solution: &Array1<usize>, solution_value: f64) {
         if solution_value < self.best_solution_value {
-            self.best_solution = solution.clone();
+            self.best_solution.clone_from(&solution);
             self.best_solution_value = solution_value;
 
             // if we have an early stopping condition, then we can check if we have a solution
@@ -405,7 +405,7 @@ impl BBSolver {
         one_branch.fixed_variables.insert(branch_id, 1);
 
         // update the solution and lower bound for the new nodes
-        zero_branch.solution = solution.clone();
+        zero_branch.solution.clone_from(&solution);
         one_branch.solution = solution;
 
         // set the lower bound for the new nodes

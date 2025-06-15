@@ -180,7 +180,7 @@ pub fn get_best_point(qubo: &Qubo, points: &Vec<Array1<usize>>) -> Array1<usize>
         let obj = qubo.eval_usize(point);
         if obj < best_obj {
             best_obj = obj;
-            best_point = point.clone();
+            best_point.clone_from(point);
         }
     }
 

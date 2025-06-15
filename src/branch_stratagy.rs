@@ -1,5 +1,4 @@
 use crate::branch_node::QuboBBNode;
-use crate::branch_subproblem::SubProblemSolver;
 use crate::branchbound::BBSolver;
 use crate::preprocess::preprocess_qubo;
 use ndarray::Array1;
@@ -18,6 +17,7 @@ pub enum BranchStrategy {
     FullStrongBranching,
     PartialStrongBranching,
     RoundRobin,
+    LargestDiag,
 }
 
 impl BranchStrategy {
@@ -34,6 +34,7 @@ impl BranchStrategy {
             Self::FullStrongBranching => full_strong_branching(bb_solver, node),
             Self::PartialStrongBranching => partial_strong_branching(bb_solver, node),
             Self::RoundRobin => round_robin(bb_solver, node),
+            Self::LargestDiag => largest_diag(bb_solver, node),
         };
 
         // hard assert that the variable is not fixed
@@ -154,6 +155,25 @@ pub fn first_not_fixed(solver: &BBSolver, node: &QuboBBNode) -> usize {
         }
     }
     panic!("No variable to branch on");
+}
+
+pub fn largest_diag(solver: &BBSolver, node: &QuboBBNode) -> usize {
+    // find the variable with the largest diagonal value in the Q matrix
+    let mut max_diag = f64::NEG_INFINITY;
+    let mut index_max_diag = 0;
+
+    for i in 0..solver.qubo.num_x() {
+        if !node.fixed_variables.contains_key(&i) {
+            let diag_value = solver.qubo.q[[i,i]];
+
+            if diag_value > max_diag {
+                max_diag = diag_value;
+                index_max_diag = i;
+            }
+        }
+    }
+
+    index_max_diag
 }
 
 pub fn most_violated(solver: &BBSolver, node: &QuboBBNode) -> usize {

@@ -45,7 +45,7 @@ pub fn simple_local_search(qubo: &Qubo, x_0: &Array1<usize>, max_steps: usize) -
     let mut steps = 0;
 
     while x_1 != x && steps <= max_steps {
-        x = x_1.clone();
+        x.clone_from(&x_1);
         // apply the local search to the selected variables
         x_1 = local_search_utils::one_step_local_search_improved(qubo, &x, &variables);
         steps += 1;
@@ -117,7 +117,7 @@ pub fn simple_gain_criteria_search(
     let mut steps = 0;
 
     while x_1 != x && steps <= max_steps {
-        x = x_1.clone();
+        x.clone_from(&x_1);
         x_1 = local_search_utils::get_gain_criteria(qubo, &x);
         steps += 1;
     }
@@ -189,7 +189,7 @@ pub fn simple_mixed_search(qubo: &Qubo, x_0: &Array1<usize>, max_steps: usize) -
     let vars = (0..qubo.num_x()).collect();
 
     while x_1 != x && steps <= max_steps {
-        x = x_1.clone();
+        x.clone_from(&x_1);
         x_1 = local_search_utils::one_step_local_search_improved(qubo, &x, &vars);
         x_1 = local_search_utils::get_gain_criteria(qubo, &x_1);
         steps += 1;

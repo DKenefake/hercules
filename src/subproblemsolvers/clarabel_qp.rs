@@ -31,7 +31,7 @@ impl SubProblemSolver for ClarabelQPSolver {
         // let min_eig = trial_sub_qubo.hess_eigenvalues();
         // let min_eig = min_eig.iter().fold(f64::INFINITY, |acc, &x| x.min(acc));
         // let sub_qubo = trial_sub_qubo.make_diag_transform(0.0001 - min_eig);
-
+        
         // generate the constraint matrix
         let A_size = 2 * sub_qubo.num_x();
         let mut A = TriMat::new((A_size, sub_qubo.num_x()));
