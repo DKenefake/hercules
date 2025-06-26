@@ -230,7 +230,7 @@ impl BBSolver {
                 logging: NodeLoggingAction::Processed,
             };
         }
-
+        
         // We now need to solve the node to generate the lower bound and solution
         let (lower_bound, solution) = self.solve_node(&node);
 

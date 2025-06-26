@@ -517,7 +517,7 @@ impl Qubo {
 
         // find the minimum eigenvalue, create a factor that scales the minimum eigenvalue to 1
         let min_eig = eigs.iter().fold(f64::INFINITY, |acc, &x| x.min(acc));
-        let s = 0.001 - min_eig;
+        let s = 0.01 - min_eig;
 
         // make the QUBO convex
         p_sym.make_diag_transform(s)
@@ -527,8 +527,6 @@ impl Qubo {
     /// The Hessian matrix. This is an exact operation, and generates an equivalent form.
     ///
     /// $$ 0.5 x^T Q x + c^Tx = 0.5 x^T (Q + 2diag(c)) x $$
-
-
     /// Checks if the QUBO is symmetric
     pub fn is_symmetric(&self) -> bool {
         let error_margin = f64::EPSILON;

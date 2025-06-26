@@ -8,6 +8,7 @@ use clarabel::solver::{DefaultSettings, DefaultSolver, IPSolver, NonnegativeCone
 use ndarray::Array1;
 use sprs::{CsMat, TriMat};
 use std::collections::HashMap;
+use crate::subproblemsolvers::enumerate_qubo::enumerate_solve;
 
 #[derive(Clone)]
 pub struct ClarabelQPSolver {
@@ -28,10 +29,30 @@ impl SubProblemSolver for ClarabelQPSolver {
         let (sub_qubo, unfixed_map, _constant) =
             make_sub_problem(&bbsolver.qubo, node.fixed_variables.clone());
 
-        // let min_eig = trial_sub_qubo.hess_eigenvalues();
-        // let min_eig = min_eig.iter().fold(f64::INFINITY, |acc, &x| x.min(acc));
-        // let sub_qubo = trial_sub_qubo.make_diag_transform(0.0001 - min_eig);
-        
+        // if the sub_qubo is small enough, we can solve it directly
+        if sub_qubo.num_x() <= 15 {
+
+            let (_, sub_sol) = enumerate_solve(&sub_qubo);
+
+            // convert the solution back to the original space
+            let mut x = Array1::<f64>::zeros(bbsolver.qubo.num_x());
+
+            // map out the unfixed variables
+            for (&original, &new) in &unfixed_map {
+                x[original] = sub_sol[new] as f64;
+            }
+
+            // map out the fixed variables
+            for (&i, &val) in &node.fixed_variables {
+                x[i] = val as f64;
+            }
+
+            let obj = bbsolver.qubo.eval(&x);
+            return (obj, x)
+        }
+
+
+
         // generate the constraint matrix
         let A_size = 2 * sub_qubo.num_x();
         let mut A = TriMat::new((A_size, sub_qubo.num_x()));

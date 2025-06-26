@@ -53,6 +53,8 @@ pub mod subproblemsolvers {
     pub mod hercules_pgd_qp;
     
     pub mod hercules_cd_qp;
+    
+    pub mod enumerate_qubo;
 }
 
 #[allow(clippy::wildcard_imports)]
