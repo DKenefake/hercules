@@ -268,7 +268,25 @@ impl BBSolver {
         for (&index, &value) in &branch_result.found_fixed_vars {
             node.fixed_variables.insert(index, value);
         }
+        
+        // if we have now fixed all variables, we can check if we have a solution
+        if node.fixed_variables.len() == self.qubo.num_x() {
+            // generate the solution vector
+            let mut solution = Array1::zeros(self.qubo.num_x());
+            for (&index, &value) in &node.fixed_variables {
+                solution[index] = value;
+            }
 
+            let value = self.qubo.eval_usize(&solution);
+            // evaluate the solution against the best solution we have so far
+            // if we have a better solution update it
+            return ProcessNodeState {
+                prune_action,
+                events: vec![Event::UpdateBestSolution(solution, value)],
+                logging: NodeLoggingAction::Solved,
+            };
+        }
+        
         // if we are going to branch, then we can generate a heuristic solution
         let (heur_sol, heur_obj) = self.options.heuristic.make_heuristic(self, &node);
 
