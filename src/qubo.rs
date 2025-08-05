@@ -508,7 +508,15 @@ impl Qubo {
 
         // compute the diag shift via mixing cut
         let rank = (2 * self.num_x()).isqrt() + 1;
-        let diag_shift = -mixingcut::sdp_solver::compute_approx_perturbation(&self.q, Some(rank), None, None, None, None, false);
+        let diag_shift = -mixingcut::sdp_solver::compute_approx_perturbation(
+            &self.q,
+            Some(rank),
+            None,
+            None,
+            None,
+            None,
+            false,
+        );
 
         let p_sym = p_sym.make_diag_array_transform(&diag_shift);
 

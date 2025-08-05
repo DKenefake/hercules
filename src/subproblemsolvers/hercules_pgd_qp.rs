@@ -59,13 +59,11 @@ fn pgd_main_loop(x_0: Array1<f64>, qubo: &Qubo, node: &QuboBBNode) -> Array1<f64
     let mut x = project(x_0, node);
 
     let mut i = 0;
-    let iteration_max:usize = 100_000;
+    let iteration_max: usize = 100_000;
 
     while i <= iteration_max {
-
         // take a step in the direction of the gradient
         let x_next = step(&x, qubo, node);
-
 
         // check if the solution has converged, if so exit
         let diff = &x_next - &x;

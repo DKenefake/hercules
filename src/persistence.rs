@@ -1,7 +1,7 @@
 use crate::qubo::Qubo;
+use ndarray::Array1;
 use std::cmp::min;
 use std::collections::HashMap;
-use ndarray::Array1;
 
 /// This function takes a QUBO and a set of persistent variables and returns a new set of persistent variables by repeatedly re
 /// computing the persistent variables until.
@@ -77,8 +77,6 @@ pub fn all_grad_bounds(
 
     (lb_bounds, ub_bounds)
 }
-
-
 
 /// Finds bounds of the i-th index of the gradients of the QUBO function
 ///

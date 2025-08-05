@@ -4,9 +4,9 @@ use crate::branchbound::BBSolver;
 use crate::qubo::Qubo;
 use crate::subproblemsolvers::clarabel_lp::ClarabelLPSolver;
 use crate::subproblemsolvers::clarabel_qp::ClarabelQPSolver;
+use crate::subproblemsolvers::hercules_cd_qp::HerculesCDQPSolver;
 use crate::subproblemsolvers::hercules_pgd_qp::HerculesQPSolver;
 use ndarray::Array1;
-use crate::subproblemsolvers::hercules_cd_qp::HerculesCDQPSolver;
 
 pub type SubProblemResult = (f64, Array1<f64>);
 

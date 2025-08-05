@@ -198,7 +198,6 @@ pub fn simple_mixed_search(qubo: &Qubo, x_0: &Array1<usize>, max_steps: usize) -
     x_1
 }
 
-
 /// Performs a particle swarm search on a QUBO.
 ///
 /// Example:

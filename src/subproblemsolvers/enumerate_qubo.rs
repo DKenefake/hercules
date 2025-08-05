@@ -1,5 +1,5 @@
-use ndarray::Array1;
 use crate::qubo::Qubo;
+use ndarray::Array1;
 
 pub fn enumerate_solve(qubo: &Qubo) -> (f64, Array1<usize>) {
     // Enumerate all possible binary solutions solutions
@@ -9,7 +9,6 @@ pub fn enumerate_solve(qubo: &Qubo) -> (f64, Array1<usize>) {
     let mut solution = Array1::<usize>::zeros(num_vars);
 
     for i in 0..(1 << num_vars) {
-
         for j in 0..num_vars {
             solution[j] = (i >> j) & 1;
         }

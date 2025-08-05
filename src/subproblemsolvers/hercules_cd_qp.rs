@@ -1,8 +1,8 @@
-use ndarray::Array1;
 use crate::branch_node::QuboBBNode;
 use crate::branch_subproblem::{SubProblemResult, SubProblemSolver};
 use crate::branchbound::BBSolver;
 use crate::qubo::Qubo;
+use ndarray::Array1;
 
 #[derive(Clone)]
 pub struct HerculesCDQPSolver {}
@@ -36,19 +36,15 @@ fn project(mut x: Array1<f64>, node: &QuboBBNode) -> Array1<f64> {
     x
 }
 
-
 fn cd_main_loop(x_0: Array1<f64>, qubo: &Qubo, node: &QuboBBNode) -> Array1<f64> {
-
     let mut x = project(x_0, node);
 
     let mut i = 0;
-    let iteration_max:usize = 100_000;
+    let iteration_max: usize = 100_000;
 
     while i <= iteration_max {
-
         // take a step in the direction of the gradient
         let diff = cd_step(&mut x, qubo, node);
-
 
         // check if the solution has converged, if so exit
         if diff < 1E-12 {
@@ -60,15 +56,12 @@ fn cd_main_loop(x_0: Array1<f64>, qubo: &Qubo, node: &QuboBBNode) -> Array1<f64>
     }
 
     x
-
 }
 
-pub fn cd_step(x: &mut Array1<f64>, qubo: &Qubo, node: &QuboBBNode) -> f64{
-
+pub fn cd_step(x: &mut Array1<f64>, qubo: &Qubo, node: &QuboBBNode) -> f64 {
     let mut shift: f64 = 0.0;
 
     for i in 0..x.len() {
-
         if node.fixed_variables.contains_key(&i) {
             continue; // Skip fixed variables
         }
@@ -80,9 +73,9 @@ pub fn cd_step(x: &mut Array1<f64>, qubo: &Qubo, node: &QuboBBNode) -> f64{
         let q_ii = qubo.q[[i, i]];
 
         // if Q_ii is zero, we have the case of a linear term only
-        let d_i = - if q_ii == 0.0 {
+        let d_i = -if q_ii == 0.0 {
             l_i.signum()
-        }else{
+        } else {
             l_i / q_ii
         };
 

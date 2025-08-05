@@ -3,12 +3,12 @@ use crate::branch_subproblem::SubProblemResult;
 use crate::branch_subproblem::SubProblemSolver;
 use crate::branchbound::BBSolver;
 use crate::qubo::Qubo;
+use crate::subproblemsolvers::enumerate_qubo::enumerate_solve;
 use clarabel::algebra::CscMatrix;
 use clarabel::solver::{DefaultSettings, DefaultSolver, IPSolver, NonnegativeConeT};
 use ndarray::Array1;
 use sprs::{CsMat, TriMat};
 use std::collections::HashMap;
-use crate::subproblemsolvers::enumerate_qubo::enumerate_solve;
 
 #[derive(Clone)]
 pub struct ClarabelQPSolver {
@@ -31,7 +31,6 @@ impl SubProblemSolver for ClarabelQPSolver {
 
         // if the sub_qubo is small enough, we can solve it directly
         if sub_qubo.num_x() <= 15 {
-
             let (_, sub_sol) = enumerate_solve(&sub_qubo);
 
             // convert the solution back to the original space
@@ -48,10 +47,8 @@ impl SubProblemSolver for ClarabelQPSolver {
             }
 
             let obj = bbsolver.qubo.eval(&x);
-            return (obj, x)
+            return (obj, x);
         }
-
-
 
         // generate the constraint matrix
         let A_size = 2 * sub_qubo.num_x();

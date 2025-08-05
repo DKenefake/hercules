@@ -3,7 +3,7 @@ use ndarray::Array1;
 use rayon::prelude::*;
 
 use crate::branch_node::QuboBBNode;
-use crate::branch_stratagy::{BranchStrategy, BranchResult};
+use crate::branch_stratagy::{BranchResult, BranchStrategy};
 use crate::branch_subproblem::{get_sub_problem_solver, SubProblemSolver};
 use crate::branchbound_utils::{check_integer_feasibility, get_current_time};
 use crate::branchboundlogger::SolverOutputLogger;
@@ -133,7 +133,7 @@ impl BBSolver {
         if self.best_solution_value < 0.0 {
             self.solver_logger.output_warm_start_info(self);
         }
-        
+
         // until we have hit a termination condition, we will keep iterating
         while !(*self).termination_condition() {
             // get the most recent K nodes to process
@@ -230,7 +230,7 @@ impl BBSolver {
                 logging: NodeLoggingAction::Processed,
             };
         }
-        
+
         // We now need to solve the node to generate the lower bound and solution
         let (lower_bound, solution) = self.solve_node(&node);
 
@@ -264,7 +264,7 @@ impl BBSolver {
         let branch_result = self.make_branch(&node);
 
         // we now apply the new fixed variables to the base node before we branch
-        
+
         for (&index, &value) in &branch_result.found_fixed_vars {
             node.fixed_variables.insert(index, value);
         }
@@ -273,7 +273,8 @@ impl BBSolver {
         let (heur_sol, heur_obj) = self.options.heuristic.make_heuristic(self, &node);
 
         // generate the branches
-        let (zero_branch, one_branch) = Self::branch(node, branch_result.branch_variable, lower_bound, solution);
+        let (zero_branch, one_branch) =
+            Self::branch(node, branch_result.branch_variable, lower_bound, solution);
 
         ProcessNodeState {
             prune_action,
