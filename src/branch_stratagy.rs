@@ -1,8 +1,10 @@
+use std::collections::{HashMap, HashSet};
 use crate::branch_node::QuboBBNode;
 use crate::branchbound::BBSolver;
 use crate::preprocess::preprocess_qubo;
 use ndarray::Array1;
 use smolprng::{JsfLarge, PRNG};
+use crate::lower_bound::pardalos_rodgers_lower_bound;
 
 #[derive(Copy, Clone)]
 pub enum BranchStrategy {
@@ -20,9 +22,14 @@ pub enum BranchStrategy {
     LargestDiag,
 }
 
+pub(crate) struct BranchResult{
+    pub branch_variable: usize,
+    pub found_fixed_vars: HashMap<usize, usize>,
+}
+
 impl BranchStrategy {
-    pub fn make_branch(self, bb_solver: &BBSolver, node: &QuboBBNode) -> usize {
-        let branch_variable = match self {
+    pub fn make_branch(self, bb_solver: &BBSolver, node: &QuboBBNode) -> BranchResult {
+        let branch_result = match self {
             Self::FirstNotFixed => first_not_fixed(bb_solver, node),
             Self::MostViolated => most_violated(bb_solver, node),
             Self::Random => random(bb_solver, node),
@@ -39,16 +46,16 @@ impl BranchStrategy {
 
         // hard assert that the variable is not fixed
         assert!(
-            !node.fixed_variables.contains_key(&branch_variable),
+            !node.fixed_variables.contains_key(&branch_result.branch_variable),
             "Branching on a fixed variable"
         );
 
-        branch_variable
+        branch_result
     }
 }
 
 /// Branches on the variable that has the most edges in the graph equivalent to the QUBO
-fn most_edges(solver: &BBSolver, node: &QuboBBNode) -> usize {
+fn most_edges(solver: &BBSolver, node: &QuboBBNode) -> BranchResult {
     // as a QUBO can be viewed as a graph, we can find the variable with the most (remaining) edges
     let mut edge_count = Array1::<usize>::zeros(solver.qubo.num_x());
 
@@ -79,12 +86,12 @@ fn most_edges(solver: &BBSolver, node: &QuboBBNode) -> usize {
         }
     }
 
-    index_max_edges
+    BranchResult{ branch_variable: index_max_edges, found_fixed_vars: HashMap::new() }
 }
 
 /// Branches on the largest edges in the qubo, ones that are most likely to be the largest
 /// determaning factor in the problem
-fn largest_edges(solver: &BBSolver, node: &QuboBBNode) -> usize {
+fn largest_edges(solver: &BBSolver, node: &QuboBBNode) -> BranchResult {
     // as a QUBO can be viewed as a graph, we can find the variable with the most (remaining) edges
     let mut edge_count = Array1::<f64>::zeros(solver.qubo.num_x());
 
@@ -115,11 +122,11 @@ fn largest_edges(solver: &BBSolver, node: &QuboBBNode) -> usize {
         }
     }
 
-    index_max_edges
+    BranchResult{ branch_variable: index_max_edges, found_fixed_vars: HashMap::new() }
 }
 
 /// Computes what branch will generate the most fixed variables via the preprocesser
-pub fn most_fixed(solver: &BBSolver, node: &QuboBBNode) -> usize {
+pub fn most_fixed(solver: &BBSolver, node: &QuboBBNode) -> BranchResult {
     let mut most_fixed = 0;
     let mut branch_var = 0;
 
@@ -143,21 +150,21 @@ pub fn most_fixed(solver: &BBSolver, node: &QuboBBNode) -> usize {
         }
     }
 
-    branch_var
+    BranchResult{ branch_variable: branch_var, found_fixed_vars: HashMap::new() }
 }
 
 /// #Panics if the node does not have an unfixed variable
-pub fn first_not_fixed(solver: &BBSolver, node: &QuboBBNode) -> usize {
+pub fn first_not_fixed(solver: &BBSolver, node: &QuboBBNode) -> BranchResult {
     // scan through the variables and find the first one that is not fixed
     for i in 0..solver.qubo.num_x() {
         if !node.fixed_variables.contains_key(&i) {
-            return i;
+            return BranchResult{branch_variable: i, found_fixed_vars: HashMap::new()};
         }
     }
     panic!("No variable to branch on");
 }
 
-pub fn largest_diag(solver: &BBSolver, node: &QuboBBNode) -> usize {
+pub fn largest_diag(solver: &BBSolver, node: &QuboBBNode) -> BranchResult {
     // find the variable with the largest diagonal value in the Q matrix
     let mut max_diag = f64::NEG_INFINITY;
     let mut index_max_diag = 0;
@@ -173,10 +180,10 @@ pub fn largest_diag(solver: &BBSolver, node: &QuboBBNode) -> usize {
         }
     }
 
-    index_max_diag
+    BranchResult{branch_variable: index_max_diag, found_fixed_vars: HashMap::new()}
 }
 
-pub fn most_violated(solver: &BBSolver, node: &QuboBBNode) -> usize {
+pub fn most_violated(solver: &BBSolver, node: &QuboBBNode) -> BranchResult {
     let mut most_violated = 1.0;
     let mut index_most_violated = 0;
 
@@ -191,16 +198,20 @@ pub fn most_violated(solver: &BBSolver, node: &QuboBBNode) -> usize {
         }
     }
 
-    index_most_violated
+    BranchResult{branch_variable: index_most_violated, found_fixed_vars: HashMap::new()}
 }
 
-pub fn full_strong_branching(solver: &BBSolver, node: &QuboBBNode) -> usize {
+pub fn full_strong_branching(solver: &BBSolver, node: &QuboBBNode) -> BranchResult {
     let unfixed_variables = (0..solver.qubo.num_x())
         .filter(|i| !node.fixed_variables.contains_key(i))
         .collect::<Vec<usize>>();
 
     let mut best_score = f64::NEG_INFINITY;
     let mut best_variable = *unfixed_variables.first().unwrap();
+
+    let mut found_fixes = HashMap::new();
+    let mut cached_solution_values: HashMap<(usize, usize), f64> = HashMap::new();
+
 
     for i in &unfixed_variables {
         let mut list_0 = node.fixed_variables.clone();
@@ -221,11 +232,19 @@ pub fn full_strong_branching(solver: &BBSolver, node: &QuboBBNode) -> usize {
             fixed_variables: list_1,
             solution: node.solution.clone(),
         };
+        
 
         let bound_0 = solver.subproblem_solver.solve_lower_bound(solver, &node_0);
         let bound_1 = solver.subproblem_solver.solve_lower_bound(solver, &node_1);
 
+        // find the minimum of the two objectives
         let score = bound_0.0.min(bound_1.0);
+
+        if bound_0.0 >= solver.best_solution_value {
+            found_fixes.insert(best_variable, 1);
+        }else if bound_1.0 >= solver.best_solution_value {
+            found_fixes.insert(best_variable, 0);
+        }
 
         if score > best_score {
             best_score = score;
@@ -233,10 +252,10 @@ pub fn full_strong_branching(solver: &BBSolver, node: &QuboBBNode) -> usize {
         }
     }
 
-    best_variable
+    BranchResult{branch_variable:best_variable, found_fixed_vars: found_fixes}
 }
 
-pub fn partial_strong_branching(solver: &BBSolver, node: &QuboBBNode) -> usize {
+pub fn partial_strong_branching(solver: &BBSolver, node: &QuboBBNode) -> BranchResult {
     // first compute the approximate objective change for each variable
     let (zero_flip, one_flip) = compute_strong_branch(solver, node);
     let mut score = Array1::zeros(solver.qubo.num_x());
@@ -256,6 +275,8 @@ pub fn partial_strong_branching(solver: &BBSolver, node: &QuboBBNode) -> usize {
     // test strong branching on the most likely candidate set of 5 variables
 
     let end = usize::min(5, unfixed_vars.len());
+
+    let mut found_fixes = HashMap::new();
 
     let mut best_score = f64::NEG_INFINITY;
     let mut best_variable = *indx.first().unwrap();
@@ -285,7 +306,13 @@ pub fn partial_strong_branching(solver: &BBSolver, node: &QuboBBNode) -> usize {
         let bound_0 = solver.subproblem_solver.solve_lower_bound(solver, &node_0);
         let bound_1 = solver.subproblem_solver.solve_lower_bound(solver, &node_1);
 
-        let score_i = (bound_0.0 - node.lower_bound).abs() * (bound_1.0 - node.lower_bound).abs();
+        let score_i = bound_0.0.min(bound_1.0);
+
+        if bound_0.0 >= solver.best_solution_value {
+            found_fixes.insert(best_variable, 1);
+        }else if bound_1.0 >= solver.best_solution_value {
+            found_fixes.insert(best_variable, 0);
+        }
 
         if score_i > best_score {
             best_score = score_i;
@@ -293,10 +320,10 @@ pub fn partial_strong_branching(solver: &BBSolver, node: &QuboBBNode) -> usize {
         }
     }
 
-    best_variable
+    BranchResult{branch_variable: best_variable, found_fixed_vars: found_fixes}
 }
 
-pub fn random(solver: &BBSolver, node: &QuboBBNode) -> usize {
+pub fn random(solver: &BBSolver, node: &QuboBBNode) -> BranchResult {
     // generate a prng
     let mut prng = PRNG {
         generator: JsfLarge::from(solver.options.seed as u64 + solver.nodes_visited as u64),
@@ -309,14 +336,14 @@ pub fn random(solver: &BBSolver, node: &QuboBBNode) -> usize {
     // scan thru the variables and find the first one that is not fixed starting at the random point
     for i in index..solver.qubo.num_x() {
         if !node.fixed_variables.contains_key(&i) {
-            return i;
+            return BranchResult{branch_variable:i, found_fixed_vars: HashMap::new()};
         }
     }
 
     // scan through the variables and find the first one that is not fixed starting at the beginning
     for i in 0..index {
         if !node.fixed_variables.contains_key(&i) {
-            return i;
+            return BranchResult{branch_variable:i, found_fixed_vars: HashMap::new()};
         }
     }
 
@@ -324,7 +351,7 @@ pub fn random(solver: &BBSolver, node: &QuboBBNode) -> usize {
 }
 
 /// Branches on the variable that has an estimated worst result, pushing up the lower bound as fast as possible
-pub fn worst_approximation(solver: &BBSolver, node: &QuboBBNode) -> usize {
+pub fn worst_approximation(solver: &BBSolver, node: &QuboBBNode) -> BranchResult {
     let (zero_flip, one_flip) = compute_strong_branch(solver, node);
 
     // tracking variables for the worst approximation
@@ -348,11 +375,11 @@ pub fn worst_approximation(solver: &BBSolver, node: &QuboBBNode) -> usize {
         }
     }
 
-    index_worst_approximation
+    BranchResult{branch_variable:index_worst_approximation, found_fixed_vars: HashMap::new()}
 }
 
 /// Branches on the variable that has an estimated best result, keeping the lower bound as low as possible
-pub fn best_approximation(solver: &BBSolver, node: &QuboBBNode) -> usize {
+pub fn best_approximation(solver: &BBSolver, node: &QuboBBNode) -> BranchResult {
     let (zero_flip, one_flip) = compute_strong_branch(solver, node);
 
     // tracking variables for the worst approximation
@@ -376,7 +403,7 @@ pub fn best_approximation(solver: &BBSolver, node: &QuboBBNode) -> usize {
         }
     }
 
-    index_best_approximation
+    BranchResult{branch_variable:index_best_approximation, found_fixed_vars: HashMap::new()}
 }
 
 pub fn compute_strong_branch(solver: &BBSolver, node: &QuboBBNode) -> (Array1<f64>, Array1<f64>) {
@@ -418,7 +445,7 @@ pub fn compute_strong_branch(solver: &BBSolver, node: &QuboBBNode) -> (Array1<f6
     (zero_result, one_result)
 }
 
-pub fn round_robin(solver: &BBSolver, node: &QuboBBNode) -> usize {
+pub fn round_robin(solver: &BBSolver, node: &QuboBBNode) -> BranchResult {
     // fun branching strat based on pseudo randomly picking a decent (and cheap branching strat)
 
     // make a random seed that is unique to each node

@@ -3,7 +3,7 @@ use ndarray::Array1;
 use rayon::prelude::*;
 
 use crate::branch_node::QuboBBNode;
-use crate::branch_stratagy::BranchStrategy;
+use crate::branch_stratagy::{BranchStrategy, BranchResult};
 use crate::branch_subproblem::{get_sub_problem_solver, SubProblemSolver};
 use crate::branchbound_utils::{check_integer_feasibility, get_current_time};
 use crate::branchboundlogger::SolverOutputLogger;
@@ -260,15 +260,20 @@ impl BBSolver {
                 logging: NodeLoggingAction::Solved,
             };
         }
+        // determine what variable we are branching on
+        let branch_result = self.make_branch(&node);
+
+        // we now apply the new fixed variables to the base node before we branch
+        
+        for (&index, &value) in &branch_result.found_fixed_vars {
+            node.fixed_variables.insert(index, value);
+        }
 
         // if we are going to branch, then we can generate a heuristic solution
         let (heur_sol, heur_obj) = self.options.heuristic.make_heuristic(self, &node);
 
-        // determine what variable we are branching on
-        let branch_id = self.make_branch(&node);
-
         // generate the branches
-        let (zero_branch, one_branch) = Self::branch(node, branch_id, lower_bound, solution);
+        let (zero_branch, one_branch) = Self::branch(node, branch_result.branch_variable, lower_bound, solution);
 
         ProcessNodeState {
             prune_action,
@@ -384,7 +389,7 @@ impl BBSolver {
     }
 
     /// Branch Selection Strategy - Currently selects the first variable that is not fixed
-    pub fn make_branch(&self, node: &QuboBBNode) -> usize {
+    pub fn make_branch(&self, node: &QuboBBNode) -> BranchResult {
         self.branch_strategy.make_branch(self, node)
     }
 
