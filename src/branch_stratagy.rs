@@ -225,15 +225,16 @@ pub fn full_strong_branching(solver: &BBSolver, node: &QuboBBNode) -> BranchResu
     let unfixed_variables = (0..solver.qubo.num_x())
         .filter(|i| !node.fixed_variables.contains_key(i))
         .collect::<Vec<usize>>();
+    let mut fixed_variables = node.fixed_variables.clone();
 
     let mut best_score = f64::NEG_INFINITY;
     let mut best_variable = *unfixed_variables.first().unwrap();
 
-    let mut found_fixes = HashMap::new();
+    let mut found_fixes: HashMap<usize, usize> = HashMap::new();
 
     for i in &unfixed_variables {
-        let mut list_0 = node.fixed_variables.clone();
-        let mut list_1 = node.fixed_variables.clone();
+        let mut list_0 = fixed_variables.clone();
+        let mut list_1 = fixed_variables.clone();
 
         list_0.insert(*i, 0);
         list_1.insert(*i, 1);
@@ -258,9 +259,11 @@ pub fn full_strong_branching(solver: &BBSolver, node: &QuboBBNode) -> BranchResu
         let score = bound_0.0.min(bound_1.0);
 
         if bound_0.0 >= solver.best_solution_value {
-            found_fixes.insert(best_variable, 1);
+            found_fixes.insert(*i, 1);
+            fixed_variables.insert(*i, 1);
         } else if bound_1.0 >= solver.best_solution_value {
-            found_fixes.insert(best_variable, 0);
+            found_fixes.insert(*i, 0);
+            fixed_variables.insert(*i, 0);
         }
 
         if score > best_score {
