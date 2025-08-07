@@ -52,6 +52,9 @@ impl SolverOptions {
                 "LargestDiag" => {
                     self.branch_strategy = BranchStrategy::LargestDiag;
                 }
+                "LowestDiag" => {
+                    self.branch_strategy = BranchStrategy::SmallestDiag;
+                }
                 _ => {}
             }
         }

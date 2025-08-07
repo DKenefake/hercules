@@ -1,10 +1,9 @@
 use crate::branch_node::QuboBBNode;
 use crate::branchbound::BBSolver;
-use crate::lower_bound::pardalos_rodgers_lower_bound;
 use crate::preprocess::preprocess_qubo;
 use ndarray::Array1;
 use smolprng::{JsfLarge, PRNG};
-use std::collections::{HashMap, HashSet};
+use std::collections::HashMap;
 
 #[derive(Copy, Clone)]
 pub enum BranchStrategy {
@@ -20,6 +19,7 @@ pub enum BranchStrategy {
     PartialStrongBranching,
     RoundRobin,
     LargestDiag,
+    SmallestDiag,
 }
 
 pub(crate) struct BranchResult {
@@ -42,6 +42,7 @@ impl BranchStrategy {
             Self::PartialStrongBranching => partial_strong_branching(bb_solver, node),
             Self::RoundRobin => round_robin(bb_solver, node),
             Self::LargestDiag => largest_diag(bb_solver, node),
+            Self::SmallestDiag => smallest_diag(bb_solver, node),
         };
 
         // hard assert that the variable is not fixed
@@ -53,6 +54,28 @@ impl BranchStrategy {
         );
 
         branch_result
+    }
+}
+
+fn smallest_diag(solver: &BBSolver, node: &QuboBBNode) -> BranchResult {
+    // find the variable with the lowest diagonal value in the Q matrix
+    let mut max_diag = f64::INFINITY;
+    let mut index_min_diag = 0;
+
+    for i in 0..solver.qubo.num_x() {
+        if !node.fixed_variables.contains_key(&i) {
+            let diag_value = solver.qubo.q[[i, i]];
+
+            if diag_value < max_diag {
+                max_diag = diag_value;
+                index_min_diag = i;
+            }
+        }
+    }
+
+    BranchResult {
+        branch_variable: index_min_diag,
+        found_fixed_vars: HashMap::new(),
     }
 }
 
@@ -225,6 +248,7 @@ pub fn full_strong_branching(solver: &BBSolver, node: &QuboBBNode) -> BranchResu
     let unfixed_variables = (0..solver.qubo.num_x())
         .filter(|i| !node.fixed_variables.contains_key(i))
         .collect::<Vec<usize>>();
+
     let mut fixed_variables = node.fixed_variables.clone();
 
     let mut best_score = f64::NEG_INFINITY;
@@ -251,7 +275,7 @@ pub fn full_strong_branching(solver: &BBSolver, node: &QuboBBNode) -> BranchResu
             fixed_variables: list_1,
             solution: node.solution.clone(),
         };
-
+        
         let bound_0 = solver.subproblem_solver.solve_lower_bound(solver, &node_0);
         let bound_1 = solver.subproblem_solver.solve_lower_bound(solver, &node_1);
 
@@ -295,6 +319,8 @@ pub fn partial_strong_branching(solver: &BBSolver, node: &QuboBBNode) -> BranchR
     let mut indx = unfixed_vars.clone();
     indx.sort_by(|&i, &j| score[i].total_cmp(&score[j]).reverse());
 
+    let mut fixed_variables = node.fixed_variables.clone();
+
     // test strong branching on the most likely candidate set of 5 variables
 
     let end = usize::min(5, unfixed_vars.len());
@@ -305,8 +331,8 @@ pub fn partial_strong_branching(solver: &BBSolver, node: &QuboBBNode) -> BranchR
     let mut best_variable = *indx.first().unwrap();
 
     for i in 0..end {
-        let mut list_0 = node.fixed_variables.clone();
-        let mut list_1 = node.fixed_variables.clone();
+        let mut list_0 = fixed_variables.clone();
+        let mut list_1 = fixed_variables.clone();
 
         let j = *indx.get(i).unwrap();
 
@@ -332,9 +358,11 @@ pub fn partial_strong_branching(solver: &BBSolver, node: &QuboBBNode) -> BranchR
         let score_i = bound_0.0.min(bound_1.0);
 
         if bound_0.0 >= solver.best_solution_value {
-            found_fixes.insert(best_variable, 1);
+            found_fixes.insert(j, 1);
+            fixed_variables.insert(j, 1);
         } else if bound_1.0 >= solver.best_solution_value {
-            found_fixes.insert(best_variable, 0);
+            found_fixes.insert(j, 0);
+            fixed_variables.insert(j, 0);
         }
 
         if score_i > best_score {

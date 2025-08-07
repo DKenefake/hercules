@@ -333,6 +333,13 @@ impl BBSolver {
                 self.early_stop = true;
                 self.solver_logger.early_termination();
             }
+
+            // We can remove all nodes that are worse than the current best solution
+            self.nodes.retain(|node| {
+                // if the node's lower bound is worse than the best solution, we can prune it
+                node.lower_bound <= self.best_solution_value
+            });
+
         }
     }
 
