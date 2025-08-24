@@ -115,7 +115,7 @@ impl BBSolver {
         // create the root node
         let root_node = QuboBBNode {
             lower_bound: f64::NEG_INFINITY,
-            solution: Array1::zeros(self.qubo.num_x()),
+            solution: 0.5 * Array1::ones(self.qubo.num_x()), // initial guess is 0.5 for all variables
             fixed_variables,
         };
 
@@ -447,7 +447,7 @@ impl BBSolver {
     }
 
     pub fn solve_node(&self, node: &QuboBBNode) -> (f64, Array1<f64>) {
-        self.subproblem_solver.solve_lower_bound(self, node)
+        self.subproblem_solver.solve_lower_bound(self, node, None)
     }
 }
 

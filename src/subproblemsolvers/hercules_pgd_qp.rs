@@ -1,5 +1,5 @@
 use crate::branch_node::QuboBBNode;
-use crate::branch_subproblem::SubProblemResult;
+use crate::branch_subproblem::{SubProblemOptions, SubProblemResult};
 use crate::branch_subproblem::SubProblemSolver;
 use crate::branchbound::BBSolver;
 use crate::qubo::Qubo;
@@ -16,7 +16,7 @@ impl HerculesQPSolver {
     }
 }
 impl SubProblemSolver for HerculesQPSolver {
-    fn solve_lower_bound(&self, bbsolver: &BBSolver, node: &QuboBBNode) -> SubProblemResult {
+    fn solve_lower_bound(&self, bbsolver: &BBSolver, node: &QuboBBNode, _: Option<SubProblemOptions>) -> SubProblemResult {
         let x = pgd_main_loop(node.solution.clone(), &bbsolver.qubo, node);
         let obj = bbsolver.qubo.eval(&x);
 

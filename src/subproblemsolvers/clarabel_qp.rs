@@ -1,5 +1,5 @@
 use crate::branch_node::QuboBBNode;
-use crate::branch_subproblem::SubProblemResult;
+use crate::branch_subproblem::{SubProblemOptions, SubProblemResult};
 use crate::branch_subproblem::SubProblemSolver;
 use crate::branchbound::BBSolver;
 use crate::qubo::Qubo;
@@ -17,7 +17,7 @@ pub struct ClarabelQPSolver {
 }
 
 impl SubProblemSolver for ClarabelQPSolver {
-    fn solve_lower_bound(&self, bbsolver: &BBSolver, node: &QuboBBNode) -> SubProblemResult {
+    fn solve_lower_bound(&self, bbsolver: &BBSolver, node: &QuboBBNode, _: Option<SubProblemOptions>) -> SubProblemResult {
         // solve QP associated with the node
         // generate default settings
         let settings = DefaultSettings {

@@ -55,6 +55,9 @@ impl SolverOptions {
                 "LowestDiag" => {
                     self.branch_strategy = BranchStrategy::SmallestDiag;
                 }
+                "MovingEdges" => {
+                    self.branch_strategy = BranchStrategy::MoveingEdges;
+                }
                 _ => {}
             }
         }

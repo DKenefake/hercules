@@ -5,7 +5,6 @@ use std::collections::HashMap;
 use ndarray::Array1;
 use pyo3::prelude::*;
 
-use crate::persistence::compute_iterative_persistence;
 use crate::{kopt, local_search};
 use smolprng::{JsfLarge, PRNG};
 
@@ -461,9 +460,49 @@ pub fn get_persistence(
     // read in the QUBO from file
     let p = Qubo::from_vec(problem.0, problem.1, problem.2, problem.3, problem.4);
     let p_symm = p.make_symmetric();
-    let new_fixed = compute_iterative_persistence(&p_symm, &fixed, p_symm.num_x());
+
+    let new_fixed = preprocess_qubo(&p_symm, &fixed, false);
 
     Ok(new_fixed)
+}
+
+/// This function computes the optimal diagonal shift the maximizes the relaxed solution of the QUBO
+///
+/// Example
+/// ``` python
+/// import hercules
+///
+/// # read in the QUBO from a file
+/// problem = hercules.read_qubo("file.qubo")
+///
+/// # compute the persistence
+/// diag_shift = hercules.get_sdp_shift(problem, {})
+/// ```
+///
+/// # Errors
+///
+/// if the file does not exist, then it will abort, nut the sdp_shift calculation should never fail
+#[pyfunction]
+pub fn get_sdp_shift(problem: QuboData, ) -> PyResult<Vec<f64>> {
+    // read in the QUBO from file
+    let p = Qubo::from_vec(problem.0, problem.1, problem.2, problem.3, problem.4);
+
+    // make the QUBO symmetric
+    let p_symm = p.make_symmetric();
+
+    // compute the diag shift via mixing cut
+    let rank = (2 * p_symm.num_x()).isqrt() + 1;
+    let diag_shift = -mixingcut::sdp_solver::compute_approx_perturbation(
+        &p_symm.q,
+        Some(rank),
+        None,
+        None,
+        None,
+        None,
+        false,
+    );
+
+    Ok(diag_shift.to_vec())
 }
 
 /// Solves the QUBO using branch and bound, returns the best solution found.

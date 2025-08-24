@@ -10,8 +10,20 @@ use ndarray::Array1;
 
 pub type SubProblemResult = (f64, Array1<f64>);
 
+#[derive(Clone, Copy)]
+pub struct SubProblemOptions{
+    pub max_iterations: Option<usize>
+}
+
+impl SubProblemOptions {
+    pub fn new(max_iterations: Option<usize>) -> Self {
+        Self { max_iterations }
+    }
+}
+
+
 pub trait SubProblemSolver {
-    fn solve_lower_bound(&self, bbsolver: &BBSolver, node: &QuboBBNode) -> SubProblemResult;
+    fn solve_lower_bound(&self, bbsolver: &BBSolver, node: &QuboBBNode, sub_problem_options: Option<SubProblemOptions>) -> SubProblemResult;
 }
 
 pub enum SubProblemSelection {

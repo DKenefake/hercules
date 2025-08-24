@@ -20,6 +20,7 @@ pub enum BranchStrategy {
     RoundRobin,
     LargestDiag,
     SmallestDiag,
+    MoveingEdges,
 }
 
 pub(crate) struct BranchResult {
@@ -43,6 +44,7 @@ impl BranchStrategy {
             Self::RoundRobin => round_robin(bb_solver, node),
             Self::LargestDiag => largest_diag(bb_solver, node),
             Self::SmallestDiag => smallest_diag(bb_solver, node),
+            Self::MoveingEdges => moving_edges(bb_solver, node), // placeholder for now
         };
 
         // hard assert that the variable is not fixed
@@ -275,9 +277,10 @@ pub fn full_strong_branching(solver: &BBSolver, node: &QuboBBNode) -> BranchResu
             fixed_variables: list_1,
             solution: node.solution.clone(),
         };
-        
-        let bound_0 = solver.subproblem_solver.solve_lower_bound(solver, &node_0);
-        let bound_1 = solver.subproblem_solver.solve_lower_bound(solver, &node_1);
+
+        // solve for the
+        let bound_0 = solver.subproblem_solver.solve_lower_bound(solver, &node_0, None);
+        let bound_1 = solver.subproblem_solver.solve_lower_bound(solver, &node_1, None);
 
         // find the minimum of the two objectives
         let score = bound_0.0.min(bound_1.0);
@@ -323,7 +326,7 @@ pub fn partial_strong_branching(solver: &BBSolver, node: &QuboBBNode) -> BranchR
 
     // test strong branching on the most likely candidate set of 5 variables
 
-    let end = usize::min(5, unfixed_vars.len());
+    let end = usize::min(15, unfixed_vars.len());
 
     let mut found_fixes = HashMap::new();
 
@@ -352,8 +355,8 @@ pub fn partial_strong_branching(solver: &BBSolver, node: &QuboBBNode) -> BranchR
             solution: node.solution.clone(),
         };
 
-        let bound_0 = solver.subproblem_solver.solve_lower_bound(solver, &node_0);
-        let bound_1 = solver.subproblem_solver.solve_lower_bound(solver, &node_1);
+        let bound_0 = solver.subproblem_solver.solve_lower_bound(solver, &node_0, None);
+        let bound_1 = solver.subproblem_solver.solve_lower_bound(solver, &node_1, None);
 
         let score_i = bound_0.0.min(bound_1.0);
 
@@ -473,42 +476,63 @@ pub fn best_approximation(solver: &BBSolver, node: &QuboBBNode) -> BranchResult 
 }
 
 pub fn compute_strong_branch(solver: &BBSolver, node: &QuboBBNode) -> (Array1<f64>, Array1<f64>) {
-    let mut base_solution = Array1::<f64>::zeros(solver.qubo.num_x());
-    let mut delta_zero = Array1::<f64>::zeros(solver.qubo.num_x());
-    let mut delta_one = Array1::<f64>::zeros(solver.qubo.num_x());
 
-    for i in 0..solver.qubo.num_x() {
-        // fill in the current vector
-        match node.fixed_variables.get(&i) {
-            Some(val) => base_solution[i] = (*val) as f64,
-            None => base_solution[i] = node.solution[i],
-        }
+    // makes the assumption that the node solution is the solution of the relaxed problem above
 
-        // compute the delta values for the zero and one flips
-        delta_zero[i] = -base_solution[i];
-        delta_one[i] = 1.0 - base_solution[i];
-    }
-
-    // build the intermediate vectors
-    let q_jj = solver.qubo.q.diag().to_dense();
-    let q_x = &solver.qubo.q * &base_solution;
-    let x_q = &solver.qubo.q.transpose_view() * &base_solution;
-
-    // build the result vectors
+    // create the result vectors
     let mut zero_result = Array1::zeros(solver.qubo.num_x());
     let mut one_result = Array1::zeros(solver.qubo.num_x());
 
     // compute the deltas in the objective compared to the current solution
     for i in 0..solver.qubo.num_x() {
-        zero_result[i] = 0.5
-            * delta_zero[i]
-            * (delta_zero[i] * q_jj[i] + x_q[i] + q_x[i] + 2.0 * solver.qubo.c[i]);
-        one_result[i] = 0.5
-            * delta_one[i]
-            * (delta_one[i] * q_jj[i] + x_q[i] + q_x[i] + 2.0 * solver.qubo.c[i]);
+        let diag_ii = solver.qubo.q[[i, i]];
+        zero_result[i] = diag_ii * node.solution[i] * node.solution[i] ;
+        one_result[i] = diag_ii * ( 1.0 - node.solution[i]) * (1.0 - node.solution[i]);
     }
 
     (zero_result, one_result)
+}
+
+pub fn moving_edges(solver: &BBSolver, node: &QuboBBNode) -> BranchResult {
+    // this is basically largest edges with a bias to movement in the binary violation
+    let mut edge_size = Array1::<f64>::zeros(solver.qubo.num_x());
+
+    // scan through the Q matrix and count the number of edges
+    for (&value, (i, j)) in &solver.qubo.q {
+        // if we have a fixed variable, then we can skip it
+        if node.fixed_variables.contains_key(&i) {
+            continue;
+        }
+
+        // same again
+        if node.fixed_variables.contains_key(&j) {
+            continue;
+        }
+
+        edge_size[i] += value.abs();
+        edge_size[j] += value.abs();
+    }
+
+    // find the variable with the most edges (fixed variables in the node are not counted)
+    let mut min_edge_value = -10.0;
+    let mut index_max_edges = 0;
+
+    for i in 0..solver.qubo.num_x() {
+        if !node.fixed_variables.contains_key(&i) {
+            let movement = node.solution[i].min(1.0 - node.solution[i]);
+            if edge_size[i] * movement > min_edge_value {
+                min_edge_value = edge_size[i] * movement;
+                index_max_edges = i;
+            }
+        }
+    }
+
+    BranchResult {
+        branch_variable: index_max_edges,
+        found_fixed_vars: HashMap::new(),
+    }
+
+
 }
 
 pub fn round_robin(solver: &BBSolver, node: &QuboBBNode) -> BranchResult {

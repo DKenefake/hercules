@@ -1,5 +1,5 @@
 use crate::branch_node::QuboBBNode;
-use crate::branch_subproblem::SubProblemResult;
+use crate::branch_subproblem::{SubProblemOptions, SubProblemResult};
 use crate::branch_subproblem::SubProblemSolver;
 use crate::branchbound::BBSolver;
 use crate::qubo::Qubo;
@@ -28,7 +28,7 @@ impl ClarabelLPSolver {
     }
 }
 impl SubProblemSolver for ClarabelLPSolver {
-    fn solve_lower_bound(&self, _bbsolver: &BBSolver, _node: &QuboBBNode) -> SubProblemResult {
+    fn solve_lower_bound(&self, _bbsolver: &BBSolver, _node: &QuboBBNode, _: Option<SubProblemOptions>) -> SubProblemResult {
         !unimplemented!("This function is not implemented yet")
     }
 }

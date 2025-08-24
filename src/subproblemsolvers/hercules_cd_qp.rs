@@ -1,5 +1,5 @@
 use crate::branch_node::QuboBBNode;
-use crate::branch_subproblem::{SubProblemResult, SubProblemSolver};
+use crate::branch_subproblem::{SubProblemOptions, SubProblemResult, SubProblemSolver};
 use crate::branchbound::BBSolver;
 use crate::qubo::Qubo;
 use ndarray::Array1;
@@ -14,8 +14,13 @@ impl HerculesCDQPSolver {
 }
 
 impl SubProblemSolver for HerculesCDQPSolver {
-    fn solve_lower_bound(&self, bbsolver: &BBSolver, node: &QuboBBNode) -> SubProblemResult {
-        let x = cd_main_loop(node.solution.clone(), &bbsolver.qubo, node);
+    fn solve_lower_bound(&self, bbsolver: &BBSolver, node: &QuboBBNode, sub_problem_options: Option<SubProblemOptions>) -> SubProblemResult {
+
+        let max_iterations = sub_problem_options
+            .and_then(|opts| opts.max_iterations)
+            .unwrap_or(100_000);
+
+        let x = cd_main_loop(node.solution.clone(), &bbsolver.qubo, node, max_iterations);
         let obj = bbsolver.qubo.eval(&x);
 
         (obj, x)
@@ -36,13 +41,12 @@ fn project(mut x: Array1<f64>, node: &QuboBBNode) -> Array1<f64> {
     x
 }
 
-fn cd_main_loop(x_0: Array1<f64>, qubo: &Qubo, node: &QuboBBNode) -> Array1<f64> {
+fn cd_main_loop(x_0: Array1<f64>, qubo: &Qubo, node: &QuboBBNode, max_iterations:usize) -> Array1<f64> {
     let mut x = project(x_0, node);
 
     let mut i = 0;
-    let iteration_max: usize = 100_000;
 
-    while i <= iteration_max {
+    while i <= max_iterations {
         // take a step in the direction of the gradient
         let diff = cd_step(&mut x, qubo, node);
 

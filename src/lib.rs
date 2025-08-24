@@ -77,6 +77,7 @@ fn hercules(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(get_persistence, m)?)?;
     m.add_function(wrap_pyfunction!(solve_branch_bound, m)?)?;
     m.add_function(wrap_pyfunction!(convex_symmetric_form, m)?)?;
+    m.add_function(wrap_pyfunction!(get_sdp_shift, m)?)?;
     Ok(())
 }
 
