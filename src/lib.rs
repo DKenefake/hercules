@@ -30,6 +30,7 @@ mod branchboundlogger;
 mod constraint;
 pub mod constraint_reduction;
 pub mod early_termination;
+pub mod graph_utils;
 mod heuristic_stratagy;
 pub mod initial_points;
 mod kopt;
@@ -43,7 +44,6 @@ pub mod qubo;
 mod solver_options;
 pub mod utils;
 pub mod variable_reduction;
-
 // imports to generate the python interface
 
 pub mod subproblemsolvers {
@@ -78,6 +78,7 @@ fn hercules(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(solve_branch_bound, m)?)?;
     m.add_function(wrap_pyfunction!(convex_symmetric_form, m)?)?;
     m.add_function(wrap_pyfunction!(get_sdp_shift, m)?)?;
+    m.add_function(wrap_pyfunction!(get_qubo_components, m)?)?;
     Ok(())
 }
 

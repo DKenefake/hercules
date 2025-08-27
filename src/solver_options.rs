@@ -38,9 +38,6 @@ impl SolverOptions {
                 "WorstApproximation" => {
                     self.branch_strategy = BranchStrategy::WorstApproximation;
                 }
-                "BestApproximation" => {
-                    self.branch_strategy = BranchStrategy::BestApproximation;
-                }
                 "MostEdges" => self.branch_strategy = BranchStrategy::MostEdges,
                 "LargestEdges" => self.branch_strategy = BranchStrategy::LargestEdges,
                 "MostFixed" => self.branch_strategy = BranchStrategy::MostFixed,
@@ -51,9 +48,6 @@ impl SolverOptions {
                 "RoundRobin" => self.branch_strategy = BranchStrategy::RoundRobin,
                 "LargestDiag" => {
                     self.branch_strategy = BranchStrategy::LargestDiag;
-                }
-                "LowestDiag" => {
-                    self.branch_strategy = BranchStrategy::SmallestDiag;
                 }
                 "MovingEdges" => {
                     self.branch_strategy = BranchStrategy::MoveingEdges;

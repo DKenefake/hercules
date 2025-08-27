@@ -23,7 +23,7 @@ pub enum BranchStrategy {
     MoveingEdges,
 }
 
-pub(crate) struct BranchResult {
+pub struct BranchResult {
     pub branch_variable: usize,
     pub found_fixed_vars: HashMap<usize, usize>,
 }
@@ -279,8 +279,12 @@ pub fn full_strong_branching(solver: &BBSolver, node: &QuboBBNode) -> BranchResu
         };
 
         // solve for the
-        let bound_0 = solver.subproblem_solver.solve_lower_bound(solver, &node_0, None);
-        let bound_1 = solver.subproblem_solver.solve_lower_bound(solver, &node_1, None);
+        let bound_0 = solver
+            .subproblem_solver
+            .solve_lower_bound(solver, &node_0, None);
+        let bound_1 = solver
+            .subproblem_solver
+            .solve_lower_bound(solver, &node_1, None);
 
         // find the minimum of the two objectives
         let score = bound_0.0.min(bound_1.0);
@@ -355,8 +359,12 @@ pub fn partial_strong_branching(solver: &BBSolver, node: &QuboBBNode) -> BranchR
             solution: node.solution.clone(),
         };
 
-        let bound_0 = solver.subproblem_solver.solve_lower_bound(solver, &node_0, None);
-        let bound_1 = solver.subproblem_solver.solve_lower_bound(solver, &node_1, None);
+        let bound_0 = solver
+            .subproblem_solver
+            .solve_lower_bound(solver, &node_0, None);
+        let bound_1 = solver
+            .subproblem_solver
+            .solve_lower_bound(solver, &node_1, None);
 
         let score_i = bound_0.0.min(bound_1.0);
 
@@ -476,7 +484,6 @@ pub fn best_approximation(solver: &BBSolver, node: &QuboBBNode) -> BranchResult 
 }
 
 pub fn compute_strong_branch(solver: &BBSolver, node: &QuboBBNode) -> (Array1<f64>, Array1<f64>) {
-
     // makes the assumption that the node solution is the solution of the relaxed problem above
 
     // create the result vectors
@@ -486,8 +493,8 @@ pub fn compute_strong_branch(solver: &BBSolver, node: &QuboBBNode) -> (Array1<f6
     // compute the deltas in the objective compared to the current solution
     for i in 0..solver.qubo.num_x() {
         let diag_ii = solver.qubo.q[[i, i]];
-        zero_result[i] = diag_ii * node.solution[i] * node.solution[i] ;
-        one_result[i] = diag_ii * ( 1.0 - node.solution[i]) * (1.0 - node.solution[i]);
+        zero_result[i] = diag_ii * node.solution[i] * node.solution[i];
+        one_result[i] = diag_ii * (1.0 - node.solution[i]) * (1.0 - node.solution[i]);
     }
 
     (zero_result, one_result)
@@ -531,8 +538,6 @@ pub fn moving_edges(solver: &BBSolver, node: &QuboBBNode) -> BranchResult {
         branch_variable: index_max_edges,
         found_fixed_vars: HashMap::new(),
     }
-
-
 }
 
 pub fn round_robin(solver: &BBSolver, node: &QuboBBNode) -> BranchResult {

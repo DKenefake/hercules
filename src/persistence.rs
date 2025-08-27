@@ -18,7 +18,7 @@ pub fn compute_iterative_persistence(
 
     // loop over the number of iters
     for _ in 0..iters {
-        let incoming_persistent = compute_persistent(qubo, &new_persistent, true);
+        let incoming_persistent = compute_persistent(qubo, &new_persistent);
         if new_persistent == incoming_persistent {
             break;
         }
@@ -33,7 +33,6 @@ pub fn compute_iterative_persistence(
 pub fn compute_persistent(
     qubo: &Qubo,
     persistent: &HashMap<usize, usize>,
-    keep_vars: bool,
 ) -> HashMap<usize, usize> {
     // create a new hashmap to store the new persistent variables
     let mut new_persistent = persistent.clone();
@@ -45,7 +44,7 @@ pub fn compute_persistent(
         }
 
         // find the bounds of the gradient in each direction
-        let (lower, upper) = grad_bounds(qubo, i, persistent, keep_vars);
+        let (lower, upper) = grad_bounds(qubo, i, persistent);
 
         // if the lower bound it positive, then we can set the variable to 0
         if lower > 0.0 {
@@ -64,13 +63,12 @@ pub fn compute_persistent(
 pub fn all_grad_bounds(
     qubo: &Qubo,
     persistent: &HashMap<usize, usize>,
-    keep_vars: bool,
 ) -> (Array1<f64>, Array1<f64>) {
     let mut lb_bounds = Array1::<f64>::zeros(qubo.num_x());
     let mut ub_bounds = Array1::<f64>::zeros(qubo.num_x());
 
     for i in 0..qubo.num_x() {
-        let x = grad_bounds(qubo, i, persistent, keep_vars);
+        let x = grad_bounds(qubo, i, persistent);
         lb_bounds[i] = x.0;
         ub_bounds[i] = x.1;
     }
@@ -82,12 +80,7 @@ pub fn all_grad_bounds(
 ///
 /// # Panics
 /// This function should not panic as the unwraps are bounded on the size of the QUBO matrix
-pub fn grad_bounds(
-    qubo: &Qubo,
-    i: usize,
-    persistent: &HashMap<usize, usize>,
-    keep_vars: bool,
-) -> (f64, f64) {
+pub fn grad_bounds(qubo: &Qubo, i: usize, persistent: &HashMap<usize, usize>) -> (f64, f64) {
     // set up tracking variables for each bound
     let mut lower = 0.0;
     let mut upper = 0.0;
@@ -110,10 +103,8 @@ pub fn grad_bounds(
 
         // if it is a fixed variable, we have effectively removed this variable from the QUBO
         if persistent.contains_key(&index) {
-            if keep_vars {
-                lower += value * (persistent[&index] as f64);
-                upper += value * (persistent[&index] as f64);
-            }
+            lower += value * (persistent[&index] as f64);
+            upper += value * (persistent[&index] as f64);
         } else {
             // if it is not in the persistent set, then we can choose the best value
 
@@ -166,9 +157,9 @@ mod tests {
         let eye = CsMat::eye(3);
         let c = Array1::from_vec(vec![1.0, 2.0, 3.0]);
         let p = Qubo::new_with_c(eye, c);
-        assert_eq!(grad_bounds(&p, 0, &HashMap::new(), true), (1.0, 2.0));
-        assert_eq!(grad_bounds(&p, 1, &HashMap::new(), true), (2.0, 3.0));
-        assert_eq!(grad_bounds(&p, 2, &HashMap::new(), true), (3.0, 4.0));
+        assert_eq!(grad_bounds(&p, 0, &HashMap::new()), (1.0, 2.0));
+        assert_eq!(grad_bounds(&p, 1, &HashMap::new()), (2.0, 3.0));
+        assert_eq!(grad_bounds(&p, 2, &HashMap::new()), (3.0, 4.0));
     }
 
     #[test]
@@ -181,9 +172,9 @@ mod tests {
         fixed_vars.insert(0, 1);
         fixed_vars.insert(2, 1);
 
-        assert_eq!(grad_bounds(&p, 0, &fixed_vars, true), (2.0, 2.0));
-        assert_eq!(grad_bounds(&p, 1, &fixed_vars, true), (2.0, 3.0));
-        assert_eq!(grad_bounds(&p, 2, &fixed_vars, true), (4.0, 4.0));
+        assert_eq!(grad_bounds(&p, 0, &fixed_vars), (2.0, 2.0));
+        assert_eq!(grad_bounds(&p, 1, &fixed_vars), (2.0, 3.0));
+        assert_eq!(grad_bounds(&p, 2, &fixed_vars), (4.0, 4.0));
     }
 
     #[test]
@@ -192,9 +183,9 @@ mod tests {
         let c = Array1::from_vec(vec![1.0, 2.0, 3.0]);
         let p = Qubo::new_with_c(zero, c);
 
-        assert_eq!(grad_bounds(&p, 0, &HashMap::new(), true), (1.0, 1.0));
-        assert_eq!(grad_bounds(&p, 1, &HashMap::new(), true), (2.0, 2.0));
-        assert_eq!(grad_bounds(&p, 2, &HashMap::new(), true), (3.0, 3.0));
+        assert_eq!(grad_bounds(&p, 0, &HashMap::new()), (1.0, 1.0));
+        assert_eq!(grad_bounds(&p, 1, &HashMap::new()), (2.0, 2.0));
+        assert_eq!(grad_bounds(&p, 2, &HashMap::new()), (3.0, 3.0));
     }
 
     #[test]

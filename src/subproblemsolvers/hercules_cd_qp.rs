@@ -14,8 +14,12 @@ impl HerculesCDQPSolver {
 }
 
 impl SubProblemSolver for HerculesCDQPSolver {
-    fn solve_lower_bound(&self, bbsolver: &BBSolver, node: &QuboBBNode, sub_problem_options: Option<SubProblemOptions>) -> SubProblemResult {
-
+    fn solve_lower_bound(
+        &self,
+        bbsolver: &BBSolver,
+        node: &QuboBBNode,
+        sub_problem_options: Option<SubProblemOptions>,
+    ) -> SubProblemResult {
         let max_iterations = sub_problem_options
             .and_then(|opts| opts.max_iterations)
             .unwrap_or(100_000);
@@ -41,7 +45,12 @@ fn project(mut x: Array1<f64>, node: &QuboBBNode) -> Array1<f64> {
     x
 }
 
-fn cd_main_loop(x_0: Array1<f64>, qubo: &Qubo, node: &QuboBBNode, max_iterations:usize) -> Array1<f64> {
+fn cd_main_loop(
+    x_0: Array1<f64>,
+    qubo: &Qubo,
+    node: &QuboBBNode,
+    max_iterations: usize,
+) -> Array1<f64> {
     let mut x = project(x_0, node);
 
     let mut i = 0;

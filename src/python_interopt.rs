@@ -10,6 +10,7 @@ use smolprng::{JsfLarge, PRNG};
 
 use crate::branchbound::BBSolver;
 use crate::branchbound_utils::get_current_time;
+use crate::graph_utils::get_all_disconnected_graphs;
 use crate::preprocess::preprocess_qubo;
 use crate::solver_options::SolverOptions;
 
@@ -483,7 +484,8 @@ pub fn get_persistence(
 ///
 /// if the file does not exist, then it will abort, nut the sdp_shift calculation should never fail
 #[pyfunction]
-pub fn get_sdp_shift(problem: QuboData, ) -> PyResult<Vec<f64>> {
+#[pyo3(signature = (problem, stat_tolerance=None))]
+pub fn get_sdp_shift(problem: QuboData, stat_tolerance: Option<f64>) -> PyResult<Vec<f64>> {
     // read in the QUBO from file
     let p = Qubo::from_vec(problem.0, problem.1, problem.2, problem.3, problem.4);
 
@@ -497,12 +499,41 @@ pub fn get_sdp_shift(problem: QuboData, ) -> PyResult<Vec<f64>> {
         Some(rank),
         None,
         None,
-        None,
+        stat_tolerance,
         None,
         false,
     );
 
     Ok(diag_shift.to_vec())
+}
+
+/// This function finds the disconnected components of the QUBO, and returns them as a list of usize vectors
+/// where each vector is a list of variables in that component.
+///
+/// Example
+/// ``` python
+/// import hercules
+///
+/// # read in the QUBO from a file
+/// problem = hercules.read_qubo("file.qubo")
+///
+/// # find the disconnected components
+/// components = hercules.get_disconnected_components(problem)
+/// ```
+/// # Errors
+/// This function should never error, but if it does, it will abort.
+
+#[pyfunction]
+pub fn get_qubo_components(
+    problem: QuboData,
+    fixed_vars: HashMap<usize, usize>,
+) -> PyResult<Vec<Vec<usize>>> {
+    // read in the QUBO from file
+    let p = Qubo::from_vec(problem.0, problem.1, problem.2, problem.3, problem.4);
+    // make the QUBO symmetric
+    let p_symm = p.make_symmetric();
+
+    Ok(get_all_disconnected_graphs(&p_symm, &fixed_vars))
 }
 
 /// Solves the QUBO using branch and bound, returns the best solution found.
