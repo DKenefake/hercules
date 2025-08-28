@@ -52,6 +52,9 @@ impl SolverOptions {
                 "MovingEdges" => {
                     self.branch_strategy = BranchStrategy::MoveingEdges;
                 }
+                "ConnectedComponents" => {
+                    self.branch_strategy = BranchStrategy::ConnectedComponents;
+                }
                 _ => {}
             }
         }

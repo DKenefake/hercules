@@ -54,7 +54,7 @@ pub fn pardalos_rodgers_lower_bound(qubo: &Qubo, fixed_variables: &HashMap<usize
 /// Calculates an initial lower bound for a qubo, based on equation 15 of li2012
 ///
 /// Is roughly as expensive as an objective evaluation, it has been shown that it is a tighter bound
-/// than the one generated in pardalos1990, and it is roughly the same computational cost
+/// than the one generated in pardalos1999, and it is roughly the same computational cost
 pub fn li_lower_bound(qubo: &Qubo, fixed_variables: &HashMap<usize, usize>) -> f64 {
     // tracking variable for the lower bound
     let mut lower_bound = 0.0;

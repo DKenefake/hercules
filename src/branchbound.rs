@@ -92,17 +92,8 @@ impl BBSolver {
 
     /// This function is used to warm start the solver with an initial solution if one is not provided
     pub fn warm_start(&mut self, initial_solution: Array1<usize>) {
-        self.best_solution = initial_solution;
-        self.best_solution_value = self.qubo.eval_usize(&self.best_solution);
-
-        // if we have an early stopping condition, then we can check if we have a solution
-        let beck_proof = beck_proof(&self.qubo, &self.best_solution);
-
-        // if we have a beck proof, then we can stop early
-        if beck_proof {
-            self.early_stop = true;
-            self.solver_logger.early_termination();
-        }
+        let warm_start_value = self.qubo.eval_usize(&initial_solution);
+        self.update_solution_if_better(&initial_solution, warm_start_value);
     }
 
     /// The main solve function of the B&B algorithm
@@ -113,11 +104,16 @@ impl BBSolver {
         self.options.fixed_variables.clone_from(&fixed_variables);
 
         // create the root node
-        let root_node = QuboBBNode {
+        let mut root_node = QuboBBNode {
             lower_bound: f64::NEG_INFINITY,
             solution: 0.5 * Array1::ones(self.qubo.num_x()), // initial guess is 0.5 for all variables
             fixed_variables,
         };
+
+        // solve the root node subproblem
+        let (root_lower_bound, root_solution) = self.solve_node(&root_node);
+        root_node.lower_bound = root_lower_bound;
+        root_node.solution = root_solution;
 
         // add the root node to the list of nodes
         self.nodes.push(root_node);
@@ -326,13 +322,13 @@ impl BBSolver {
             self.best_solution_value = solution_value;
 
             // if we have an early stopping condition, then we can check if we have a solution
-            let beck_proof = beck_proof(&self.qubo, &self.best_solution);
-
-            // if we have a beck proof, then we can stop early
-            if beck_proof {
-                self.early_stop = true;
-                self.solver_logger.early_termination();
-            }
+            // let beck_proof = beck_proof(&self.qubo, &self.best_solution);
+            //
+            // // if we have a beck proof, then we can stop early
+            // if beck_proof {
+            //     self.early_stop = true;
+            //     self.solver_logger.early_termination();
+            // }
 
             // We can remove all nodes that are worse than the current best solution
             self.nodes.retain(|node| {
@@ -453,6 +449,7 @@ impl BBSolver {
 #[cfg(test)]
 mod tests {
     use crate::branch_stratagy::BranchStrategy;
+    use crate::branch_subproblem::SubProblemSelection;
     use crate::preprocess::preprocess_qubo;
     use crate::qubo::Qubo;
     use crate::solver_options::SolverOptions;
@@ -487,27 +484,39 @@ mod tests {
     }
     #[test]
     pub fn branch_bound_most_violated_branching() {
-        setup_and_solve_problem(BranchStrategy::MostViolated)
+        setup_and_solve_problem(
+            &BranchStrategy::MostViolated,
+            &SubProblemSelection::HerculesCDQP,
+        )
     }
 
     #[test]
     pub fn branch_bound_random_branching() {
-        setup_and_solve_problem(BranchStrategy::Random)
+        setup_and_solve_problem(&BranchStrategy::Random, &SubProblemSelection::HerculesCDQP)
     }
 
     #[test]
     pub fn branch_bound_worst_approximation_branching() {
-        setup_and_solve_problem(BranchStrategy::WorstApproximation)
+        setup_and_solve_problem(
+            &BranchStrategy::WorstApproximation,
+            &SubProblemSelection::HerculesCDQP,
+        )
     }
 
     #[test]
     pub fn branch_bound_best_approximation_branching() {
-        setup_and_solve_problem(BranchStrategy::BestApproximation)
+        setup_and_solve_problem(
+            &BranchStrategy::BestApproximation,
+            &SubProblemSelection::HerculesCDQP,
+        )
     }
 
     #[test]
     pub fn branch_bound_finf_branching() {
-        setup_and_solve_problem(BranchStrategy::FirstNotFixed)
+        setup_and_solve_problem(
+            &BranchStrategy::FirstNotFixed,
+            &SubProblemSelection::HerculesCDQP,
+        )
     }
 
     #[test]
@@ -524,22 +533,30 @@ mod tests {
             BranchStrategy::FullStrongBranching,
             BranchStrategy::PartialStrongBranching,
             BranchStrategy::RoundRobin,
+            BranchStrategy::LargestDiag,
+            BranchStrategy::MoveingEdges,
+            BranchStrategy::ConnectedComponents
         ];
 
-        // let heuristic_options = vec![
-        //     HeuristicSelection::LocalSearch,
-        //     HeuristicSelection::SimpleRounding,
-        // ];
+        let sub_problem_solvers = vec![
+            SubProblemSelection::ClarabelQP,
+            SubProblemSelection::HerculesCDQP,
+        ];
 
-        for branch in branch_options {
-            setup_and_solve_problem(branch);
+        for branch in &branch_options {
+            for sup_problem_solver in &sub_problem_solvers {
+                setup_and_solve_problem(branch, &sup_problem_solver);
+            }
         }
     }
 
-    pub fn setup_and_solve_problem(branch: BranchStrategy) {
+    pub fn setup_and_solve_problem(
+        branch: &BranchStrategy,
+        sup_problem_solver: &SubProblemSelection,
+    ) {
         let mut prng = make_test_prng();
 
-        let p = make_solver_qubo();
+        let p = Qubo::read_qubo("test_data/gka2b.qubo");
 
         let p_symm = p.make_symmetric();
         let fixed_variables = preprocess_qubo(&p_symm, &HashMap::new(), false);
@@ -550,17 +567,23 @@ mod tests {
 
         let mut options = get_default_solver_options();
 
-        options.branch_strategy = branch;
+        options.branch_strategy = *branch;
         options.fixed_variables = fixed_variables.clone();
+        options.sub_problem_solver = *sup_problem_solver;
+        options.verbose = 0;
 
         let mut solver = branchbound::BBSolver::new(p_symm_conv, options);
         solver.warm_start(guess);
 
-        let (solution, _) = solver.solve();
+        let (_, sol_value) = solver.solve();
 
-        // ensure that the solution is actually possible with the preprocessor
-        for (&index, &val) in fixed_variables.iter() {
-            assert_eq!(val, solution[index]);
-        }
+        let actual_sol = Array1::from_vec(vec![
+            0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0,
+            0, 0,
+        ]);
+        let actual_obj = solver.qubo.eval_usize(&actual_sol);
+
+        // the solution should be within 1E-5 of the actual solution
+        assert!((sol_value - actual_obj).abs() <= 1E-5);
     }
 }

@@ -30,6 +30,7 @@ pub trait SubProblemSolver {
     ) -> SubProblemResult;
 }
 
+#[derive(Clone, Copy)]
 pub enum SubProblemSelection {
     ClarabelQP,
     ClarabelLP,
