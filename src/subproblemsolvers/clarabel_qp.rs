@@ -146,5 +146,4 @@ mod tests {
             assert_eq!(val, clarabel_matrix.get_entry((i, j)).unwrap());
         }
     }
-
 }

@@ -7,7 +7,6 @@ use crate::branch_stratagy::{BranchResult, BranchStrategy};
 use crate::branch_subproblem::{get_sub_problem_solver, SubProblemSolver};
 use crate::branchbound_utils::{check_integer_feasibility, get_current_time};
 use crate::branchboundlogger::SolverOutputLogger;
-use crate::early_termination::beck_proof;
 use crate::lower_bound::li_lower_bound;
 use crate::preprocess;
 use crate::preprocess::preprocess_qubo;
@@ -535,7 +534,7 @@ mod tests {
             BranchStrategy::RoundRobin,
             BranchStrategy::LargestDiag,
             BranchStrategy::MoveingEdges,
-            BranchStrategy::ConnectedComponents
+            BranchStrategy::ConnectedComponents,
         ];
 
         let sub_problem_solvers = vec![

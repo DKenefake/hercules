@@ -281,7 +281,6 @@ mod tests {
         assert_eq!(fixed_variables.len(), 3);
     }
 
-
     #[test]
     fn test_generate_sub_problem_1() {
         // the idea of this test is, given a QUBO & some fixed variables, generate an equivalent problem

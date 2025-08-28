@@ -21,7 +21,7 @@ pub enum BranchStrategy {
     LargestDiag,
     SmallestDiag,
     MoveingEdges,
-    ConnectedComponents
+    ConnectedComponents,
 }
 
 pub struct BranchResult {
@@ -62,31 +62,28 @@ impl BranchStrategy {
 }
 
 fn connected_components(solver: &BBSolver, node: &QuboBBNode) -> BranchResult {
-
     let mut selected_variable = 0;
     let mut max_components = 0;
     // scan through the variables and find the variable that breaks the graph into the most components
     for i in 0..solver.qubo.num_x() {
         if !node.fixed_variables.contains_key(&i) {
-
             let mut list_0 = node.fixed_variables.clone();
             list_0.insert(i, 0);
 
-            let num_components = crate::graph_utils::get_all_disconnected_graphs(&solver.qubo, &list_0);
+            let num_components =
+                crate::graph_utils::get_all_disconnected_graphs(&solver.qubo, &list_0);
 
             if num_components.len() > max_components {
                 max_components = num_components.len();
                 selected_variable = i;
             }
-
         }
     }
 
-    BranchResult{
+    BranchResult {
         branch_variable: selected_variable,
         found_fixed_vars: HashMap::new(),
     }
-
 }
 
 fn smallest_diag(solver: &BBSolver, node: &QuboBBNode) -> BranchResult {
