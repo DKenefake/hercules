@@ -36,7 +36,7 @@ impl SolverOutputLogger {
         println!("Fixed variables: {fixed_vars}");
 
         println!("----------------------------------------------------------------------------");
-        println!("Nodes Visited |  Best Solution |   Lower Bound  |    Gap (%)    | Time (sec)");
+        println!("Nodes Visited |  Nodes Unvisited  |  Best Solution  |   Lower Bound  |    Gap (%)    | Time (sec)");
     }
 
     pub fn generate_output_line(&self, solver_instance: &BBSolver) {
@@ -55,7 +55,8 @@ impl SolverOutputLogger {
         let gap = gap.max(0.0);
         let lower_bound = lower_bound.min(upper_bound);
         let current_time = get_current_time() - solver_instance.time_start;
-        println!("{num_nodes:<13} | {upper_bound:<13.8} | {lower_bound:<11.8} | {gap:<13.8} | {current_time:<13.8}");
+        let num_unvisited = solver_instance.nodes.len();
+        println!("{num_nodes:<13} | {num_unvisited:<13} | {upper_bound:<13.8} | {lower_bound:<11.8} | {gap:<13.8} | {current_time:<13.8}");
     }
 
     pub fn generate_exit_line(&self, solver_instance: &BBSolver) {

@@ -1,60 +1,44 @@
 use crate::constraint::{Constraint, ConstraintType};
-use crate::persistence::grad_bounds;
 use crate::qubo::Qubo;
-use ndarray::Array1;
 use std::collections::HashMap;
+use crate::preprocess::preprocess_qubo;
 
-/// Helper function to get d_ih, where d_ih = p.q[i,h] + p.q[h,i]
-pub fn get_dih(p: &Qubo, i: usize, h: usize) -> f64 {
-    let q_ih = *(p.q.get(i, h).unwrap_or(&0.0));
-    let q_hi = *(p.q.get(i, h).unwrap_or(&0.0));
-    q_ih + q_hi
-}
+/// Find Equations and inequalities that can be used to strengthen the QUBO by probing using the presolver
+fn find_equations(qubo: &Qubo, fixed_vars: &HashMap<usize, usize>, in_standard_form: bool) -> Vec<Constraint>{
 
-/// Implement Rule 1.1 from the paper glover2018
-///
-/// Rule was originally implemented as the following
-/// Assume d_ih > 0, if c_i +d_ih + D-_ >= 0 then x_i >= x_h
-///
-/// The rule we are implimenting is the following (this is due to us doing min while they are doing max)
-/// Assume d_ih < 0, if c_i +d_ih + D+_ > 0 then x_i <= x_h
-pub fn generate_rule_11(p: &Qubo, fixed: &HashMap<usize, usize>, i: usize) -> Vec<Constraint> {
-    let d_i = (0..p.num_x())
-        .map(|h| get_dih(p, i, h))
-        .collect::<Array1<f64>>();
-    let (D_plus, _) = grad_bounds(p, i, fixed);
+    let mut constraints = Vec::new();
+    let n = qubo.num_x();
 
-    let mut generated_rules = vec![];
+    for i in 0..n {
 
-    for h in 0..p.num_x() {
-        if d_i[h] < 0.0 && d_i[h] + D_plus > 0.0 {
-            let rule = Constraint::new(i, h, ConstraintType::LessThan);
-            generated_rules.push(rule);
-        }
-    }
-
-    generated_rules
-}
-
-/// Implement Rule 2.1 from the paper glover2018
-pub fn generate_rule_21(p: &Qubo, fixed: &HashMap<usize, usize>, i: usize) -> Vec<Constraint> {
-    let d_i = (0..p.num_x())
-        .map(|h| get_dih(p, i, h))
-        .collect::<Array1<f64>>();
-    let (_, D_minus) = grad_bounds(p, i, fixed);
-
-    let mut generated_rules = vec![];
-
-    for h in 0..p.num_x() {
-        if h == i {
+        if fixed_vars.contains_key(&i) {
             continue;
         }
 
-        if d_i[h] > 0.0 && d_i[h] + D_minus > 0.0 {
-            let rule = Constraint::new(i, h, ConstraintType::AtLeastOne);
-            generated_rules.push(rule);
+        let mut fixed_vars_0 = fixed_vars.clone();
+        let mut fixed_vars_1 = fixed_vars.clone();
+
+        fixed_vars_0.insert(i, 0);
+        fixed_vars_1.insert(i, 1);
+
+        let fixed_vars_0 = preprocess_qubo(qubo, &fixed_vars_0, in_standard_form);
+        let fixed_vars_1 = preprocess_qubo(qubo, &fixed_vars_1, in_standard_form);
+
+        for j in 0..n {
+            if i == j || fixed_vars.contains_key(&j) {
+                continue;
+            }
+
+            if fixed_vars_0.contains_key(&j) && fixed_vars_1.contains_key(&j) {
+                if fixed_vars_1[&j] == 1 && fixed_vars_0[&j] == 0 {
+                    constraints.push(Constraint::new(i, j, ConstraintType::Equal));
+                }
+                else if fixed_vars_0[&j] == 1 && fixed_vars_1[&j] == 0 {
+                    constraints.push(Constraint::new(i, j, ConstraintType::ExactlyOne));
+                }
+            }
         }
     }
 
-    generated_rules
+    constraints
 }

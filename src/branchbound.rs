@@ -306,8 +306,13 @@ impl BBSolver {
                     self.update_solution_if_better(&solution, value);
                 }
                 Event::AddBranches(zero_branch, one_branch) => {
-                    self.nodes.push(zero_branch);
-                    self.nodes.push(one_branch);
+                    // only add the branches if their lower bound is better than the current best solution
+                    if zero_branch.lower_bound <= self.best_solution_value {
+                        self.nodes.push(zero_branch);
+                    }
+                    if one_branch.lower_bound <= self.best_solution_value {
+                        self.nodes.push(one_branch);
+                    }
                 }
                 Event::Nill => {}
             }
@@ -343,7 +348,6 @@ impl BBSolver {
             // we pull a node from our node list
             let optional_node = self.nodes.pop();
 
-            // guard against the case where another thread might have popped the last node between the
             // check and unwrap the node if it is safe
             let node = optional_node?;
 
@@ -452,7 +456,7 @@ mod tests {
     use crate::preprocess::preprocess_qubo;
     use crate::qubo::Qubo;
     use crate::solver_options::SolverOptions;
-    use crate::tests::{make_solver_qubo, make_test_prng};
+    use crate::tests::make_test_prng;
     use crate::{branchbound, local_search};
     use ndarray::Array1;
     use sprs::CsMat;

@@ -129,7 +129,9 @@ pub fn solve_small_components(
             continue;
         }
 
-        assert!(!component.is_empty()); // we should never have an empty component
+        if component.is_empty(){
+            continue;
+        }
 
         // remove the fixed variables from the component
         let (sub_qubo, mapping) = make_component_qubo(qubo, &component, &new_fixed_variables);
@@ -138,7 +140,7 @@ pub fn solve_small_components(
         let (_, solution) = crate::subproblemsolvers::enumerate_qubo::enumerate_solve(&sub_qubo);
 
         // map the solution back to the original variables
-        for (key, &value) in mapping.iter() {
+        for (key, &value) in &mapping {
             new_fixed_variables.insert(*key, solution[value]);
         }
     }

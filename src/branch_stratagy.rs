@@ -188,31 +188,51 @@ fn largest_edges(solver: &BBSolver, node: &QuboBBNode) -> BranchResult {
 /// Computes what branch will generate the most fixed variables via the preprocesser
 pub fn most_fixed(solver: &BBSolver, node: &QuboBBNode) -> BranchResult {
     let mut most_fixed = 0;
-    let mut branch_var = 0;
+    let mut branch_variable = 0;
+
+    let mut found_fixed_vars = HashMap::new();
 
     for i in 0..solver.qubo.num_x() {
-        if !node.fixed_variables.contains_key(&i) {
+        if !node.fixed_variables.contains_key(&i) && !found_fixed_vars.contains_key(&i) {
             let mut list_0 = node.fixed_variables.clone();
             let mut list_1 = node.fixed_variables.clone();
 
             list_0.insert(i, 0);
             list_1.insert(i, 1);
 
-            let fixed_0 = preprocess_qubo(&solver.qubo_pp_form, &list_0, true).len();
-            let fixed_1 = preprocess_qubo(&solver.qubo_pp_form, &list_1, true).len();
+            // add in any already found fixed variables
+            for (&key, &value) in &found_fixed_vars{
+                list_0.insert(key, value);
+                list_1.insert(key, value);
+            }
 
-            let min_fixed = fixed_0.min(fixed_1);
+            let fixed_0 = preprocess_qubo(&solver.qubo_pp_form, &list_0, true);
+            let fixed_1 = preprocess_qubo(&solver.qubo_pp_form, &list_1, true);
+
+            for (&key, &value) in &fixed_0 {
+                // if this variable is not already fixed then we have the potential to fix it via a check
+                if !node.fixed_variables.contains_key(&key)  && fixed_1.contains_key(&key) {
+                    // if x_i being fixed to any value forces x_j to be the same value
+                    // then we can fix it to that value
+
+                    if fixed_1[&key] == value {
+                        found_fixed_vars.insert(key, value);
+                    }
+                }
+            }
+
+            let min_fixed = fixed_0.len().min(fixed_1.len());
 
             if min_fixed > most_fixed {
                 most_fixed = min_fixed;
-                branch_var = i;
+                branch_variable = i;
             }
         }
     }
 
     BranchResult {
-        branch_variable: branch_var,
-        found_fixed_vars: HashMap::new(),
+        branch_variable,
+        found_fixed_vars,
     }
 }
 
@@ -291,6 +311,14 @@ pub fn full_strong_branching(solver: &BBSolver, node: &QuboBBNode) -> BranchResu
 
         list_0.insert(*i, 0);
         list_1.insert(*i, 1);
+
+        for (&key, &value) in &found_fixes{
+            list_0.insert(key, value);
+            list_1.insert(key, value);
+        }
+
+        list_0 = preprocess_qubo(&solver.qubo_pp_form, &list_0, true);
+        list_1 = preprocess_qubo(&solver.qubo_pp_form, &list_1, true);
 
         // make new nodes
         let node_0 = QuboBBNode {
@@ -372,6 +400,14 @@ pub fn partial_strong_branching(solver: &BBSolver, node: &QuboBBNode) -> BranchR
 
         list_0.insert(j, 0);
         list_1.insert(j, 1);
+
+        for (&key, &value) in &found_fixes{
+            list_0.insert(key, value);
+            list_1.insert(key, value);
+        }
+
+        list_0 = preprocess_qubo(&solver.qubo_pp_form, &list_0, true);
+        list_1 = preprocess_qubo(&solver.qubo_pp_form, &list_1, true);
 
         // make new nodes
         let node_0 = QuboBBNode {

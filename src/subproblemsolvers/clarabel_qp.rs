@@ -123,12 +123,9 @@ impl ClarabelQPSolver {
 
 #[cfg(test)]
 mod tests {
-    use crate::qubo::Qubo;
     use crate::subproblemsolvers::clarabel_qp::ClarabelQPSolver;
     use crate::tests::make_solver_qubo;
-    use ndarray::Array1;
-    use sprs::{CsMat, TriMat};
-    use std::collections::HashMap;
+
 
     #[test]
     fn ensure_matrix_equivlence() {
