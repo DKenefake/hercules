@@ -22,6 +22,7 @@ impl SubProblemSolver for HerculesQPSolver {
         node: &QuboBBNode,
         _: Option<SubProblemOptions>,
     ) -> SubProblemResult {
+
         let x = pgd_main_loop(node.solution.clone(), &bbsolver.qubo, node);
         let obj = bbsolver.qubo.eval(&x);
 
@@ -72,7 +73,9 @@ fn pgd_main_loop(x_0: Array1<f64>, qubo: &Qubo, node: &QuboBBNode) -> Array1<f64
 
         // check if the solution has converged, if so exit
         let diff = &x_next - &x;
+
         x = x_next;
+
         if diff.norm_l1() < 1E-12 {
             break;
         }

@@ -11,6 +11,7 @@ pub enum BranchStrategy {
     MostViolated,
     Random,
     WorstApproximation,
+    WorstApproximation2,
     BestApproximation,
     MostEdges,
     LargestEdges,
@@ -36,6 +37,7 @@ impl BranchStrategy {
             Self::MostViolated => most_violated(bb_solver, node),
             Self::Random => random(bb_solver, node),
             Self::WorstApproximation => worst_approximation(bb_solver, node),
+            Self::WorstApproximation2 => worst_approximation_second_order(bb_solver, node),
             Self::BestApproximation => best_approximation(bb_solver, node),
             Self::MostEdges => most_edges(bb_solver, node),
             Self::LargestEdges => largest_edges(bb_solver, node),
@@ -293,6 +295,59 @@ pub fn most_violated(solver: &BBSolver, node: &QuboBBNode) -> BranchResult {
     }
 }
 
+pub fn worst_approximation_second_order(solver: &BBSolver, node: &QuboBBNode) -> BranchResult {
+    let (zero_flip, one_flip) = compute_strong_branch(solver, node);
+
+    // tracking variables for the worst approximation
+    let mut worst_approximation = f64::NEG_INFINITY;
+    let mut index_worst_approximation = 0;
+
+    // scan through the edges of the Q matrix and find the worst gain
+
+    for (&value, (i, j)) in &solver.qubo.q {
+
+        // if it is a fixed node, then skip it or if it is a self edge
+        if node.fixed_variables.contains_key(&i) || node.fixed_variables.contains_key(&j)  || i == j {
+            continue;
+        }
+
+        let Q_ii = solver.qubo.q[[i, i]];
+        let Q_jj = solver.qubo.q[[j, j]];
+        let Q_ij = value;
+
+        let obj = |x: f64, y: f64| -> f64 {
+            Q_ii * x * x + Q_jj * y * y + 2.0 * Q_ij * x * y
+        };
+
+        let flip_00 = obj(-node.solution[i], -node.solution[j]);
+        let flip_01 = obj(-node.solution[i], 1.0 - node.solution[j]);
+        let flip_10 = obj(1.0 - node.solution[i], -node.solution[j]);
+        let flip_11 = obj(1.0 - node.solution[i], 1.0 - node.solution[j]);
+
+        let min_obj_gain = flip_00.abs() * flip_01.abs() * flip_10.abs() * flip_11.abs();
+
+        // if it is the highest growing variable, then update the tracking variables
+        if min_obj_gain > worst_approximation {
+            worst_approximation = min_obj_gain;
+
+            // choose the variable that has the worst single variable approximation
+            let i_approx = zero_flip[i].abs() * (one_flip[i].abs());
+            let j_approx = zero_flip[j].abs() * (one_flip[j].abs());
+            if i_approx > j_approx {
+                index_worst_approximation = i;
+            } else {
+                index_worst_approximation = j;
+            }
+        }
+    }
+
+
+    BranchResult {
+        branch_variable: index_worst_approximation,
+        found_fixed_vars: HashMap::new(),
+    }
+}
+
 pub fn full_strong_branching(solver: &BBSolver, node: &QuboBBNode) -> BranchResult {
     let unfixed_variables = (0..solver.qubo.num_x())
         .filter(|i| !node.fixed_variables.contains_key(i))
@@ -352,6 +407,18 @@ pub fn full_strong_branching(solver: &BBSolver, node: &QuboBBNode) -> BranchResu
             fixed_variables.insert(*i, 0);
         }
 
+        for (&key, &value) in &node_0.fixed_variables {
+            // if this variable is not already fixed then we have the potential to fix it via a check
+            if !node.fixed_variables.contains_key(&key) && node_1.fixed_variables.contains_key(&key) {
+                // if x_i being fixed to any value forces x_j to be the same value
+                // then we can fix it to that value
+
+                if node_1.fixed_variables[&key] == value {
+                    found_fixes.insert(key, value);
+                }
+            }
+        }
+
         if score > best_score {
             best_score = score;
             best_variable = *i;
@@ -385,7 +452,7 @@ pub fn partial_strong_branching(solver: &BBSolver, node: &QuboBBNode) -> BranchR
 
     // test strong branching on the most likely candidate set of 5 variables
 
-    let end = usize::min(15, unfixed_vars.len());
+    let end = usize::min(25, unfixed_vars.len());
 
     let mut found_fixes = HashMap::new();
 
@@ -425,6 +492,7 @@ pub fn partial_strong_branching(solver: &BBSolver, node: &QuboBBNode) -> BranchR
         let bound_0 = solver
             .subproblem_solver
             .solve_lower_bound(solver, &node_0, None);
+
         let bound_1 = solver
             .subproblem_solver
             .solve_lower_bound(solver, &node_1, None);
@@ -437,6 +505,18 @@ pub fn partial_strong_branching(solver: &BBSolver, node: &QuboBBNode) -> BranchR
         } else if bound_1.0 >= solver.best_solution_value {
             found_fixes.insert(j, 0);
             fixed_variables.insert(j, 0);
+        }
+
+        for (&key, &value) in &node_0.fixed_variables {
+            // if this variable is not already fixed then we have the potential to fix it via a check
+            if !node.fixed_variables.contains_key(&key) && node_1.fixed_variables.contains_key(&key) {
+                // if x_i being fixed to any value forces x_j to be the same value
+                // then we can fix it to that value
+
+                if node_1.fixed_variables[&key] == value {
+                    found_fixes.insert(key, value);
+                }
+            }
         }
 
         if score_i > best_score {
