@@ -522,14 +522,12 @@ mod tests {
             BranchStrategy::PartialStrongBranching,
             BranchStrategy::LargestDiag,
             BranchStrategy::MoveingEdges,
-            BranchStrategy::BestApproximation,
-            BranchStrategy::SmallestDiag,
             BranchStrategy::RoundRobin,
         ];
 
         let sub_problem_solvers = vec![
             SubProblemSelection::ClarabelQP,
-            SubProblemSelection::HerculesCDQP,
+            SubProblemSelection::HerculesCDQP
         ];
 
         for branch in &branch_options {

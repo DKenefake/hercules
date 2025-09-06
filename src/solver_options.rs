@@ -68,7 +68,6 @@ impl SolverOptions {
         #[allow(clippy::redundant_pattern_matching)]
         if let Some(s) = strategy {
             match s.as_str() {
-                "hercules" => self.sub_problem_solver = SubProblemSelection::HerculesPGDQP,
                 "hercules_cd" => {
                     self.sub_problem_solver = SubProblemSelection::HerculesCDQP;
                 }
@@ -110,16 +109,6 @@ mod tests {
         assert!(matches!(
             options.branch_strategy,
             BranchStrategy::Random
-        ));
-    }
-
-    #[test]
-    fn test_solver_options_set_sub_problem_strat_1() {
-        let mut options = SolverOptions::new();
-        options.set_sub_problem_strategy(Some("hercules".to_string()));
-        assert!(matches!(
-            options.sub_problem_solver,
-            SubProblemSelection::HerculesPGDQP
         ));
     }
 

@@ -38,13 +38,7 @@ impl SubProblemSolver for HerculesCDQPSolver {
     }
 }
 
-fn project(mut x: Array1<f64>) -> Array1<f64> {
-    // project into a box by clamping every value between 0 and 1, this is done in place (paranoia)
-    for i in 0..x.len() {
-        x[i] = x[i].clamp(0.0, 1.0);
-    }
-    x
-}
+
 
 fn cd_main_loop(
     mut x_0: Array1<f64>,
@@ -67,6 +61,14 @@ fn cd_main_loop(
         x[new] = x_0[original];
     }
 
+    fn project(mut x: Array1<f64>) -> Array1<f64> {
+        // project into a box by clamping every value between 0 and 1, this is done in place (paranoia)
+        for i in 0..x.len() {
+            x[i] = x[i].clamp(0.0, 1.0);
+        }
+        x
+    }
+    
     // for safety and paranoia, project the initial solution to the box
     let mut x = project(x);
 

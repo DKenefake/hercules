@@ -12,7 +12,6 @@ pub enum BranchStrategy {
     Random,
     WorstApproximation,
     WorstApproximation2,
-    BestApproximation,
     MostEdges,
     LargestEdges,
     MostFixed,
@@ -20,7 +19,6 @@ pub enum BranchStrategy {
     PartialStrongBranching,
     RoundRobin,
     LargestDiag,
-    SmallestDiag,
     MoveingEdges,
     ConnectedComponents,
 }
@@ -40,7 +38,6 @@ impl BranchStrategy {
             Self::Random => random(bb_solver, node),
             Self::WorstApproximation => worst_approximation(bb_solver, node),
             Self::WorstApproximation2 => worst_approximation_second_order(bb_solver, node),
-            Self::BestApproximation => best_approximation(bb_solver, node),
             Self::MostEdges => most_edges(bb_solver, node),
             Self::LargestEdges => largest_edges(bb_solver, node),
             Self::MostFixed => most_fixed(bb_solver, node),
@@ -48,7 +45,6 @@ impl BranchStrategy {
             Self::PartialStrongBranching => partial_strong_branching(bb_solver, node),
             Self::RoundRobin => round_robin(bb_solver, node),
             Self::LargestDiag => largest_diag(bb_solver, node),
-            Self::SmallestDiag => smallest_diag(bb_solver, node),
             Self::MoveingEdges => moving_edges(bb_solver, node),
             Self::ConnectedComponents => connected_components(bb_solver, node),
         };
@@ -86,28 +82,6 @@ fn connected_components(solver: &BBSolver, node: &QuboBBNode) -> BranchResult {
 
     BranchResult {
         branch_variable: selected_variable,
-        found_fixed_vars: HashMap::new(),
-    }
-}
-
-fn smallest_diag(solver: &BBSolver, node: &QuboBBNode) -> BranchResult {
-    // find the variable with the lowest diagonal value in the Q matrix
-    let mut max_diag = f64::INFINITY;
-    let mut index_min_diag = 0;
-
-    for i in 0..solver.qubo.num_x() {
-        if !node.fixed_variables.contains_key(&i) {
-            let diag_value = solver.qubo.q[[i, i]];
-
-            if diag_value < max_diag {
-                max_diag = diag_value;
-                index_min_diag = i;
-            }
-        }
-    }
-
-    BranchResult {
-        branch_variable: index_min_diag,
         found_fixed_vars: HashMap::new(),
     }
 }
@@ -596,37 +570,6 @@ pub fn worst_approximation(solver: &BBSolver, node: &QuboBBNode) -> BranchResult
     }
 }
 
-/// Branches on the variable that has an estimated best result, keeping the lower bound as low as possible
-pub fn best_approximation(solver: &BBSolver, node: &QuboBBNode) -> BranchResult {
-    let (zero_flip, one_flip) = compute_strong_branch(solver, node);
-
-    // tracking variables for the worst approximation
-    let mut worst_approximation = f64::INFINITY;
-    let mut index_best_approximation = 0;
-
-    // scan through the variables and find the worst gain
-    for i in 0..solver.qubo.num_x() {
-        // if it is a fixed node, then skip it
-        if node.fixed_variables.contains_key(&i) {
-            continue;
-        }
-
-        // find the minimum of the two objective changes
-        let max_obj_gain = zero_flip[i].abs().max(one_flip[i].abs());
-
-        // if it is the highest growing variable, then update the tracking variables
-        if max_obj_gain <= worst_approximation {
-            worst_approximation = max_obj_gain;
-            index_best_approximation = i;
-        }
-    }
-
-    BranchResult {
-        branch_variable: index_best_approximation,
-        found_fixed_vars: HashMap::new(),
-    }
-}
-
 pub fn compute_strong_branch(solver: &BBSolver, node: &QuboBBNode) -> (Array1<f64>, Array1<f64>) {
     // makes the assumption that the node solution is the solution of the relaxed problem above
 
@@ -695,11 +638,10 @@ pub fn round_robin(solver: &BBSolver, node: &QuboBBNode) -> BranchResult {
         generator: JsfLarge::from(node_seed + solver_seed),
     };
 
-    match prng.gen_u64() % 4 {
+    match prng.gen_u64() % 3 {
         0 => largest_edges(solver, node),
         1 => most_edges(solver, node),
         2 => worst_approximation(solver, node),
-        3 => best_approximation(solver, node),
         _ => panic!("Random branch selection failed"),
     }
 }
