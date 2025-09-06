@@ -1,6 +1,5 @@
 #![crate_name = "hercules"]
 #![doc = include_str!("../README.md")] // imports the readme as the front page of the documentation
-
 #![warn(clippy::all, clippy::pedantic, clippy::cargo, clippy::nursery)]
 #![allow(non_snake_case)] // some of the variable names are taken from papers, and are not snake case
 #![allow(clippy::let_and_return)] // in many instances we are recreating equations as written in papers, and helps with readability

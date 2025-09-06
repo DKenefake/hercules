@@ -106,10 +106,7 @@ mod tests {
     fn test_solver_options_set_branch_strat() {
         let mut options = SolverOptions::new();
         options.set_branch_strategy(Some("Random".to_string()));
-        assert!(matches!(
-            options.branch_strategy,
-            BranchStrategy::Random
-        ));
+        assert!(matches!(options.branch_strategy, BranchStrategy::Random));
     }
 
     #[test]
@@ -146,9 +143,6 @@ mod tests {
     fn test_solver_options_set_heuristic_strat_2() {
         let mut options = SolverOptions::new();
         options.set_heuristic_strategy(Some("LocalSearch".to_string()));
-        assert!(matches!(
-            options.heuristic,
-            HeuristicSelection::LocalSearch
-        ));
+        assert!(matches!(options.heuristic, HeuristicSelection::LocalSearch));
     }
 }

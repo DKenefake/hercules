@@ -29,7 +29,6 @@ pub struct BranchResult {
 }
 
 impl BranchStrategy {
-
     /// # Panics if the node does not have an unfixed variable or if the branching strategy fails
     pub fn make_branch(self, bb_solver: &BBSolver, node: &QuboBBNode) -> BranchResult {
         let branch_result = match self {

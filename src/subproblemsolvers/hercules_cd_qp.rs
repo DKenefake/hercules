@@ -38,8 +38,6 @@ impl SubProblemSolver for HerculesCDQPSolver {
     }
 }
 
-
-
 fn cd_main_loop(
     mut x_0: Array1<f64>,
     qubo: &Qubo,
@@ -68,7 +66,7 @@ fn cd_main_loop(
         }
         x
     }
-    
+
     // for safety and paranoia, project the initial solution to the box
     let mut x = project(x);
 

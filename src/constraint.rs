@@ -123,9 +123,7 @@ impl Constraint {
         }
 
         // check if x_i is fixed and return the standard form
-        let xi_form = persistent.get(&self.x_i).map(|&x| {
-            (self.x_i, self.x_j, x)
-        });
+        let xi_form = persistent.get(&self.x_i).map(|&x| (self.x_i, self.x_j, x));
 
         if xi_form.is_some() {
             return xi_form;
@@ -133,7 +131,6 @@ impl Constraint {
 
         // else x_j must be fixed, return the standard form
         persistent.get(&self.x_j).map(|&x| (self.x_j, self.x_i, x))
-
     }
 
     /// Given a constraint of the type x_i + x_j <= 1, computes if we can make an inference on
@@ -426,7 +423,6 @@ mod tests {
         assert_eq!(c_greater.make_inference(&persistent), None);
         assert_eq!(c_less.make_inference(&persistent), None);
         assert_eq!(c_equal.make_inference(&persistent), None);
-
     }
 
     #[test]
@@ -434,7 +430,6 @@ mod tests {
         let mut persistent = HashMap::new();
         persistent.insert(0, 0);
         persistent.insert(1, 0);
-
 
         let c_at_least = Constraint::new(0, 1, ConstraintType::AtLeastOne);
         let c_no_more = Constraint::new(0, 1, ConstraintType::NoMoreThanOne);
@@ -449,6 +444,5 @@ mod tests {
         assert_eq!(c_greater.make_inference(&persistent), None);
         assert_eq!(c_less.make_inference(&persistent), None);
         assert_eq!(c_equal.make_inference(&persistent), None);
-
     }
 }

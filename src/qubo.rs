@@ -777,7 +777,7 @@ mod tests {
     }
 
     #[test]
-    fn test_round_trip_from_to_vec(){
+    fn test_round_trip_from_to_vec() {
         let mut prng = crate::tests::make_test_prng();
         let p = Qubo::make_random_qubo(50, &mut prng, 0.1);
         let (i, j, q, c, num_x) = p.to_vec();
