@@ -1,10 +1,10 @@
-use std::collections::HashMap;
 use crate::branch_node::QuboBBNode;
 use crate::branch_subproblem::{SubProblemOptions, SubProblemResult, SubProblemSolver};
 use crate::branchbound::BBSolver;
+use crate::preprocess::make_sub_problem;
 use crate::qubo::Qubo;
 use ndarray::Array1;
-use crate::preprocess::make_sub_problem;
+use std::collections::HashMap;
 
 #[derive(Clone)]
 pub struct HerculesCDQPSolver {}
@@ -26,7 +26,12 @@ impl SubProblemSolver for HerculesCDQPSolver {
             .and_then(|opts| opts.max_iterations)
             .unwrap_or(100_000);
 
-        let x = cd_main_loop(node.solution.clone(), &bbsolver.qubo, &node.fixed_variables, max_iterations);
+        let x = cd_main_loop(
+            node.solution.clone(),
+            &bbsolver.qubo,
+            &node.fixed_variables,
+            max_iterations,
+        );
         let obj = bbsolver.qubo.eval(&x);
 
         (obj, x)
@@ -47,7 +52,6 @@ fn cd_main_loop(
     fixed_variables: &HashMap<usize, usize>,
     max_iterations: usize,
 ) -> Array1<f64> {
-
     // project to a smaller problem space
     let (sub_qubo, var_mapping, _) = make_sub_problem(&qubo, &fixed_variables);
 
@@ -81,7 +85,6 @@ fn cd_main_loop(
         i += 1;
     }
 
-
     // we now need to map back to the original space
     for (&original, &new) in &var_mapping {
         x_0[original] = x[new];
@@ -94,7 +97,6 @@ pub fn cd_step(x: &mut Array1<f64>, qubo: &Qubo) -> f64 {
     let mut shift: f64 = 0.0;
 
     for i in 0..x.len() {
-
         let Q_i = qubo.q.outer_view(i).unwrap();
 
         // compute the linear term of the cd expression
@@ -107,8 +109,6 @@ pub fn cd_step(x: &mut Array1<f64>, qubo: &Qubo) -> f64 {
         } else {
             l_i / q_ii
         };
-
-
 
         // update the variable
         let x_moved = (x[i] + d_i).clamp(0.0, 1.0);

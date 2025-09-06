@@ -65,11 +65,7 @@ pub fn one_step_local_search_improved(
     }
 }
 
-pub fn two_step_local_search_improved(
-    qubo: &Qubo,
-    x_0: &Array1<usize>,
-)-> Array1<usize>{
-
+pub fn two_step_local_search_improved(qubo: &Qubo, x_0: &Array1<usize>) -> Array1<usize> {
     // Do a neighborhood search of up to two bit flips and returns the best solution
     let (_, obj_1d) = one_flip_objective(qubo, x_0);
 
@@ -87,9 +83,11 @@ pub fn two_step_local_search_improved(
     let mut best_obj_2d = f64::INFINITY;
     let mut best_2d_neighbor = (0, 1);
 
-    for (q_ij, (i,j)) in &qubo.q {
-        if i > j{
-            let current_obj_2d = obj_1d[i] + obj_1d[j] + q_ij * (1.0 - 2.0 * (x_0[i] as f64)) * (1.0 - 2.0 * (x_0[j] as f64));
+    for (q_ij, (i, j)) in &qubo.q {
+        if i > j {
+            let current_obj_2d = obj_1d[i]
+                + obj_1d[j]
+                + q_ij * (1.0 - 2.0 * (x_0[i] as f64)) * (1.0 - 2.0 * (x_0[j] as f64));
 
             if current_obj_2d < best_obj_2d {
                 best_obj_2d = current_obj_2d;
@@ -111,7 +109,6 @@ pub fn two_step_local_search_improved(
     } else {
         x_0.clone()
     }
-
 }
 
 /// Auxiliary function to calculate the gains from flipping each variable
@@ -290,17 +287,17 @@ pub fn contract_point(
     x_1
 }
 
-
 #[cfg(test)]
 mod tests {
 
-    use crate::local_search_utils::{one_step_local_search_improved, two_step_local_search_improved};
+    use crate::local_search_utils::{
+        one_step_local_search_improved, two_step_local_search_improved,
+    };
     use crate::qubo::Qubo;
     use smolprng::{JsfLarge, PRNG};
 
     #[test]
     fn test_one_step_local_search_improved() {
-
         // generate a random QUBO
         let mut prng = PRNG {
             generator: JsfLarge::default(),
@@ -309,11 +306,10 @@ mod tests {
         let p = Qubo::make_random_qubo(50, &mut prng, 0.2);
         let selected_vars: Vec<usize> = (0..p.num_x()).collect();
 
-
         for _ in 0..100 {
-
             // generate a random point inside with x in {0, 1}^10 with
-            let x_0 = crate::initial_points::generate_random_binary_point(p.num_x(), &mut prng, 0.5);
+            let x_0 =
+                crate::initial_points::generate_random_binary_point(p.num_x(), &mut prng, 0.5);
 
             // compute the next step
             let x_1 = one_step_local_search_improved(&p, &x_0, &selected_vars);
@@ -329,7 +325,6 @@ mod tests {
 
     #[test]
     fn test_two_step_local_search_improved() {
-
         // generate a random QUBO
         let mut prng = PRNG {
             generator: JsfLarge::default(),
@@ -338,11 +333,10 @@ mod tests {
         let p = Qubo::make_random_qubo(50, &mut prng, 0.2);
         let selected_vars: Vec<usize> = (0..p.num_x()).collect();
 
-
         for _ in 0..100 {
-
             // generate a random point inside with x in {0, 1}^10 with
-            let x_0 = crate::initial_points::generate_random_binary_point(p.num_x(), &mut prng, 0.5);
+            let x_0 =
+                crate::initial_points::generate_random_binary_point(p.num_x(), &mut prng, 0.5);
 
             // compute the next step
             let x_1 = one_step_local_search_improved(&p, &x_0, &selected_vars);
@@ -360,7 +354,4 @@ mod tests {
             assert!(obj_1 <= obj_0);
         }
     }
-
-
-
 }

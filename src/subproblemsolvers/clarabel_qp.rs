@@ -126,7 +126,6 @@ mod tests {
     use crate::subproblemsolvers::clarabel_qp::ClarabelQPSolver;
     use crate::tests::make_solver_qubo;
 
-
     #[test]
     fn ensure_matrix_equivlence() {
         // the idea of this test is to make sure that the conversion from sprs to clarabel is correct

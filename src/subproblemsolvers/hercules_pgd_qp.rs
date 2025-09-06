@@ -22,7 +22,6 @@ impl SubProblemSolver for HerculesQPSolver {
         node: &QuboBBNode,
         _: Option<SubProblemOptions>,
     ) -> SubProblemResult {
-
         let x = pgd_main_loop(node.solution.clone(), &bbsolver.qubo, node);
         let obj = bbsolver.qubo.eval(&x);
 

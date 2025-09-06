@@ -203,7 +203,7 @@ pub fn most_fixed(solver: &BBSolver, node: &QuboBBNode) -> BranchResult {
             list_1.insert(i, 1);
 
             // add in any already found fixed variables
-            for (&key, &value) in &found_fixed_vars{
+            for (&key, &value) in &found_fixed_vars {
                 list_0.insert(key, value);
                 list_1.insert(key, value);
             }
@@ -213,7 +213,7 @@ pub fn most_fixed(solver: &BBSolver, node: &QuboBBNode) -> BranchResult {
 
             for (&key, &value) in &fixed_0 {
                 // if this variable is not already fixed then we have the potential to fix it via a check
-                if !node.fixed_variables.contains_key(&key)  && fixed_1.contains_key(&key) {
+                if !node.fixed_variables.contains_key(&key) && fixed_1.contains_key(&key) {
                     // if x_i being fixed to any value forces x_j to be the same value
                     // then we can fix it to that value
 
@@ -305,9 +305,9 @@ pub fn worst_approximation_second_order(solver: &BBSolver, node: &QuboBBNode) ->
     // scan through the edges of the Q matrix and find the worst gain
 
     for (&value, (i, j)) in &solver.qubo.q {
-
         // if it is a fixed node, then skip it or if it is a self edge
-        if node.fixed_variables.contains_key(&i) || node.fixed_variables.contains_key(&j)  || i == j {
+        if node.fixed_variables.contains_key(&i) || node.fixed_variables.contains_key(&j) || i == j
+        {
             continue;
         }
 
@@ -315,9 +315,7 @@ pub fn worst_approximation_second_order(solver: &BBSolver, node: &QuboBBNode) ->
         let Q_jj = solver.qubo.q[[j, j]];
         let Q_ij = value;
 
-        let obj = |x: f64, y: f64| -> f64 {
-            Q_ii * x * x + Q_jj * y * y + 2.0 * Q_ij * x * y
-        };
+        let obj = |x: f64, y: f64| -> f64 { Q_ii * x * x + Q_jj * y * y + 2.0 * Q_ij * x * y };
 
         let flip_00 = obj(-node.solution[i], -node.solution[j]);
         let flip_01 = obj(-node.solution[i], 1.0 - node.solution[j]);
@@ -340,7 +338,6 @@ pub fn worst_approximation_second_order(solver: &BBSolver, node: &QuboBBNode) ->
             }
         }
     }
-
 
     BranchResult {
         branch_variable: index_worst_approximation,
@@ -367,7 +364,7 @@ pub fn full_strong_branching(solver: &BBSolver, node: &QuboBBNode) -> BranchResu
         list_0.insert(*i, 0);
         list_1.insert(*i, 1);
 
-        for (&key, &value) in &found_fixes{
+        for (&key, &value) in &found_fixes {
             list_0.insert(key, value);
             list_1.insert(key, value);
         }
@@ -409,7 +406,8 @@ pub fn full_strong_branching(solver: &BBSolver, node: &QuboBBNode) -> BranchResu
 
         for (&key, &value) in &node_0.fixed_variables {
             // if this variable is not already fixed then we have the potential to fix it via a check
-            if !node.fixed_variables.contains_key(&key) && node_1.fixed_variables.contains_key(&key) {
+            if !node.fixed_variables.contains_key(&key) && node_1.fixed_variables.contains_key(&key)
+            {
                 // if x_i being fixed to any value forces x_j to be the same value
                 // then we can fix it to that value
 
@@ -468,7 +466,7 @@ pub fn partial_strong_branching(solver: &BBSolver, node: &QuboBBNode) -> BranchR
         list_0.insert(j, 0);
         list_1.insert(j, 1);
 
-        for (&key, &value) in &found_fixes{
+        for (&key, &value) in &found_fixes {
             list_0.insert(key, value);
             list_1.insert(key, value);
         }
@@ -509,7 +507,8 @@ pub fn partial_strong_branching(solver: &BBSolver, node: &QuboBBNode) -> BranchR
 
         for (&key, &value) in &node_0.fixed_variables {
             // if this variable is not already fixed then we have the potential to fix it via a check
-            if !node.fixed_variables.contains_key(&key) && node_1.fixed_variables.contains_key(&key) {
+            if !node.fixed_variables.contains_key(&key) && node_1.fixed_variables.contains_key(&key)
+            {
                 // if x_i being fixed to any value forces x_j to be the same value
                 // then we can fix it to that value
 

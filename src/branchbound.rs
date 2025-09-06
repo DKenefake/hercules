@@ -485,57 +485,49 @@ mod tests {
         assert_eq!(solver.best_solution_value, -4.6);
         assert_eq!(solver.best_solution, Array1::from_vec(vec![1, 1, 1]));
     }
+
     #[test]
-    pub fn branch_bound_most_violated_branching() {
-        setup_and_solve_problem(
-            &BranchStrategy::MostViolated,
-            &SubProblemSelection::HerculesCDQP,
-        )
+    pub fn test_gka2b_solve() {
+        let file_path = "test_data/gka2b.qubo";
+        let p = Qubo::read_qubo(file_path)
+            .make_symmetric()
+            .convex_symmetric_form();
+
+        let sol_val = Array1::from_vec(vec![
+            0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0,
+            0, 0,
+        ]);
+
+        solve_qubo_with_all_permutations(&p, &sol_val);
     }
 
     #[test]
-    pub fn branch_bound_random_branching() {
-        setup_and_solve_problem(&BranchStrategy::Random, &SubProblemSelection::HerculesCDQP)
+    pub fn test_bqp50_solve() {
+        let file_path = "test_data/bqp50.qubo";
+        let p = Qubo::read_qubo(file_path)
+            .make_symmetric()
+            .convex_symmetric_form();
+
+        let sol_val = Array1::from_vec(
+            vec![0, 1, 0, 0, 0, 0, 1, 1, 1, 1, 0, 1, 1, 0, 0, 1, 1, 1, 1, 1, 1, 0, 1, 0,
+                    0, 0, 0, 1, 1, 0, 1, 1, 0, 1, 0, 0, 1, 1, 1, 0, 1, 0, 0, 1, 1, 0, 1, 1,
+                    0],
+        );
+        solve_qubo_with_all_permutations(&p, &sol_val);
     }
 
-    #[test]
-    pub fn branch_bound_worst_approximation_branching() {
-        setup_and_solve_problem(
-            &BranchStrategy::WorstApproximation,
-            &SubProblemSelection::HerculesCDQP,
-        )
-    }
-
-    #[test]
-    pub fn branch_bound_best_approximation_branching() {
-        setup_and_solve_problem(
-            &BranchStrategy::BestApproximation,
-            &SubProblemSelection::HerculesCDQP,
-        )
-    }
-
-    #[test]
-    pub fn branch_bound_finf_branching() {
-        setup_and_solve_problem(
-            &BranchStrategy::FirstNotFixed,
-            &SubProblemSelection::HerculesCDQP,
-        )
-    }
-
-    #[test]
-    pub fn solve_with_all_permutations() {
+    pub fn solve_qubo_with_all_permutations(qubo: &Qubo, sol_val: &Array1<usize>) {
         let branch_options = vec![
             BranchStrategy::FirstNotFixed,
             BranchStrategy::MostViolated,
             BranchStrategy::Random,
             BranchStrategy::WorstApproximation,
-            BranchStrategy::BestApproximation,
+            BranchStrategy::WorstApproximation2,
             BranchStrategy::MostEdges,
             BranchStrategy::LargestEdges,
             BranchStrategy::MostFixed,
             BranchStrategy::FullStrongBranching,
             BranchStrategy::PartialStrongBranching,
-            BranchStrategy::RoundRobin,
             BranchStrategy::LargestDiag,
             BranchStrategy::MoveingEdges,
             BranchStrategy::ConnectedComponents,
@@ -548,7 +540,7 @@ mod tests {
 
         for branch in &branch_options {
             for sup_problem_solver in &sub_problem_solvers {
-                setup_and_solve_problem(branch, &sup_problem_solver);
+                setup_and_solve_problem(branch, &sup_problem_solver, qubo, sol_val);
             }
         }
     }
@@ -556,17 +548,14 @@ mod tests {
     pub fn setup_and_solve_problem(
         branch: &BranchStrategy,
         sup_problem_solver: &SubProblemSelection,
+        qubo: &Qubo,
+        true_sol: &Array1<usize>,
     ) {
         let mut prng = make_test_prng();
 
-        let p = Qubo::read_qubo("test_data/gka2b.qubo");
+        let fixed_variables = preprocess_qubo(&qubo, &HashMap::new(), false);
 
-        let p_symm = p.make_symmetric();
-        let fixed_variables = preprocess_qubo(&p_symm, &HashMap::new(), false);
-
-        let p_symm_conv = p.convex_symmetric_form();
-
-        let guess = local_search::particle_swarm_search(&p_symm_conv, 10, 100, &mut prng);
+        let guess = local_search::particle_swarm_search(&qubo, 10, 100, &mut prng);
 
         let mut options = get_default_solver_options();
 
@@ -575,18 +564,16 @@ mod tests {
         options.sub_problem_solver = *sup_problem_solver;
         options.verbose = 0;
 
-        let mut solver = branchbound::BBSolver::new(p_symm_conv, options);
+        let mut solver = branchbound::BBSolver::new(qubo.clone(), options);
+
         solver.warm_start(guess);
 
         let (_, sol_value) = solver.solve();
 
-        let actual_sol = Array1::from_vec(vec![
-            0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0,
-            0, 0,
-        ]);
-        let actual_obj = solver.qubo.eval_usize(&actual_sol);
+        let actual_obj = solver.qubo.eval_usize(&true_sol);
 
         // the solution should be within 1E-5 of the actual solution
+        // we don't check against the solution as there can be multiple optimal solutions
         assert!((sol_value - actual_obj).abs() <= 1E-5);
     }
 }

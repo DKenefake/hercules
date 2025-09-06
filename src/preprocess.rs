@@ -129,7 +129,7 @@ pub fn solve_small_components(
             continue;
         }
 
-        if component.is_empty(){
+        if component.is_empty() {
             continue;
         }
 
