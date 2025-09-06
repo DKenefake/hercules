@@ -36,11 +36,18 @@ impl Constraint {
             return true;
         }
 
-        // this unwrapping is safe, as we have already checked that both variables are fixed
-        let x_i_value = *persistent.get(&self.x_i).unwrap();
-        let x_j_value = *persistent.get(&self.x_j).unwrap();
+        // this unwrapping is safe, as we have already checked that both variables are fixed,
+        // but we use get to avoid an explicit unwrap :(
+        let x_i_option = persistent.get(&self.x_i);
+        let x_j_option = persistent.get(&self.x_j);
 
-        // check if we abide by the constraint
+        match (x_i_option, x_j_option) {
+            (Some(&x_i_value), Some(&x_j_value)) => self.check_values(x_i_value, x_j_value),
+            _ => true,
+        }
+    }
+
+    const fn check_values(&self, x_i_value: usize, x_j_value: usize) -> bool {
         match self.constr_type {
             ConstraintType::NoMoreThanOne => Self::no_more_than_one(x_i_value, x_j_value),
             ConstraintType::AtLeastOne => Self::at_least_one(x_i_value, x_j_value),
@@ -62,8 +69,8 @@ impl Constraint {
             return None;
         }
 
-        // give we have one fixed, then we can always make the standard form
-        let (_, free, fixed_value) = self.get_standard_form(persistent).unwrap();
+        // give we have one fixed, then we can always make the standard form but if we can't return None
+        let (_, free, fixed_value) = self.get_standard_form(persistent)?;
 
         // if we have only one fixed, then we can make an inference
         match self.constr_type {
@@ -142,9 +149,10 @@ impl Constraint {
         fixed_value: usize,
     ) -> Option<(usize, usize)> {
         // if the fixed value is 1, then the free variable must be 0 else nothing can be said
-        match fixed_value == 1 {
-            true => Some((free_var, 0)),
-            false => None,
+        if fixed_value == 1 {
+            Some((free_var, 0))
+        } else {
+            None
         }
     }
 
@@ -157,9 +165,10 @@ impl Constraint {
         fixed_value: usize,
     ) -> Option<(usize, usize)> {
         // if the fixed value is 1, then the free variable must be 0
-        match fixed_value == 1 {
-            true => Some((free_var, 0)),
-            false => Some((free_var, 1)),
+        if fixed_value == 1 {
+            Some((free_var, 0))
+        } else {
+            Some((free_var, 1))
         }
     }
 

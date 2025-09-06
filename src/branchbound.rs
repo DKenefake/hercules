@@ -493,37 +493,45 @@ mod tests {
 
         solve_qubo_with_all_permutations(&p, &sol_val);
     }
-    
+
     #[test]
-    pub fn test_gka1b_solve(){
+    pub fn test_gka1b_solve() {
         let file_path = "test_data/gka1b.qubo";
         let p = Qubo::read_qubo(file_path)
             .make_symmetric()
             .convex_symmetric_form();
 
-        let sol_val = Array1::from_vec(vec![ 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 1, 0, 0]);
+        let sol_val = Array1::from_vec(vec![
+            0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 1, 0, 0,
+        ]);
         solve_qubo_with_all_permutations(&p, &sol_val);
     }
 
     #[test]
-    pub fn test_gka6a_solve(){
+    pub fn test_gka6a_solve() {
         let file_path = "test_data/gka6a.qubo";
         let p = Qubo::read_qubo(file_path)
             .make_symmetric()
             .convex_symmetric_form();
 
-        let sol_val = Array1::from_vec(vec! [0, 1, 0, 1, 1, 1, 0, 1, 0, 1, 1, 1, 1, 0, 1, 1, 0, 1, 1, 0, 1, 1, 1, 1, 1, 1, 1, 0, 1, 0, 1]);
+        let sol_val = Array1::from_vec(vec![
+            0, 1, 0, 1, 1, 1, 0, 1, 0, 1, 1, 1, 1, 0, 1, 1, 0, 1, 1, 0, 1, 1, 1, 1, 1, 1, 1, 0, 1,
+            0, 1,
+        ]);
         solve_qubo_with_all_permutations(&p, &sol_val);
     }
 
     #[test]
-    pub fn test_gka7a_solve(){
+    pub fn test_gka7a_solve() {
         let file_path = "test_data/gka7a.qubo";
         let p = Qubo::read_qubo(file_path)
             .make_symmetric()
             .convex_symmetric_form();
 
-        let sol_val = Array1::from_vec(vec!  [0, 1, 1, 1, 1, 1, 1, 1, 1, 0, 1, 0, 1, 1, 0, 1, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 1]);
+        let sol_val = Array1::from_vec(vec![
+            0, 1, 1, 1, 1, 1, 1, 1, 1, 0, 1, 0, 1, 1, 0, 1, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0,
+            0, 1,
+        ]);
         solve_qubo_with_all_permutations(&p, &sol_val);
     }
 

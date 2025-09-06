@@ -1,5 +1,6 @@
 use crate::branch_node::QuboBBNode;
 use crate::branchbound::BBSolver;
+use crate::graph_utils::get_all_disconnected_graphs;
 use crate::preprocess::preprocess_qubo;
 use ndarray::Array1;
 use smolprng::{JsfLarge, PRNG};
@@ -29,7 +30,9 @@ pub struct BranchResult {
 }
 
 impl BranchStrategy {
-    /// # Panics if the node does not have an unfixed variable or if the branching strategy fails
+    /// # Panics
+    /// if the node does not have an unfixed variable or if the branching strategy fails
+    /// to find a variable to branch on
     pub fn make_branch(self, bb_solver: &BBSolver, node: &QuboBBNode) -> BranchResult {
         let branch_result = match self {
             Self::FirstNotFixed => first_not_fixed(bb_solver, node),
@@ -69,8 +72,7 @@ fn connected_components(solver: &BBSolver, node: &QuboBBNode) -> BranchResult {
             let mut list_0 = node.fixed_variables.clone();
             list_0.insert(i, 0);
 
-            let num_components =
-                crate::graph_utils::get_all_disconnected_graphs(&solver.qubo, &list_0);
+            let num_components = get_all_disconnected_graphs(&solver.qubo, &list_0);
 
             if num_components.len() > max_components {
                 max_components = num_components.len();
@@ -213,7 +215,8 @@ pub fn most_fixed(solver: &BBSolver, node: &QuboBBNode) -> BranchResult {
     }
 }
 
-/// # Panics if the node does not have an unfixed variable
+/// # Panics
+/// if the node does not have an unfixed variable
 pub fn first_not_fixed(solver: &BBSolver, node: &QuboBBNode) -> BranchResult {
     // scan through the variables and find the first one that is not fixed
     for i in 0..solver.qubo.num_x() {
@@ -320,6 +323,11 @@ pub fn worst_approximation_second_order(solver: &BBSolver, node: &QuboBBNode) ->
     }
 }
 
+/// Performs strong branching on every variable and chooses the one that gives the best lower bound
+/// while also trying to fix as many variables as possible
+/// This is very expensive but can be worth it
+/// # Panics
+/// if the node does not have an unfixed variable
 pub fn full_strong_branching(solver: &BBSolver, node: &QuboBBNode) -> BranchResult {
     let unfixed_variables = (0..solver.qubo.num_x())
         .filter(|i| !node.fixed_variables.contains_key(i))
@@ -404,6 +412,11 @@ pub fn full_strong_branching(solver: &BBSolver, node: &QuboBBNode) -> BranchResu
     }
 }
 
+/// Performs strong branching on a subset of the variables and chooses the one that gives the best lower bound
+/// while also trying to fix as many variables as possible
+/// This is less expensive than full strong branching
+/// # Panics
+/// if the node does not have an unfixed var
 pub fn partial_strong_branching(solver: &BBSolver, node: &QuboBBNode) -> BranchResult {
     // first compute the approximate objective change for each variable
     let (zero_flip, one_flip) = compute_strong_branch(solver, node);
@@ -505,6 +518,9 @@ pub fn partial_strong_branching(solver: &BBSolver, node: &QuboBBNode) -> BranchR
     }
 }
 
+/// Branches on a random variable that is not fixed
+/// # Panics
+/// if the node does not have an unfixed variable
 pub fn random(solver: &BBSolver, node: &QuboBBNode) -> BranchResult {
     // generate a prng
     let mut prng = PRNG {
@@ -626,6 +642,10 @@ pub fn moving_edges(solver: &BBSolver, node: &QuboBBNode) -> BranchResult {
     }
 }
 
+/// A fun branching strategy that pseudo randomly picks one of the cheaper branching strategies
+/// to use at each node at (pesudo) random
+/// # Panics
+/// if the node does not have an unfixed variable
 pub fn round_robin(solver: &BBSolver, node: &QuboBBNode) -> BranchResult {
     // fun branching strat based on pseudo randomly picking a decent (and cheap branching strat)
 

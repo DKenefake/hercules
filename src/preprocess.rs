@@ -139,6 +139,13 @@ pub fn make_component_qubo(
     (Qubo::new_with_c(Q_tri.to_csc(), c_new), index_map)
 }
 
+/// Given a QUBO and a set of fixed variables, create a new QUBO where the fixed variables are
+/// removed and the linear term is adjusted accordingly. Also return a mapping between the new
+/// variable indices and the old variable indices, as well as the constant term that was added to
+/// the objective function due to the fixed variables.
+///
+/// # Panics
+/// This function will not panic if there are no free variables left removing unfixed varaibles.
 pub fn make_sub_problem(
     qubo: &Qubo,
     fixed_vars: &HashMap<usize, usize>,

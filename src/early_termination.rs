@@ -2,7 +2,6 @@
 /// In that if we have a sufficiency condition for optimality, we can terminate early
 use crate::qubo::Qubo;
 use ndarray::Array1;
-use sprs::TriMat;
 
 /// Sufficiency condition for optimality as given by beck2000 as stated by chen2012. This allows for
 /// early termination of the optimization algorithm if the condition is met. The condition is as follows:
@@ -51,6 +50,7 @@ pub fn beck_proof(qubo: &Qubo, x: &Array1<usize>) -> bool {
 mod tests {
     use super::*;
     use ndarray::Array1;
+    use sprs::TriMat;
 
     #[test]
     fn test_beck_proof() {

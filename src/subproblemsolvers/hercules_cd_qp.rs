@@ -97,13 +97,17 @@ pub fn cd_step(x: &mut Array1<f64>, qubo: &Qubo) -> f64 {
     let mut shift: f64 = 0.0;
 
     for i in 0..x.len() {
-        let Q_i = qubo.q.outer_view(i).unwrap();
+        let Q_i = qubo
+            .q
+            .outer_view(i)
+            .unwrap_or_else(|| panic!("Row {} not found in Q matrix", i));
 
         // compute the linear term of the cd expression
         let l_i = Q_i.dot(&x) + qubo.c[i];
         let q_ii = qubo.q[[i, i]];
 
         // if Q_ii is zero, we have the case of a linear term only
+        // this shouldn't happen in a well-formed QUBO, but we handle it anyway
         let d_i = -if q_ii == 0.0 {
             l_i.signum()
         } else {

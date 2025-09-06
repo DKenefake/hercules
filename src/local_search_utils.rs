@@ -68,11 +68,12 @@ pub fn one_step_local_search_improved(
 /// Performs a two-step local search, which is to say that it will flip either one or two bits and
 /// return the best solution out of all the possible bit flips.
 /// This takes O(|Q|) + O(n) time, where |Q| is the number of non-zero elements in the QUBO matrix.
+/// # Panics
+/// Will panic if the QUBO has no variables.
 pub fn two_step_local_search_improved(qubo: &Qubo, x_0: &Array1<usize>) -> Array1<usize> {
     // Do a neighborhood search of up to two bit flips and returns the best solution
     let (_, obj_1d) = one_flip_objective(qubo, x_0);
 
-    // Here we increase the neighborhood to include two bit flips
     let best_1d_neighbor = obj_1d
         .iter()
         .enumerate()

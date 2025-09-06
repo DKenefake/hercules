@@ -8,6 +8,25 @@ pub fn get_all_disconnected_graphs(
     qubo: &Qubo,
     fixed_vars: &HashMap<usize, usize>,
 ) -> Vec<Vec<usize>> {
+    fn dfs(
+        v: usize,
+        component_dfs: &mut Vec<usize>,
+        visited_dfs: &mut Vec<bool>,
+        qubo_dfs: &Qubo,
+        fixed_vars_dfs: &HashMap<usize, usize>,
+    ) {
+        visited_dfs[v] = true;
+
+        component_dfs.push(v);
+
+        let q_i = qubo_dfs.q.outer_view(v).unwrap();
+        for (j, _) in q_i.iter() {
+            if !visited_dfs[j] && !fixed_vars_dfs.contains_key(&j) {
+                dfs(j, component_dfs, visited_dfs, qubo_dfs, fixed_vars_dfs);
+            }
+        }
+    }
+
     let mut visited = (0..qubo.num_x())
         .map(|x| fixed_vars.contains_key(&x))
         .collect::<Vec<bool>>();
@@ -16,25 +35,6 @@ pub fn get_all_disconnected_graphs(
         .collect::<Vec<usize>>();
 
     let mut output = Vec::new();
-
-    fn dfs(
-        v: usize,
-        component: &mut Vec<usize>,
-        visited: &mut Vec<bool>,
-        qubo: &Qubo,
-        fixed_vars: &HashMap<usize, usize>,
-    ) {
-        visited[v] = true;
-
-        component.push(v);
-
-        let q_i = qubo.q.outer_view(v).unwrap();
-        for (j, _) in q_i.iter() {
-            if !visited[j] && !fixed_vars.contains_key(&j) {
-                dfs(j, component, visited, qubo, fixed_vars);
-            }
-        }
-    }
 
     for v in v_check {
         if !visited[v] {
