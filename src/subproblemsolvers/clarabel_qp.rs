@@ -4,7 +4,6 @@ use crate::branch_subproblem::{SubProblemOptions, SubProblemResult};
 use crate::branchbound::BBSolver;
 use crate::preprocess::make_sub_problem;
 use crate::qubo::Qubo;
-use crate::subproblemsolvers::enumerate_qubo::enumerate_solve;
 use clarabel::algebra::CscMatrix;
 use clarabel::solver::{DefaultSettings, DefaultSolver, IPSolver, NonnegativeConeT};
 use ndarray::Array1;
@@ -30,30 +29,19 @@ impl SubProblemSolver for ClarabelQPSolver {
             ..Default::default()
         };
 
+        // if we are fully fixed, then just return the solution
+        if node.fixed_variables.len() == bbsolver.qubo.num_x() {
+            let mut sol = Array1::zeros(bbsolver.qubo.num_x());
+            for (&i, &val) in &node.fixed_variables {
+                sol[i] = val as f64;
+            }
+            let obj = bbsolver.qubo.eval(&sol);
+            return (obj, sol);
+        }
+
         // find projected subproblem
         let (sub_qubo, unfixed_map, _constant) =
             make_sub_problem(&bbsolver.qubo, &node.fixed_variables);
-
-        // if the sub_qubo is small enough, we can solve it directly
-        if sub_qubo.num_x() <= 15 {
-            let (_, sub_sol) = enumerate_solve(&sub_qubo);
-
-            // convert the solution back to the original space
-            let mut x = Array1::<f64>::zeros(bbsolver.qubo.num_x());
-
-            // map out the unfixed variables
-            for (&original, &new) in &unfixed_map {
-                x[original] = sub_sol[new] as f64;
-            }
-
-            // map out the fixed variables
-            for (&i, &val) in &node.fixed_variables {
-                x[i] = val as f64;
-            }
-
-            let obj = bbsolver.qubo.eval(&x);
-            return (obj, x);
-        }
 
         // generate the constraint matrix
         let A_size = 2 * sub_qubo.num_x();

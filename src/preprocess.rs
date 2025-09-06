@@ -88,7 +88,7 @@ pub fn solve_small_components(
 
     for component in components {
         // if the component is too large, skip it same with it being empty
-        if component.len() > max_size || component.is_empty(){
+        if component.len() > max_size || component.is_empty() {
             continue;
         }
 

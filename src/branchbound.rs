@@ -226,12 +226,6 @@ impl BBSolver {
             };
         }
 
-        // We now need to solve the node to generate the lower bound and solution
-        let (lower_bound, solution) = self.solve_node(&node);
-
-        // inject the solution back into the node
-        node.solution.clone_from(&solution);
-
         // check if integer-feasible solution
         // if not all variables are fixed, we can still check if we are 'near' integer-feasible (within 1E-10) of 0 or 1
         let (is_int_feasible, rounded_sol) = check_integer_feasibility(&node);
@@ -248,6 +242,13 @@ impl BBSolver {
                 logging: NodeLoggingAction::Solved,
             };
         }
+
+        // We now need to solve the node to generate the lower bound and solution
+        let (lower_bound, solution) = self.solve_node(&node);
+
+        // inject the solution back into the node
+        node.solution.clone_from(&solution);
+
         // determine what variable we are branching on
         let branch_result = self.make_branch(&node);
 
@@ -494,19 +495,19 @@ mod tests {
         solve_qubo_with_all_permutations(&p, &sol_val);
     }
 
-    // #[test]
-    // pub fn test_bqp50_solve() {
-    //     let file_path = "test_data/bqp50.qubo";
-    //     let p = Qubo::read_qubo(file_path)
-    //         .make_symmetric()
-    //         .convex_symmetric_form();
-    //
-    //     let sol_val = Array1::from_vec(vec![
-    //         0, 1, 0, 0, 0, 0, 1, 1, 1, 1, 0, 1, 1, 0, 0, 1, 1, 1, 1, 1, 1, 0, 1, 0, 0, 0, 0, 1, 1,
-    //         0, 1, 1, 0, 1, 0, 0, 1, 1, 1, 0, 1, 0, 0, 1, 1, 0, 1, 1, 0,
-    //     ]);
-    //     solve_qubo_with_all_permutations(&p, &sol_val);
-    // }
+    #[test]
+    pub fn test_bqp50_solve() {
+        let file_path = "test_data/bqp50.qubo";
+        let p = Qubo::read_qubo(file_path)
+            .make_symmetric()
+            .convex_symmetric_form();
+
+        let sol_val = Array1::from_vec(vec![
+            0, 1, 0, 0, 0, 0, 1, 1, 1, 1, 0, 1, 1, 0, 0, 1, 1, 1, 1, 1, 1, 0, 1, 0, 0, 0, 0, 1, 1,
+            0, 1, 1, 0, 1, 0, 0, 1, 1, 1, 0, 1, 0, 0, 1, 1, 0, 1, 1, 0,
+        ]);
+        solve_qubo_with_all_permutations(&p, &sol_val);
+    }
 
     pub fn solve_qubo_with_all_permutations(qubo: &Qubo, sol_val: &Array1<usize>) {
         let branch_options = vec![

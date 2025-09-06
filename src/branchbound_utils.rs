@@ -8,7 +8,7 @@ pub fn check_integer_feasibility(node: &QuboBBNode) -> (bool, Array1<usize>) {
     let num_x = node.solution.len();
     let mut buffer = Array1::zeros(num_x);
 
-    let epsilon = 1E-8;
+    let epsilon = 1E-10;
 
     for i in 0..num_x {
         if let Some(val) = node.fixed_variables.get(&i) {

@@ -139,7 +139,7 @@ impl Constraint {
         // if the fixed value is 1, then the free variable must be 0 else nothing can be said
         match fixed_value == 1 {
             true => Some((free_var, 0)),
-            false => None
+            false => None,
         }
     }
 
@@ -312,9 +312,8 @@ mod tests {
         assert_eq!(c_equal.check(&persistent), true);
     }
 
-
     #[test]
-    fn test_inference_0X(){
+    fn test_inference_0X() {
         let mut persistent = HashMap::new();
         persistent.insert(0, 0);
 
@@ -334,7 +333,7 @@ mod tests {
     }
 
     #[test]
-    fn test_inference_1X(){
+    fn test_inference_1X() {
         let mut persistent = HashMap::new();
         persistent.insert(0, 1);
 
@@ -354,9 +353,9 @@ mod tests {
     }
 
     #[test]
-    fn test_inference_X0(){
+    fn test_inference_X0() {
         let mut persistent = HashMap::new();
-        persistent.insert(1,0);
+        persistent.insert(1, 0);
 
         let c_at_least = Constraint::new(0, 1, ConstraintType::AtLeastOne);
         let c_no_more = Constraint::new(0, 1, ConstraintType::NoMoreThanOne);
@@ -374,9 +373,9 @@ mod tests {
     }
 
     #[test]
-    fn test_inference_X1(){
+    fn test_inference_X1() {
         let mut persistent = HashMap::new();
-        persistent.insert(1,1);
+        persistent.insert(1, 1);
 
         let c_at_least = Constraint::new(0, 1, ConstraintType::AtLeastOne);
         let c_no_more = Constraint::new(0, 1, ConstraintType::NoMoreThanOne);
