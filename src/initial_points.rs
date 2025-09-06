@@ -7,7 +7,6 @@
 //! - Rho points
 //! - Random binary points
 
-use crate::qubo::Qubo;
 use ndarray::Array1;
 use smolprng::{Algorithm, PRNG};
 

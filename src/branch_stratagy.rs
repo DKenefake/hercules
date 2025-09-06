@@ -31,6 +31,8 @@ pub struct BranchResult {
 }
 
 impl BranchStrategy {
+
+    /// # Panics if the node does not have an unfixed variable or if the branching strategy fails
     pub fn make_branch(self, bb_solver: &BBSolver, node: &QuboBBNode) -> BranchResult {
         let branch_result = match self {
             Self::FirstNotFixed => first_not_fixed(bb_solver, node),
@@ -238,7 +240,7 @@ pub fn most_fixed(solver: &BBSolver, node: &QuboBBNode) -> BranchResult {
     }
 }
 
-/// #Panics if the node does not have an unfixed variable
+/// # Panics if the node does not have an unfixed variable
 pub fn first_not_fixed(solver: &BBSolver, node: &QuboBBNode) -> BranchResult {
     // scan through the variables and find the first one that is not fixed
     for i in 0..solver.qubo.num_x() {

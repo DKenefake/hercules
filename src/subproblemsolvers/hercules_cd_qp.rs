@@ -53,7 +53,7 @@ fn cd_main_loop(
     max_iterations: usize,
 ) -> Array1<f64> {
     // project to a smaller problem space
-    let (sub_qubo, var_mapping, _) = make_sub_problem(&qubo, &fixed_variables);
+    let (sub_qubo, var_mapping, _) = make_sub_problem(qubo, fixed_variables);
 
     let mut x = Array1::<f64>::zeros(sub_qubo.num_x());
 

@@ -81,7 +81,6 @@ pub fn two_step_local_search_improved(qubo: &Qubo, x_0: &Array1<usize>) -> Array
         .0;
 
     let best_obj_1d = obj_1d[best_1d_neighbor];
-    let best_1d_neighbor = best_1d_neighbor;
 
     let mut best_obj_2d = f64::INFINITY;
     let mut best_2d_neighbor = (0, 1);

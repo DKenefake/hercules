@@ -24,34 +24,6 @@ type QuboData = (Vec<usize>, Vec<usize>, Vec<f64>, Vec<f64>, usize);
 /// import hercules
 ///
 /// # read in the QUBO from a file
-/// x_soln = hercules.rand_from_file("file.qubo", 0, 10)
-/// ```
-/// # Errors
-///
-/// if the file does not exist, then it will abort
-pub fn rand_from_file(filename: String, seed: usize, num_points: usize) -> PyResult<Vec<usize>> {
-    // read in the QUBO from file
-    let p = Qubo::read_qubo(filename.as_str());
-
-    // set up the prng
-    let mut prng = PRNG {
-        generator: JsfLarge::from(seed as u64),
-    };
-
-    // run the random search
-    let x_soln = local_search::random_search(&p, num_points, &mut prng);
-
-    // return the solution
-    Ok(x_soln.to_vec())
-}
-
-/// This reads in the QUBO from a file, and solves the QUBO using random search, returns the best solution found.
-///
-/// Example
-/// ``` python
-/// import hercules
-///
-/// # read in the QUBO from a file
 /// problem = hercules.read_qubo("file.qubo")
 ///
 /// # read in the QUBO from a file
@@ -75,41 +47,6 @@ pub fn rand(problem: QuboData, seed: usize, num_points: usize) -> PyResult<Vec<u
 
     // return the solution
     Ok(x_soln.to_vec())
-}
-
-/// This reads in the QUBO from a file, and solves the QUBO using particle swarm optimization, returns the best solution found.
-///
-/// Example
-/// ``` python
-/// import hercules
-///
-/// # read in the QUBO from a file
-/// x_s = hercules.pso_from_file("file.qubo", 0, 10, 100)
-/// ```
-///
-/// # Errors
-///
-/// if the file does not exist, then it will abort
-#[pyfunction]
-pub fn pso_from_file(
-    filename: String,
-    seed: usize,
-    num_particles: usize,
-    max_steps: usize,
-) -> PyResult<(Vec<usize>, f64)> {
-    // read in the QUBO from file
-    let p = Qubo::read_qubo(filename.as_str());
-
-    // set up the prng
-    let mut prng = PRNG {
-        generator: JsfLarge::from(seed as u64),
-    };
-
-    // run the particle swarm search
-    let x_soln = local_search::particle_swarm_search(&p, num_particles, max_steps, &mut prng);
-
-    // return the solution and its objective
-    Ok((x_soln.to_vec(), p.eval_usize(&x_soln)))
 }
 
 /// This reads in the QUBO from a file, and solves the QUBO using particle swarm optimization, returns the best solution found.
@@ -154,38 +91,6 @@ pub fn pso(
 /// Example
 /// ``` python
 /// import hercules
-///
-/// # read in the QUBO from a file
-/// x_soln = hercules.gls_from_file("file.qubo", 0, 10)
-/// ```
-///
-/// # Errors
-///
-/// if the file does not exist, then it will abort
-#[pyfunction]
-pub fn gls_from_file(
-    filename: String,
-    x_0: Vec<usize>,
-    max_steps: usize,
-) -> PyResult<(Vec<usize>, f64)> {
-    // read in the QUBO from file
-    let p = Qubo::read_qubo(filename.as_str());
-
-    // convert the input to the correct type
-    let x_array = Array1::from(x_0);
-
-    // run the gain guided local search
-    let x_soln = local_search::simple_gain_criteria_search(&p, &x_array, max_steps);
-
-    // return the solution and its objective
-    Ok((x_soln.to_vec(), p.eval_usize(&x_soln)))
-}
-
-/// This reads in the QUBO from a file, and solves the QUBO using gain guided local search, returns the best solution found.
-///
-/// Example
-/// ``` python
-/// import hercules
 /// import random
 ///
 /// # read in the QUBO from a file
@@ -209,42 +114,6 @@ pub fn gls(problem: QuboData, x_0: Vec<usize>, max_steps: usize) -> PyResult<(Ve
 
     // run the gain guided local search
     let x_soln = local_search::simple_gain_criteria_search(&p, &x_array, max_steps);
-
-    // return the solution and its objective
-    Ok((x_soln.to_vec(), p.eval_usize(&x_soln)))
-}
-
-/// This reads in the QUBO from a file, and solves the QUBO using mixed local search, returns the best solution found.
-///
-/// Example
-/// ``` python
-/// import hercules
-/// import random
-///
-/// problem = hercules.read_qubo("test.qubo")
-/// num_x = problem[-1] // the number of x variables is the last varaible of the problem
-/// x_0 = [random.randint(0,1) for _ in range(num_x)]
-///
-/// # read in the QUBO from a file
-/// x_soln, obj = hercules.mls_from_file("file.qubo", x_0, 10)
-/// ```
-/// # Errors
-///
-/// if the file does not exist, then it will abort
-#[pyfunction]
-pub fn mls_from_file(
-    filename: String,
-    x_0: Vec<usize>,
-    max_steps: usize,
-) -> PyResult<(Vec<usize>, f64)> {
-    // read in the QUBO from file
-    let p = Qubo::read_qubo(filename.as_str());
-
-    // convert the input to the correct type
-    let x_array = Array1::from(x_0);
-
-    // run the multi-start local search
-    let x_soln = local_search::simple_mixed_search(&p, &x_array, max_steps);
 
     // return the solution and its objective
     Ok((x_soln.to_vec(), p.eval_usize(&x_soln)))
@@ -281,57 +150,6 @@ pub fn mls(problem: QuboData, x_0: Vec<usize>, max_steps: usize) -> PyResult<(Ve
 
     // return the solution and its objective
     Ok((x_soln.to_vec(), p.eval_usize(&x_soln)))
-}
-
-/// This reads in the QUBO from a file, and solves the QUBO using multi-start local search, returns the best solution found.
-///
-/// Example
-/// ``` python
-/// import hercules
-/// import random
-///
-/// # read in the qubo problem
-/// problem = hercules.read_qubo("test.qubo")
-/// num_x = problem[-1] // the number of x variables is the last varaible of the problem
-/// num_starts = 10
-///
-/// # initial starts of each search
-/// xs = [[random.randint(0,1) for _ in range(num_x)] for _ in range(num_starts)]
-///
-/// # read in the QUBO from a file
-/// x_solns, objs = hercules.msls_from_file("file.qubo", xs)
-/// ```
-/// # Errors
-///
-/// if the file does not exist, then it will abort
-#[pyfunction]
-pub fn msls_from_file(
-    filename: String,
-    xs: Vec<Vec<usize>>,
-) -> PyResult<(Vec<Vec<usize>>, Vec<f64>)> {
-    // read in the QUBO from file
-    let p = Qubo::read_qubo(filename.as_str());
-
-    // convert the input to the correct type
-    let xs = xs
-        .iter()
-        .map(|x| Array1::<usize>::from(x.clone()))
-        .collect();
-
-    // run the multi-start local search
-    let x_solns = local_search::multi_simple_local_search(&p, &xs);
-
-    // convert the output to the correct type
-    let x_solns_vec: Vec<Vec<_>> = x_solns.iter().map(ndarray::ArrayBase::to_vec).collect();
-
-    // calculate the objective of each solution
-    let objs = x_solns_vec
-        .iter()
-        .map(|x| p.eval_usize(&Array1::<usize>::from(x.clone())))
-        .collect();
-
-    // return the solutions and their objectives
-    Ok((x_solns_vec, objs))
 }
 
 /// This solves the QUBO using multi-start local search, returns the best solution found.
@@ -395,6 +213,7 @@ pub fn msls(problem: QuboData, xs: Vec<Vec<usize>>) -> PyResult<(Vec<Vec<usize>>
 ///
 /// if the file does not exist, then it will abort
 #[pyfunction]
+#[pyo3(signature = (filename))]
 pub fn read_qubo(filename: String) -> PyResult<QuboData> {
     // read in the QUBO from file
     let p = Qubo::read_qubo(filename.as_str());
@@ -427,6 +246,7 @@ pub fn read_qubo(filename: String) -> PyResult<QuboData> {
 ///
 /// if the location does not exist, then it will abort
 #[pyfunction]
+#[pyo3(signature = (problem, filename,))]
 pub fn write_qubo(problem: QuboData, filename: String) -> PyResult<()> {
     // read in the QUBO from file
     let p = Qubo::from_vec(problem.0, problem.1, problem.2, problem.3, problem.4);
@@ -454,6 +274,7 @@ pub fn write_qubo(problem: QuboData, filename: String) -> PyResult<()> {
 ///
 /// if the file does not exist, then it will abort, but the persistence calculation should never fail
 #[pyfunction]
+#[pyo3(signature = (problem, fixed,))]
 pub fn get_persistence(
     problem: QuboData,
     fixed: HashMap<usize, usize>,
@@ -477,7 +298,7 @@ pub fn get_persistence(
 /// problem = hercules.read_qubo("file.qubo")
 ///
 /// # compute the persistence
-/// diag_shift = hercules.get_sdp_shift(problem, {})
+/// diag_shift = hercules.get_sdp_shift(problem)
 /// ```
 ///
 /// # Errors
@@ -524,6 +345,7 @@ pub fn get_sdp_shift(problem: QuboData, stat_tolerance: Option<f64>) -> PyResult
 /// This function should never error, but if it does, it will abort.
 
 #[pyfunction]
+#[pyo3(signature = (problem, fixed_vars, ))]
 pub fn get_qubo_components(
     problem: QuboData,
     fixed_vars: HashMap<usize, usize>,
@@ -568,7 +390,7 @@ pub fn solve_branch_bound(
     threads: Option<usize>,
     verbose: Option<usize>,
 ) -> PyResult<(Vec<usize>, f64, f64, usize, usize)> {
-    // read in the QUBO from file
+    // read in the QUBO
     let p_input = Qubo::from_vec(problem.0, problem.1, problem.2, problem.3, problem.4);
 
     let symm_p = p_input.make_symmetric();
@@ -633,6 +455,7 @@ pub fn solve_branch_bound(
 /// # Errors
 /// If the eigenvalue calculation fails, then it will abort
 #[pyfunction]
+#[pyo3(signature = (problem,))]
 pub fn convex_symmetric_form(problem: QuboData) -> PyResult<QuboData> {
     // read in the QUBO from file
     let p = Qubo::from_vec(problem.0, problem.1, problem.2, problem.3, problem.4);

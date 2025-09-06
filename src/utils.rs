@@ -3,7 +3,6 @@
 
 use crate::qubo::Qubo;
 use ndarray::Array1;
-use ndarray_linalg::Norm;
 use smolprng::{Algorithm, PRNG};
 
 /// Given a point, x, flip sites number of bits and return the new point, this can include a bit that is already flipped.

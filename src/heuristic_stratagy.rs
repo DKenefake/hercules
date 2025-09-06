@@ -37,7 +37,7 @@ impl HeuristicSelection {
         while x_1 != x && steps < 100 {
             x.clone_from(&x_1);
             x_1 = local_search_utils::two_step_local_search_improved(&solver.qubo, &x);
-            steps += 1
+            steps += 1;
         }
 
         let objective = solver.qubo.eval_usize(&x_1);

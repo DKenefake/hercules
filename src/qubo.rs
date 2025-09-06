@@ -269,12 +269,9 @@ impl Qubo {
 
         // in the case of q_sum == 0
         if q_sum == 0.0 {
-            return match c_sum > 0.0 {
-                true => 1.0,
-                false => 0.0,
-            };
+            return if c_sum > 0.0 { 1.0 } else { 0.0 }
         }
-
+        
         // solve for the optimal solution of the 1D relaxed QUBO problem
         let alpha = -0.5 * c_sum / q_sum;
 

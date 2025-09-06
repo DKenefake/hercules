@@ -1,12 +1,14 @@
 #![crate_name = "hercules"]
 #![doc = include_str!("../README.md")] // imports the readme as the front page of the documentation
+
 #![warn(clippy::all, clippy::pedantic, clippy::cargo, clippy::nursery)]
 #![allow(non_snake_case)] // some of the variable names are taken from papers, and are not snake case
 #![allow(clippy::let_and_return)] // in many instances we are recreating equations as written in papers, and helps with readability
 #![allow(dead_code)] // this is a library module, so until all the tests are implemented this will needlessly warn
 #![allow(clippy::must_use_candidate)] // somewhat of a nuisance introduced by clippy::pedantic
 #![allow(clippy::doc_markdown)] // breaks some of the documentation written in latex
-#![allow(clippy::match_bool)]
+#![allow(clippy::too_long_first_doc_paragraph)]
+// #![allow(clippy::match_bool)]
 #![allow(clippy::suboptimal_flops)] // far to many false positives, e.g. vector and matrix multiplication suggestions
 #![allow(clippy::similar_names)] // we are using similar names to the papers we are implementing
 #![allow(clippy::implicit_hasher)] // we are using the default hasher
@@ -64,10 +66,6 @@ use python_interopt::*;
 /// Gives python access to the rust interface
 #[pymodule]
 fn hercules(m: &Bound<'_, PyModule>) -> PyResult<()> {
-    m.add_function(wrap_pyfunction!(pso_from_file, m)?)?;
-    m.add_function(wrap_pyfunction!(gls_from_file, m)?)?;
-    m.add_function(wrap_pyfunction!(mls_from_file, m)?)?;
-    m.add_function(wrap_pyfunction!(msls_from_file, m)?)?;
     m.add_function(wrap_pyfunction!(pso, m)?)?;
     m.add_function(wrap_pyfunction!(gls, m)?)?;
     m.add_function(wrap_pyfunction!(mls, m)?)?;

@@ -90,6 +90,12 @@ impl SolverOptions {
     }
 }
 
+impl Default for SolverOptions {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 #[cfg(test)]
 mod tests {
 

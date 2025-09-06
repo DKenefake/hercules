@@ -1,4 +1,3 @@
-use crate::persistence;
 use std::collections::HashMap;
 
 /// Enum for the type of constraint that is being used in the Constraint struct
@@ -114,7 +113,7 @@ impl Constraint {
 
     /// Given a set of persistent variables, returns the standard form of the constraint
     /// If both or none of the variables are fixed, returns None
-    /// If one variable is fixed, returns (free_variable_index, fixed_variable_index, fixed_value)
+    /// If one variable is fixed, returns (fixed_variable_index, free_variable_index, fixed_value)
     pub fn get_standard_form(
         &self,
         persistent: &HashMap<usize, usize>,
@@ -123,11 +122,18 @@ impl Constraint {
             return None;
         }
 
-        #[allow(clippy::option_if_let_else)]
-        match persistent.get(&self.x_i) {
-            Some(x_i_value) => Some((self.x_i, self.x_j, *x_i_value)),
-            None => Some((self.x_j, self.x_i, *persistent.get(&self.x_j).unwrap())),
+        // check if x_i is fixed and return the standard form
+        let xi_form = persistent.get(&self.x_i).map(|&x| {
+            (self.x_i, self.x_j, x)
+        });
+
+        if xi_form.is_some() {
+            return xi_form;
         }
+
+        // else x_j must be fixed, return the standard form
+        persistent.get(&self.x_j).map(|&x| (self.x_j, self.x_i, x))
+
     }
 
     /// Given a constraint of the type x_i + x_j <= 1, computes if we can make an inference on
