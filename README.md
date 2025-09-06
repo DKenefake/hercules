@@ -24,7 +24,7 @@ When referring to the solver, there is a world of a difference between naive imp
 - [x] Multithreaded B&B solver
 - [ ] Problem Reformulation
 - [ ] Modern Presolver
-- [ ] Warm starting subproblems
+- [x] Warm starting subproblems
 - [x] Beck Optimality Proof
 
 

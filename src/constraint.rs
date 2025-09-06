@@ -103,7 +103,7 @@ impl Constraint {
         if Self::is_fixed(persistent, self.x_i) {
             count += 1;
         }
-        if Self::is_fixed(persistent, self.x_i) {
+        if Self::is_fixed(persistent, self.x_j) {
             count += 1;
         }
         count
@@ -136,10 +136,10 @@ impl Constraint {
         free_var: usize,
         fixed_value: usize,
     ) -> Option<(usize, usize)> {
-        // if the fixed value is 1, then the free variable must be 0
+        // if the fixed value is 1, then the free variable must be 0 else nothing can be said
         match fixed_value == 1 {
             true => Some((free_var, 0)),
-            false => Some((free_var, 1)),
+            false => None
         }
     }
 
@@ -160,9 +160,9 @@ impl Constraint {
         fixed_value: usize,
     ) -> Option<(usize, usize)> {
         // if the fixed value is 0, then the free variable must be 1
-        match fixed_value == 1 {
-            true => None,
-            false => Some((free_var, 1)),
+        match fixed_value {
+            0 => Some((free_var, 1)),
+            _ => None,
         }
     }
 
@@ -310,5 +310,86 @@ mod tests {
         assert_eq!(c_greater.check(&persistent), true);
         assert_eq!(c_less.check(&persistent), true);
         assert_eq!(c_equal.check(&persistent), true);
+    }
+
+
+    #[test]
+    fn test_inference_0X(){
+        let mut persistent = HashMap::new();
+        persistent.insert(0, 0);
+
+        let c_at_least = Constraint::new(0, 1, ConstraintType::AtLeastOne);
+        let c_no_more = Constraint::new(0, 1, ConstraintType::NoMoreThanOne);
+        let c_exactly = Constraint::new(0, 1, ConstraintType::ExactlyOne);
+        let c_greater = Constraint::new(0, 1, ConstraintType::GreaterThan);
+        let c_less = Constraint::new(0, 1, ConstraintType::LessThan);
+        let c_equal = Constraint::new(0, 1, ConstraintType::Equal);
+
+        assert_eq!(c_at_least.make_inference(&persistent), Some((1, 1)));
+        assert_eq!(c_no_more.make_inference(&persistent), None);
+        assert_eq!(c_exactly.make_inference(&persistent), Some((1, 1)));
+        assert_eq!(c_greater.make_inference(&persistent), Some((1, 0)));
+        assert_eq!(c_less.make_inference(&persistent), None);
+        assert_eq!(c_equal.make_inference(&persistent), Some((1, 0)));
+    }
+
+    #[test]
+    fn test_inference_1X(){
+        let mut persistent = HashMap::new();
+        persistent.insert(0, 1);
+
+        let c_at_least = Constraint::new(0, 1, ConstraintType::AtLeastOne);
+        let c_no_more = Constraint::new(0, 1, ConstraintType::NoMoreThanOne);
+        let c_exactly = Constraint::new(0, 1, ConstraintType::ExactlyOne);
+        let c_greater = Constraint::new(0, 1, ConstraintType::GreaterThan);
+        let c_less = Constraint::new(0, 1, ConstraintType::LessThan);
+        let c_equal = Constraint::new(0, 1, ConstraintType::Equal);
+
+        assert_eq!(c_at_least.make_inference(&persistent), None);
+        assert_eq!(c_no_more.make_inference(&persistent), Some((1, 0)));
+        assert_eq!(c_exactly.make_inference(&persistent), Some((1, 0)));
+        assert_eq!(c_greater.make_inference(&persistent), None);
+        assert_eq!(c_less.make_inference(&persistent), Some((1, 1)));
+        assert_eq!(c_equal.make_inference(&persistent), Some((1, 1)));
+    }
+
+    #[test]
+    fn test_inference_X0(){
+        let mut persistent = HashMap::new();
+        persistent.insert(1,0);
+
+        let c_at_least = Constraint::new(0, 1, ConstraintType::AtLeastOne);
+        let c_no_more = Constraint::new(0, 1, ConstraintType::NoMoreThanOne);
+        let c_exactly = Constraint::new(0, 1, ConstraintType::ExactlyOne);
+        let c_greater = Constraint::new(0, 1, ConstraintType::GreaterThan);
+        let c_less = Constraint::new(0, 1, ConstraintType::LessThan);
+        let c_equal = Constraint::new(0, 1, ConstraintType::Equal);
+
+        assert_eq!(c_at_least.make_inference(&persistent), Some((0, 1)));
+        assert_eq!(c_no_more.make_inference(&persistent), None);
+        assert_eq!(c_exactly.make_inference(&persistent), Some((0, 1)));
+        assert_eq!(c_greater.make_inference(&persistent), None);
+        assert_eq!(c_less.make_inference(&persistent), Some((0, 0)));
+        assert_eq!(c_equal.make_inference(&persistent), Some((0, 0)));
+    }
+
+    #[test]
+    fn test_inference_X1(){
+        let mut persistent = HashMap::new();
+        persistent.insert(1,1);
+
+        let c_at_least = Constraint::new(0, 1, ConstraintType::AtLeastOne);
+        let c_no_more = Constraint::new(0, 1, ConstraintType::NoMoreThanOne);
+        let c_exactly = Constraint::new(0, 1, ConstraintType::ExactlyOne);
+        let c_greater = Constraint::new(0, 1, ConstraintType::GreaterThan);
+        let c_less = Constraint::new(0, 1, ConstraintType::LessThan);
+        let c_equal = Constraint::new(0, 1, ConstraintType::Equal);
+
+        assert_eq!(c_at_least.make_inference(&persistent), None);
+        assert_eq!(c_no_more.make_inference(&persistent), Some((0, 0)));
+        assert_eq!(c_exactly.make_inference(&persistent), Some((0, 0)));
+        assert_eq!(c_greater.make_inference(&persistent), Some((0, 1)));
+        assert_eq!(c_less.make_inference(&persistent), None);
+        assert_eq!(c_equal.make_inference(&persistent), Some((0, 1)));
     }
 }

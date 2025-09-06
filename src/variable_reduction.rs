@@ -4,6 +4,7 @@ use crate::qubo::Qubo;
 use std::collections::HashMap;
 
 /// Find Equations and inequalities that can be used to strengthen the QUBO by probing using the presolver
+/// This is a probing method that tries to fix each variable to 0 and 1 and see what other variables can be fixed as a result
 fn find_equations(
     qubo: &Qubo,
     fixed_vars: &HashMap<usize, usize>,

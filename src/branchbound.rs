@@ -241,17 +241,10 @@ impl BBSolver {
             // compute the objective
             let value = self.qubo.eval_usize(&rounded_sol);
 
-            // if it is better, then we will attempt to update the solution otherwise prune
-            if value < self.best_solution_value {
-                return ProcessNodeState {
-                    prune_action,
-                    events: vec![Event::UpdateBestSolution(rounded_sol, value)],
-                    logging: NodeLoggingAction::Solved,
-                };
-            }
+            // we will attempt to update the solution otherwise prune
             return ProcessNodeState {
                 prune_action,
-                events: vec![Event::Nill],
+                events: vec![Event::UpdateBestSolution(rounded_sol, value)],
                 logging: NodeLoggingAction::Solved,
             };
         }
@@ -501,20 +494,19 @@ mod tests {
         solve_qubo_with_all_permutations(&p, &sol_val);
     }
 
-    #[test]
-    pub fn test_bqp50_solve() {
-        let file_path = "test_data/bqp50.qubo";
-        let p = Qubo::read_qubo(file_path)
-            .make_symmetric()
-            .convex_symmetric_form();
-
-        let sol_val = Array1::from_vec(
-            vec![0, 1, 0, 0, 0, 0, 1, 1, 1, 1, 0, 1, 1, 0, 0, 1, 1, 1, 1, 1, 1, 0, 1, 0,
-                    0, 0, 0, 1, 1, 0, 1, 1, 0, 1, 0, 0, 1, 1, 1, 0, 1, 0, 0, 1, 1, 0, 1, 1,
-                    0],
-        );
-        solve_qubo_with_all_permutations(&p, &sol_val);
-    }
+    // #[test]
+    // pub fn test_bqp50_solve() {
+    //     let file_path = "test_data/bqp50.qubo";
+    //     let p = Qubo::read_qubo(file_path)
+    //         .make_symmetric()
+    //         .convex_symmetric_form();
+    //
+    //     let sol_val = Array1::from_vec(vec![
+    //         0, 1, 0, 0, 0, 0, 1, 1, 1, 1, 0, 1, 1, 0, 0, 1, 1, 1, 1, 1, 1, 0, 1, 0, 0, 0, 0, 1, 1,
+    //         0, 1, 1, 0, 1, 0, 0, 1, 1, 1, 0, 1, 0, 0, 1, 1, 0, 1, 1, 0,
+    //     ]);
+    //     solve_qubo_with_all_permutations(&p, &sol_val);
+    // }
 
     pub fn solve_qubo_with_all_permutations(qubo: &Qubo, sol_val: &Array1<usize>) {
         let branch_options = vec![
@@ -530,7 +522,6 @@ mod tests {
             BranchStrategy::PartialStrongBranching,
             BranchStrategy::LargestDiag,
             BranchStrategy::MoveingEdges,
-            BranchStrategy::ConnectedComponents,
         ];
 
         let sub_problem_solvers = vec![

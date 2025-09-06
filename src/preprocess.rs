@@ -40,43 +40,6 @@ pub fn preprocess_qubo(
     fixed_variables
 }
 
-/// This function is used to get the effect of the fixed variables on the linear term, we want to
-/// avoid generating copies of the Qubo object
-///
-/// This is generally as expensive as a function evaluation
-pub fn get_fixed_c(qubo: &Qubo, fixed_variables: &HashMap<usize, usize>) -> Array1<f64> {
-    let mut new_c = qubo.c.clone();
-
-    // there is likely a better way to do this, but for now we are looping through the Hessian
-    for (&value, (i, j)) in &qubo.q {
-        // diagonal elements will never be extracted
-        if i == j {
-            continue;
-        }
-
-        // check we have fixed variables
-        let x_i_fixed = fixed_variables.contains_key(&i);
-        let x_j_fixed = fixed_variables.contains_key(&j);
-
-        // if both are fixed, then the term is a constant and it doesn't matter
-        if x_i_fixed && x_j_fixed {
-            continue;
-        }
-
-        if x_i_fixed {
-            let x_i = fixed_variables[&i] as f64;
-            new_c[j] += value * x_i;
-        } else if x_j_fixed {
-            let x_j = fixed_variables[&j] as f64;
-            new_c[i] += (value * x_j).min(0.0);
-        }
-
-        // if neither is fixed, then we don't need to do anything
-    }
-
-    new_c
-}
-
 /// Find variables that have no effect in the QUBO, where the linear term is zero and the quadratic
 /// terms are zero. This is useful for reducing the size of the QUBO.
 pub fn find_no_effect_variables(qubo: &Qubo) -> Vec<usize> {
@@ -124,12 +87,8 @@ pub fn solve_small_components(
     let components = crate::graph_utils::get_all_disconnected_graphs(qubo, &new_fixed_variables);
 
     for component in components {
-        // if the component is too large, skip it
-        if component.len() > max_size {
-            continue;
-        }
-
-        if component.is_empty() {
+        // if the component is too large, skip it same with it being empty
+        if component.len() > max_size || component.is_empty(){
             continue;
         }
 

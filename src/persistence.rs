@@ -1,6 +1,5 @@
 use crate::preprocess::solve_small_components;
 use crate::qubo::Qubo;
-use ndarray::Array1;
 use std::cmp::min;
 use std::collections::HashMap;
 
@@ -62,22 +61,6 @@ pub fn compute_persistent(
     new_persistent
 }
 
-pub fn all_grad_bounds(
-    qubo: &Qubo,
-    persistent: &HashMap<usize, usize>,
-) -> (Array1<f64>, Array1<f64>) {
-    let mut lb_bounds = Array1::<f64>::zeros(qubo.num_x());
-    let mut ub_bounds = Array1::<f64>::zeros(qubo.num_x());
-
-    for i in 0..qubo.num_x() {
-        let x = grad_bounds(qubo, i, persistent);
-        lb_bounds[i] = x.0;
-        ub_bounds[i] = x.1;
-    }
-
-    (lb_bounds, ub_bounds)
-}
-
 /// Finds bounds of the i-th index of the gradients of the QUBO function
 ///
 /// # Panics
@@ -133,7 +116,6 @@ pub fn grad_bounds(qubo: &Qubo, i: usize, persistent: &HashMap<usize, usize>) ->
 mod tests {
     use super::*;
     use crate::qubo::Qubo;
-    use crate::tests::make_solver_qubo;
     use ndarray::Array1;
     use sprs::CsMat;
     use std::collections::HashMap;

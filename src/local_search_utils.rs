@@ -134,27 +134,6 @@ pub fn get_gain_criteria(qubo: &Qubo, x: &Array1<usize>) -> Array1<usize> {
     fixed
 }
 
-/// Auxiliary function to calculate Delta, as defined in Boros2007
-pub fn compute_d(x_0: &Array1<f64>, grad: &Array1<f64>) -> Array1<f64> {
-    // compute the variable importance function
-    let mut d = Array1::<f64>::zeros(x_0.len());
-    for i in 0..x_0.len() {
-        // find the max of the two terms
-        d[i] = f64::max(-x_0[i] * grad[i], (1.0 - x_0[i]) * grad[i]);
-    }
-    d
-}
-
-/// Auxiliary function to calculate I, as defined in Boros2007
-pub fn compute_I(d: &Array1<f64>) -> Vec<usize> {
-    // compute the variable selection function
-    d.iter()
-        .filter(|x| **x > 0.0)
-        .enumerate()
-        .map(|(i, _)| i)
-        .collect()
-}
-
 /// Efficient calculation of the delta of the objective function for a single bit flip for each variable
 /// more or less this is a helper function that allows for selecting the best bit to flip option without
 /// having to calculate the objective function for each bit flip, independently.
@@ -180,52 +159,6 @@ pub fn one_flip_objective(qubo: &Qubo, x_0: &Array1<usize>) -> (f64, Array1<f64>
     let obj_0 = x_0f.dot(&x_q) + qubo.c.dot(&x_0f);
 
     (obj_0, objs)
-}
-
-/// Performs a single gain local search, which is to say that it will flip a single bit and return the best solution out of all
-/// of the possible bit flips.
-/// This takes O(n|Q|) + O(n) time, where |Q| is the number of non-zero elements in the QUBO matrix.
-///
-/// # Panics
-///
-/// Will panic is the subset of variables is zero.
-pub fn one_step_local_search(
-    qubo: &Qubo,
-    x_0: &Array1<usize>,
-    subset: &Vec<usize>,
-) -> Array1<usize> {
-    let current_obj = qubo.eval_usize(x_0);
-
-    let y = 1 - x_0;
-    let mut objs = Array1::<f64>::zeros(qubo.num_x());
-
-    // calculate the objective function for each variable in our selected subset and each term in the delta formula
-    for i in subset {
-        let mut x = x_0.clone();
-        x[*i] = y[*i];
-        objs[*i] = qubo.eval_usize(&x);
-    }
-
-    // find the index of the best neighbor
-    let best_neighbor = objs
-        .iter()
-        .enumerate()
-        .min_by(|(_, a), (_, b)| a.partial_cmp(b).unwrap())
-        .unwrap()
-        .0;
-
-    // get the objective of this best neighbor
-    let best_obj = objs[best_neighbor];
-
-    // generate the vector relating to this best neighbor
-    let mut x_1 = x_0.clone();
-    x_1[best_neighbor] = 1 - x_1[best_neighbor];
-
-    // return the best neighbor if it is better than the current solution
-    match best_obj < current_obj {
-        true => x_1,
-        false => x_0.clone(),
-    }
 }
 
 /// This is a helper function for the basic particle swarm algorithm. It takes two points, x_0 and x_1, and sets up to num_contract
