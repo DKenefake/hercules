@@ -245,106 +245,6 @@ impl Qubo {
         self.eval_grad(&x_f64)
     }
 
-    /// Computes the optimal solution of the relaxed QUBO problem where x* = \alpha. From Boros2007.
-    ///
-    /// Assuming all variables take the same value, find the minimizing value of alpha
-    /// \alpha = \argmax_{\lambda \in [0, 1]} \lambda(\sum_i c_i + \lambda \sum_i \sum_j q_{ij}
-    ///
-    /// Example of calculating the optimal solution of the relaxed QUBO problem:
-    /// ```rust
-    /// use hercules::qubo::Qubo;
-    /// use ndarray::Array1;
-    /// use sprs::CsMat;
-    ///
-    /// let q = CsMat::<f64>::eye(3);
-    /// let c = Array1::<f64>::zeros(3);
-    /// let p = Qubo::new_with_c(q, c);
-    ///
-    /// let alpha = p.alpha();
-    /// ```
-    pub fn alpha(&self) -> f64 {
-        // find sum of all elements of q
-        let q_sum = self.q.data().iter().sum::<f64>();
-        let c_sum = self.c.sum();
-
-        // in the case of q_sum == 0
-        if q_sum == 0.0 {
-            return if c_sum > 0.0 { 1.0 } else { 0.0 }
-        }
-        
-        // solve for the optimal solution of the 1D relaxed QUBO problem
-        let alpha = -0.5 * c_sum / q_sum;
-
-        // return the optimal solution within bounds
-        alpha.clamp(0.0, 1.0)
-    }
-
-    /// Computes computes rho, the starting point heuristic from Boros2007
-    ///
-    /// Example of calculating rho:
-    /// ```rust
-    /// use hercules::qubo::Qubo;
-    /// use ndarray::Array1;
-    /// use sprs::CsMat;
-    ///
-    /// let q = CsMat::<f64>::eye(3);
-    /// let c = Array1::<f64>::zeros(3);
-    /// let p = Qubo::new_with_c(q, c);
-    ///
-    /// let rho = p.rho();
-    /// ```
-    pub fn rho(&self) -> f64 {
-        // calculate the terms q+,q-,c+,and c- from boros2007
-        let q_plus: f64 = self.q.data().iter().filter(|x| **x > 0.0).sum();
-        let q_minus: f64 = self.q.data().iter().filter(|x| **x < 0.0).sum();
-        let c_plus: f64 = self.c.iter().filter(|x| **x > 0.0).sum();
-        let c_minus: f64 = self.c.iter().filter(|x| **x < 0.0).sum();
-
-        let p = q_plus + c_plus;
-        let n = q_minus + c_minus;
-
-        let rho = p / (p - n);
-        rho
-    }
-
-    /// Computes the complexity of the QUBO problem.
-    ///
-    /// The complexity is defined as the number of non-zero elements in the QUBO matrix plus the number of non-zero elements in the linear coefficients.
-    ///
-    /// Example of calculating the complexity of a QUBO:
-    /// ```rust
-    /// use hercules::qubo::Qubo;
-    /// use ndarray::Array1;
-    /// use sprs::CsMat;
-    ///
-    /// let q = CsMat::<f64>::eye(3);
-    /// let c = Array1::<f64>::zeros(3);
-    /// let p = Qubo::new_with_c(q, c);
-    ///
-    /// let complexity = p.complexity(); //(Array of size 3)
-    /// ```
-    pub fn complexity(&self) -> Array1<usize> {
-        // set up a zeroed buffer
-        let mut w = Array1::<usize>::zeros(self.num_x());
-
-        // for each nonzero Q_ij, increment the corresponding w_i and w_j
-        for (value, (i, j)) in &self.q {
-            if *value != 0.0f64 {
-                w[i] += 1;
-                w[j] += 1;
-            }
-        }
-
-        // for each nonzero c_i, increment the corresponding w_i
-        for (i, value) in self.c.iter().enumerate() {
-            if *value != 0.0f64 {
-                w[i] += 1;
-            }
-        }
-
-        w
-    }
-
     /// Writes the QUBO to a file in the ORL problem format
     ///
     /// Example of writing a QUBO to a file:
@@ -874,5 +774,17 @@ mod tests {
             let obj_convex = p_convex.eval_usize(x);
             assert!((obj - obj_convex).abs() < 1e-5);
         }
+    }
+
+    #[test]
+    fn test_round_trip_from_to_vec(){
+        let mut prng = crate::tests::make_test_prng();
+        let p = Qubo::make_random_qubo(50, &mut prng, 0.1);
+        let (i, j, q, c, num_x) = p.to_vec();
+        let p_reconstructed = Qubo::from_vec(i, j, q, c, num_x);
+
+        assert_eq!(p.q, p_reconstructed.q);
+        assert_eq!(p.c, p_reconstructed.c);
+        assert_eq!(p.num_x(), p_reconstructed.num_x());
     }
 }

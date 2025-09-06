@@ -30,16 +30,7 @@ pub fn beck_proof(qubo: &Qubo, x: &Array1<usize>) -> bool {
     let x_float = x.mapv(|x| x as f64);
     let qx_b = (&qubo.q * &x_float) + &qubo.c; // Qx + c
 
-    // make the diagonal matrix 2X-I
-    let mut X = TriMat::new((qubo.num_x(), qubo.num_x()));
-    for i in 0..qubo.num_x() {
-        X.add_triplet(i, i, 2.0 * x_float[i] - 1.0);
-    }
-
-    let X = X.to_csc::<usize>();
-
-    // compute the full lhs e.g. 2(2X-I)(Qx + c)
-    let lhs = 2.0 * (&X * &qx_b);
+    let lhs = 2.0 * (2.0 * &x_float - 1.0) * &qx_b; // 2(2X - I)(Qx + c)
 
     // find the minimum eigenvalue of the hessian
     let eigs = qubo.hess_eigenvalues();

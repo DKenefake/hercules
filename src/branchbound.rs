@@ -85,7 +85,7 @@ impl BBSolver {
             subproblem_solver,
             options,
             early_stop: false,
-            solver_logger: SolverOutputLogger { output_level },
+            solver_logger: SolverOutputLogger::new(output_level),
         }
     }
 
@@ -253,7 +253,6 @@ impl BBSolver {
         let branch_result = self.make_branch(&node);
 
         // we now apply the new fixed variables to the base node before we branch
-
         for (&index, &value) in &branch_result.found_fixed_vars {
             node.fixed_variables.insert(index, value);
         }

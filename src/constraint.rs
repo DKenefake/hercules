@@ -407,4 +407,48 @@ mod tests {
         assert_eq!(c_less.make_inference(&persistent), None);
         assert_eq!(c_equal.make_inference(&persistent), Some((0, 1)));
     }
+
+    #[test]
+    fn test_inference_XX() {
+        let mut persistent = HashMap::new();
+        persistent.insert(3, 1);
+
+        let c_at_least = Constraint::new(0, 1, ConstraintType::AtLeastOne);
+        let c_no_more = Constraint::new(0, 1, ConstraintType::NoMoreThanOne);
+        let c_exactly = Constraint::new(0, 1, ConstraintType::ExactlyOne);
+        let c_greater = Constraint::new(0, 1, ConstraintType::GreaterThan);
+        let c_less = Constraint::new(0, 1, ConstraintType::LessThan);
+        let c_equal = Constraint::new(0, 1, ConstraintType::Equal);
+
+        assert_eq!(c_at_least.make_inference(&persistent), None);
+        assert_eq!(c_no_more.make_inference(&persistent), None);
+        assert_eq!(c_exactly.make_inference(&persistent), None);
+        assert_eq!(c_greater.make_inference(&persistent), None);
+        assert_eq!(c_less.make_inference(&persistent), None);
+        assert_eq!(c_equal.make_inference(&persistent), None);
+
+    }
+
+    #[test]
+    fn test_inference_00() {
+        let mut persistent = HashMap::new();
+        persistent.insert(0, 0);
+        persistent.insert(1, 0);
+
+
+        let c_at_least = Constraint::new(0, 1, ConstraintType::AtLeastOne);
+        let c_no_more = Constraint::new(0, 1, ConstraintType::NoMoreThanOne);
+        let c_exactly = Constraint::new(0, 1, ConstraintType::ExactlyOne);
+        let c_greater = Constraint::new(0, 1, ConstraintType::GreaterThan);
+        let c_less = Constraint::new(0, 1, ConstraintType::LessThan);
+        let c_equal = Constraint::new(0, 1, ConstraintType::Equal);
+
+        assert_eq!(c_at_least.make_inference(&persistent), None);
+        assert_eq!(c_no_more.make_inference(&persistent), None);
+        assert_eq!(c_exactly.make_inference(&persistent), None);
+        assert_eq!(c_greater.make_inference(&persistent), None);
+        assert_eq!(c_less.make_inference(&persistent), None);
+        assert_eq!(c_equal.make_inference(&persistent), None);
+
+    }
 }

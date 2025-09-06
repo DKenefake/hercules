@@ -84,7 +84,7 @@ impl SolverOptions {
                 "SimpleRounding" => {
                     self.heuristic = HeuristicSelection::SimpleRounding;
                 }
-                _ => {}
+                _ => self.heuristic = HeuristicSelection::LocalSearch,
             }
         }
     }
@@ -98,44 +98,68 @@ impl Default for SolverOptions {
 
 #[cfg(test)]
 mod tests {
+    use crate::branch_stratagy::BranchStrategy;
+    use crate::branch_subproblem::SubProblemSelection;
+    use crate::heuristic_stratagy::HeuristicSelection;
+    use crate::solver_options::SolverOptions;
 
     #[test]
     fn test_solver_options_set_branch_strat() {
-        let mut options = super::SolverOptions::new();
+        let mut options = SolverOptions::new();
         options.set_branch_strategy(Some("Random".to_string()));
         assert!(matches!(
             options.branch_strategy,
-            super::BranchStrategy::Random
+            BranchStrategy::Random
         ));
     }
 
     #[test]
     fn test_solver_options_set_sub_problem_strat_1() {
-        let mut options = super::SolverOptions::new();
+        let mut options = SolverOptions::new();
         options.set_sub_problem_strategy(Some("hercules".to_string()));
         assert!(matches!(
             options.sub_problem_solver,
-            super::SubProblemSelection::HerculesPGDQP
+            SubProblemSelection::HerculesPGDQP
         ));
     }
 
     #[test]
     fn test_solver_options_set_sub_problem_strat_2() {
-        let mut options = super::SolverOptions::new();
+        let mut options = SolverOptions::new();
         options.set_sub_problem_strategy(Some("hercules_cd".to_string()));
         assert!(matches!(
             options.sub_problem_solver,
-            super::SubProblemSelection::HerculesCDQP
+            SubProblemSelection::HerculesCDQP
         ));
     }
 
     #[test]
     fn test_solver_options_set_sub_problem_strat_3() {
-        let mut options = super::SolverOptions::new();
+        let mut options = SolverOptions::new();
         options.set_sub_problem_strategy(Some("qweqwe".to_string()));
         assert!(matches!(
             options.sub_problem_solver,
-            super::SubProblemSelection::ClarabelQP
+            SubProblemSelection::ClarabelQP
+        ));
+    }
+
+    #[test]
+    fn test_solver_options_set_heuristic_strat_1() {
+        let mut options = SolverOptions::new();
+        options.set_heuristic_strategy(Some("SimpleRounding".to_string()));
+        assert!(matches!(
+            options.heuristic,
+            HeuristicSelection::SimpleRounding
+        ));
+    }
+
+    #[test]
+    fn test_solver_options_set_heuristic_strat_2() {
+        let mut options = SolverOptions::new();
+        options.set_heuristic_strategy(Some("LocalSearch".to_string()));
+        assert!(matches!(
+            options.heuristic,
+            HeuristicSelection::LocalSearch
         ));
     }
 }
