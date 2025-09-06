@@ -103,48 +103,6 @@ pub fn calculate_hamming_distance(x_0: &Array1<usize>, x_1: &Array1<usize>) -> u
     distance
 }
 
-/// Given a point, x, determine if it is fractional e.g. not just 0.0f64 or 1.0f64
-///
-/// Example:
-/// ``` rust
-/// use hercules::qubo::Qubo;
-/// use smolprng::{PRNG, JsfLarge};
-/// use hercules::{initial_points, utils};
-///
-/// // generate a random QUBO
-/// let mut prng = PRNG {
-/// generator: JsfLarge::default(),
-/// };
-/// let p = Qubo::make_random_qubo(10, &mut prng, 0.5);
-///
-/// // generate a random point inside with x in {0, 1}^10 with
-/// let x_0 = initial_points::generate_central_starting_points(p.num_x());
-///
-/// // check if the point is fractional
-/// let is_fractional = utils::is_fractional(&x_0);
-/// ```
-pub fn is_fractional(x: &Array1<f64>) -> bool {
-    for i in 0..x.len() {
-        #[allow(clippy::float_cmp)]
-        // This is a false positive, as we are checking for fractional values
-        if x[i] != 0.0f64 && x[i] != 1.0f64 {
-            return true;
-        }
-    }
-    false
-}
-
-/// Generate a random point on a circle of radius 1 in n dimensions.
-pub fn sample_circle<T: Algorithm>(n: usize, prng: &mut PRNG<T>) -> Array1<f64> {
-    let mut x = Array1::zeros(n);
-    for i in 0..n {
-        x[i] = prng.normal();
-    }
-    let x_norm = x.norm_l2();
-
-    x / x_norm
-}
-
 /// Given a vector of points, return the best point, based on objective.
 ///
 /// Example:
@@ -234,5 +192,14 @@ mod tests {
         let rounded = rounded_vector(&point);
 
         assert_eq!(rounded, sol);
+    }
+
+    #[test]
+    fn test_hamming_distance() {
+        let x_0 = Array1::from_vec(vec![1, 0, 1, 1, 0]);
+        let x_1 = Array1::from_vec(vec![0, 0, 1, 1, 1]);
+        let distance = calculate_hamming_distance(&x_0, &x_1);
+
+        assert_eq!(distance, 2);
     }
 }

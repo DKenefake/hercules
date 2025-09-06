@@ -89,3 +89,47 @@ impl SolverOptions {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+
+    #[test]
+    fn test_solver_options_set_branch_strat() {
+        let mut options = super::SolverOptions::new();
+        options.set_branch_strategy(Some("Random".to_string()));
+        assert!(matches!(
+            options.branch_strategy,
+            super::BranchStrategy::Random
+        ));
+    }
+
+    #[test]
+    fn test_solver_options_set_sub_problem_strat_1() {
+        let mut options = super::SolverOptions::new();
+        options.set_sub_problem_strategy(Some("hercules".to_string()));
+        assert!(matches!(
+            options.sub_problem_solver,
+            super::SubProblemSelection::HerculesPGDQP
+        ));
+    }
+
+    #[test]
+    fn test_solver_options_set_sub_problem_strat_2() {
+        let mut options = super::SolverOptions::new();
+        options.set_sub_problem_strategy(Some("hercules_cd".to_string()));
+        assert!(matches!(
+            options.sub_problem_solver,
+            super::SubProblemSelection::HerculesCDQP
+        ));
+    }
+
+    #[test]
+    fn test_solver_options_set_sub_problem_strat_3() {
+        let mut options = super::SolverOptions::new();
+        options.set_sub_problem_strategy(Some("qweqwe".to_string()));
+        assert!(matches!(
+            options.sub_problem_solver,
+            super::SubProblemSelection::ClarabelQP
+        ));
+    }
+}

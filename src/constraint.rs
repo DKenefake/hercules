@@ -1,6 +1,8 @@
+use crate::persistence;
 use std::collections::HashMap;
 
 /// Enum for the type of constraint that is being used in the Constraint struct
+/// This is used to define the type of constraint that is being used in the Constraint struct
 pub enum ConstraintType {
     AtLeastOne,
     ExactlyOne,
@@ -10,7 +12,8 @@ pub enum ConstraintType {
     Equal,
 }
 
-/// The Constraint struct, that is for storing constraint information from the preprocessor
+/// The Constraint Struct is used to represent a constraint between two variables in a QUBO problem
+/// It contains the indices of the two variables and the type of constraint that is being used
 pub struct Constraint {
     pub(crate) x_i: usize,
     pub(crate) x_j: usize,
@@ -100,19 +103,18 @@ impl Constraint {
 
     pub fn how_many_fixed(&self, persistent: &HashMap<usize, usize>) -> usize {
         let mut count = 0;
-        if Self::is_fixed(persistent, self.x_i) {
+        if persistent.contains_key(&self.x_i) {
             count += 1;
         }
-        if Self::is_fixed(persistent, self.x_j) {
+        if persistent.contains_key(&self.x_j) {
             count += 1;
         }
         count
     }
 
-    pub fn is_fixed(persistent: &HashMap<usize, usize>, index: usize) -> bool {
-        persistent.contains_key(&index)
-    }
-
+    /// Given a set of persistent variables, returns the standard form of the constraint
+    /// If both or none of the variables are fixed, returns None
+    /// If one variable is fixed, returns (free_variable_index, fixed_variable_index, fixed_value)
     pub fn get_standard_form(
         &self,
         persistent: &HashMap<usize, usize>,
@@ -143,6 +145,9 @@ impl Constraint {
         }
     }
 
+    /// Given a constraint of the type x_i + x_j = 1, computes if we can make an inference on
+    /// either x_i or x_j, given some fixed variables. If so, returns the index and value of the
+    /// fixed value, otherwise returns None
     #[allow(clippy::unnecessary_wraps)]
     pub const fn exactly_one_inference(
         free_var: usize,
@@ -155,6 +160,9 @@ impl Constraint {
         }
     }
 
+    /// Given a constraint of the type x_i + x_j >= 1, computes if we can make an inference on
+    /// either x_i or x_j, given some fixed variables. If so, returns the index and value of the
+    /// fixed value, otherwise returns None
     pub const fn at_least_one_inference(
         free_var: usize,
         fixed_value: usize,
@@ -166,6 +174,8 @@ impl Constraint {
         }
     }
 
+    /// Given a constraint of the type x_i >= x_j, solves if we can make an inference on it. If so,
+    /// returns the index and value of the fixed variable, otherwise returns None
     pub fn greater_than_inference(
         &self,
         persistent: &HashMap<usize, usize>,

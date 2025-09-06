@@ -3,8 +3,8 @@ use crate::qubo::Qubo;
 use std::cmp::min;
 use std::collections::HashMap;
 
-/// This function takes a QUBO and a set of persistent variables and returns a new set of persistent variables by repeatedly re
-/// computing the persistent variables until.
+/// This function takes a QUBO and a set of persistent variables and returns a new set of persistent variables by repeatedly
+/// recomputing the persistent variables until.
 pub fn compute_iterative_persistence(
     qubo: &Qubo,
     persistent: &HashMap<usize, usize>,

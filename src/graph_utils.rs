@@ -1,6 +1,9 @@
 use crate::qubo::Qubo;
 use std::collections::HashMap;
 
+/// Given a QUBO and a set of fixed variables, find all disconnected subgraphs in the QUBO graph
+/// that do not include any fixed variables. Each subgraph is represented as a vector of variable
+/// indices.
 pub fn get_all_disconnected_graphs(
     qubo: &Qubo,
     fixed_vars: &HashMap<usize, usize>,
@@ -93,11 +96,6 @@ mod tests {
         assert!(components
             .iter()
             .any(|c| c.len() == 2 && c.contains(&3) && c.contains(&4)));
-
-        // we want to print out the components for visual inspection
-        for (i, component) in components.iter().enumerate() {
-            println!("Component {}: {:?}", i, component);
-        }
     }
 
     #[test]

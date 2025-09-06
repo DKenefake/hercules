@@ -11,7 +11,7 @@ use ndarray::Array1;
 
 /// Performs a single step of local search, which is to say that it will flip a single bit and return the best solution out of all
 /// of the possible bit flips.
-/// This takes O(n|Q|) + O(n) time, where |Q| is the number of non-zero elements in the QUBO matrix.
+/// This takes O(|Q|) + O(n) time, where |Q| is the number of non-zero elements in the QUBO matrix.
 ///
 /// # Panics
 ///
@@ -65,6 +65,9 @@ pub fn one_step_local_search_improved(
     }
 }
 
+/// Performs a two-step local search, which is to say that it will flip either one or two bits and
+/// return the best solution out of all the possible bit flips.
+/// This takes O(|Q|) + O(n) time, where |Q| is the number of non-zero elements in the QUBO matrix.
 pub fn two_step_local_search_improved(qubo: &Qubo, x_0: &Array1<usize>) -> Array1<usize> {
     // Do a neighborhood search of up to two bit flips and returns the best solution
     let (_, obj_1d) = one_flip_objective(qubo, x_0);
@@ -115,6 +118,8 @@ pub fn two_step_local_search_improved(qubo: &Qubo, x_0: &Array1<usize>) -> Array
 ///
 /// This is essentially a helper function that calculates the gains of flipping bits for each variable and then flips in
 /// the direction that gives the best gain.
+///
+/// This runs in O(|Q|) + O(n) time, where |Q| is the number of non-zero elements in the QUBO matrix.
 pub fn get_gain_criteria(qubo: &Qubo, x: &Array1<usize>) -> Array1<usize> {
     // calculate the gain criteria for each variable, given the point x
     // if the gradient is negative, then the optimal criteria is 1.0 for x_1
@@ -136,7 +141,7 @@ pub fn get_gain_criteria(qubo: &Qubo, x: &Array1<usize>) -> Array1<usize> {
 
 /// Efficient calculation of the delta of the objective function for a single bit flip for each variable
 /// more or less this is a helper function that allows for selecting the best bit to flip option without
-/// having to calculate the objective function for each bit flip, independently.
+/// having to calculate the objective function for each bit flip.
 ///
 /// Run time is O(|Q|) + O(|x|)
 pub fn one_flip_objective(qubo: &Qubo, x_0: &Array1<usize>) -> (f64, Array1<f64>) {
