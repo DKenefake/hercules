@@ -49,7 +49,7 @@ let mut prng = PRNG {
 };
 
 // read a QUBO problem from a file
-let p = Qubo::read_qubo("test_large.qubo");
+let p = Qubo::read_qubo("test_data/test_large.qubo");
 
 // generate an initial point of 0.5 for each variable
 let x_0 = generate_random_binary_point(p.num_x(), &mut prng, 0.5);
@@ -65,7 +65,7 @@ import hercules
 import random
 
 # read in the qubo problem
-problem = hercules.read_qubo('test_large.qubo')
+problem = hercules.read_qubo('test_data/test_large.qubo')
 
 # generate a random point
 x_0 = [random.randint(0,1) for i in range(problem[-1])]
@@ -87,9 +87,11 @@ solver options being used.
 ```rust
 use hercules::qubo::Qubo;
 use hercules::branchbound::BBSolver;
+use hercules::solver_options::SolverOptions;
+use hercules::branch_subproblem::SubProblemSelection
 
 // read in the QUBO problem
-let p = Qubo::read_qubo("test_large.qubo");
+let p = Qubo::read_qubo("test_data/test_large.qubo");
 
 // set up the solver options
 let mut options = SolverOptions::new();
@@ -110,7 +112,7 @@ The branch and bound solver can also be used from Python, as shown below.
 import hercules
 
 # read in the qubo problem
-problem = hercules.read_qubo('test_large.qubo')
+problem = hercules.read_qubo('test_data/test_large.qubo')
 
 # the python interface requires a specified timeout 
 x_soln, obj = hercules.solve_branch_bound(problem, timeout=20.0, sub_problem_solver = "clarabel_lp")
