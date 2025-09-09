@@ -13,12 +13,18 @@ pub struct SubProblemOptions {
     pub max_iterations: Option<usize>,
 }
 
+/// Options for the sub-problem solver
+/// - max_iterations: maximum number of iterations to run the solver for
+///  If None, the solver will run until convergence or a default maximum number of iterations
 impl SubProblemOptions {
     pub const fn new(max_iterations: Option<usize>) -> Self {
         Self { max_iterations }
     }
 }
 
+/// Trait for solving sub-problems in branch and bound
+/// The sub-problem solver takes in a branch and bound solver, a node, and options
+/// and returns a lower bound and a solution
 pub trait SubProblemSolver {
     fn solve_lower_bound(
         &self,

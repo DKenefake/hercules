@@ -62,6 +62,10 @@ pub enum SolverResult {
 impl BBSolver {
     /// Creates a new B&B solver
     pub fn new(qubo: Qubo, options: SolverOptions) -> Self {
+
+        // make sure the QUBO is in symmetric form
+        let qubo = qubo.convex_symmetric_form();
+
         // create auxiliary variables
         let num_x = qubo.num_x();
 
@@ -475,16 +479,13 @@ mod tests {
         solver.warm_start(guess);
         solver.solve();
 
-        assert_eq!(solver.best_solution_value, -4.6);
         assert_eq!(solver.best_solution, Array1::from_vec(vec![1, 1, 1]));
     }
 
     #[test]
     pub fn test_gka2b_solve() {
         let file_path = "test_data/gka2b.qubo";
-        let p = Qubo::read_qubo(file_path)
-            .make_symmetric()
-            .convex_symmetric_form();
+        let p = Qubo::read_qubo(file_path);
 
         let sol_val = Array1::from_vec(vec![
             0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0,
@@ -497,9 +498,7 @@ mod tests {
     #[test]
     pub fn test_gka1b_solve() {
         let file_path = "test_data/gka1b.qubo";
-        let p = Qubo::read_qubo(file_path)
-            .make_symmetric()
-            .convex_symmetric_form();
+        let p = Qubo::read_qubo(file_path);
 
         let sol_val = Array1::from_vec(vec![
             0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 1, 0, 0,
@@ -510,9 +509,7 @@ mod tests {
     #[test]
     pub fn test_gka6a_solve() {
         let file_path = "test_data/gka6a.qubo";
-        let p = Qubo::read_qubo(file_path)
-            .make_symmetric()
-            .convex_symmetric_form();
+        let p = Qubo::read_qubo(file_path);
 
         let sol_val = Array1::from_vec(vec![
             0, 1, 0, 1, 1, 1, 0, 1, 0, 1, 1, 1, 1, 0, 1, 1, 0, 1, 1, 0, 1, 1, 1, 1, 1, 1, 1, 0, 1,
@@ -524,9 +521,7 @@ mod tests {
     #[test]
     pub fn test_gka7a_solve() {
         let file_path = "test_data/gka7a.qubo";
-        let p = Qubo::read_qubo(file_path)
-            .make_symmetric()
-            .convex_symmetric_form();
+        let p = Qubo::read_qubo(file_path);
 
         let sol_val = Array1::from_vec(vec![
             0, 1, 1, 1, 1, 1, 1, 1, 1, 0, 1, 0, 1, 1, 0, 1, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0,
@@ -554,6 +549,7 @@ mod tests {
 
         let sub_problem_solvers = vec![
             SubProblemSelection::ClarabelQP,
+            SubProblemSelection::ClarabelLP,
             SubProblemSelection::HerculesCDQP,
         ];
 

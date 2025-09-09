@@ -10,10 +10,7 @@ use ndarray::Array1;
 use sprs::{CsMat, TriMat};
 
 #[derive(Clone)]
-pub struct ClarabelQPSolver {
-    pub q: CscMatrix,
-    pub c: Array1<f64>,
-}
+pub struct ClarabelQPSolver {}
 
 impl SubProblemSolver for ClarabelQPSolver {
     fn solve_lower_bound(
@@ -96,12 +93,8 @@ impl SubProblemSolver for ClarabelQPSolver {
 }
 
 impl ClarabelQPSolver {
-    pub fn new(qubo: &Qubo) -> Self {
-        let q_new = Self::make_cb_form(&(qubo.q));
-        Self {
-            q: q_new,
-            c: qubo.c.clone(),
-        }
+    pub fn new(_: &Qubo) -> Self {
+        Self {}
     }
     pub fn make_cb_form(p0: &CsMat<f64>) -> CscMatrix {
         let (t, y, u) = p0.to_csc().into_raw_storage();

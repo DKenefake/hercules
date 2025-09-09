@@ -100,7 +100,7 @@ pub fn cd_step(x: &mut Array1<f64>, qubo: &Qubo) -> f64 {
         let Q_i = qubo
             .q
             .outer_view(i)
-            .unwrap_or_else(|| panic!("Row {} not found in Q matrix", i));
+            .unwrap_or_else(|| panic!("Row {i} not found in Q matrix"));
 
         // compute the linear term of the cd expression
         let l_i = Q_i.dot(&x) + qubo.c[i];

@@ -1,4 +1,5 @@
 use std::collections::HashMap;
+use std::fmt::{Display, Formatter};
 
 /// Enum for the type of constraint that is being used in the Constraint struct
 /// This is used to define the type of constraint that is being used in the Constraint struct
@@ -245,6 +246,23 @@ impl Constraint {
         Some((free_var, fixed_value))
     }
 }
+
+impl Display for Constraint {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+
+        let constr_str = match self.constr_type {
+            ConstraintType::AtLeastOne => format!("x_{} + x_{} >= 1", self.x_i, self.x_j),
+            ConstraintType::NoMoreThanOne => format!("x_{} + x_{} <= 1", self.x_i, self.x_j),
+            ConstraintType::ExactlyOne => format!("x_{} + x_{} = 1", self.x_i, self.x_j),
+            ConstraintType::GreaterThan => format!("x_{} >= x_{}", self.x_i, self.x_j),
+            ConstraintType::LessThan => format!("x_{} <= x_{}", self.x_i, self.x_j),
+            ConstraintType::Equal => format!("x_{} = x_{}", self.x_i, self.x_j),
+        };
+        write!(f, "{}", constr_str)
+
+    }
+}
+
 
 #[cfg(test)]
 mod tests {

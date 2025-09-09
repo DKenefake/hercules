@@ -5,12 +5,14 @@ use std::collections::HashMap;
 
 /// Find Equations and inequalities that can be used to strengthen the QUBO by probing using the presolver
 /// This is a probing method that tries to fix each variable to 0 and 1 and see what other variables can be fixed as a result
-fn find_equations(
+fn find_constraints(
     qubo: &Qubo,
     fixed_vars: &HashMap<usize, usize>,
     in_standard_form: bool,
-) -> Vec<Constraint> {
+) -> (Vec<Constraint>, HashMap<usize, usize>) {
+
     let mut constraints = Vec::new();
+    let mut new_fixed_vars = HashMap::new();
     let n = qubo.num_x();
 
     for i in 0..n {
@@ -32,15 +34,34 @@ fn find_equations(
                 continue;
             }
 
+            // see if we have any equations
             if fixed_vars_0.contains_key(&j) && fixed_vars_1.contains_key(&j) {
                 if fixed_vars_1[&j] == 1 && fixed_vars_0[&j] == 0 {
                     constraints.push(Constraint::new(i, j, ConstraintType::Equal));
                 } else if fixed_vars_0[&j] == 1 && fixed_vars_1[&j] == 0 {
                     constraints.push(Constraint::new(i, j, ConstraintType::ExactlyOne));
+                } else if fixed_vars_0[&j] == 0  && fixed_vars_1[&j] == 0 {
+                    new_fixed_vars.insert(j, 0);
+                } else { new_fixed_vars.insert(j, 1); }
+            // see if we have any inequalities
+            }else{
+                if fixed_vars_0.contains_key(&j) {
+                    if fixed_vars_0[&j] == 1 {
+                        constraints.push(Constraint::new(i, j, ConstraintType::AtLeastOne));
+                    } else if fixed_vars_0[&j] == 0 {
+                        constraints.push(Constraint::new(i, j, ConstraintType::LessThan));
+                    }
+                }
+                else if fixed_vars_1.contains_key(&j) {
+                    if fixed_vars_1[&j] == 1 {
+                        constraints.push(Constraint::new(i, j, ConstraintType::GreaterThan));
+                    } else if fixed_vars_1[&j] == 0 {
+                        constraints.push(Constraint::new(i, j, ConstraintType::NoMoreThanOne));
+                    }
                 }
             }
         }
     }
 
-    constraints
+    (constraints, new_fixed_vars)
 }

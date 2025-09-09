@@ -25,7 +25,7 @@ impl SolverOptions {
             max_time: 100.0,
             seed: 0,
             verbose: 1,
-            threads: 1,
+            threads: 256,
         }
     }
 
@@ -70,6 +70,9 @@ impl SolverOptions {
             match s.as_str() {
                 "hercules_cd" => {
                     self.sub_problem_solver = SubProblemSelection::HerculesCDQP;
+                },
+                "clarabel_lp" => {
+                    self.sub_problem_solver = SubProblemSelection::ClarabelLP;
                 }
                 _ => self.sub_problem_solver = SubProblemSelection::ClarabelQP,
             }

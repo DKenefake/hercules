@@ -74,7 +74,7 @@ mod tests {
             let mut x_0 = Array1::zeros(p.num_x());
             (0..p.num_x()).for_each(|i| x_0[i] = prng.gen_f64());
 
-            let obj_0 = p.eval(&x_0);
+            let obj_0 = solver.qubo.eval(&x_0);
 
             // make a dummy node
             let node = QuboBBNode {
@@ -117,10 +117,12 @@ mod tests {
 
             let rounded_sol = utils::rounded_vector(&x_0);
 
-            let obj_0 = p.eval_usize(&rounded_sol);
+            let obj_0 = solver.qubo.eval_usize(&rounded_sol);
 
             // compute the next step
             let (_, obj_1) = solver.options.heuristic.make_heuristic(&solver, &node);
+
+            println!("Obj 0: {}, Obj 1: {}", obj_0, obj_1);
 
             // ensure that the objective has not increased
             assert!(obj_1 <= obj_0);

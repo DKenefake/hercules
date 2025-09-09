@@ -398,8 +398,6 @@ pub fn solve_branch_bound(
     // run preprocessing on the symmetric QUBO
     let fixed_variables = preprocess_qubo(&symm_p, &HashMap::new(), false);
 
-    let p = symm_p.convex_symmetric_form();
-
     let mut options = SolverOptions::new();
 
     options.seed = seed.unwrap_or(12_345_679usize);
@@ -410,7 +408,7 @@ pub fn solve_branch_bound(
 
     options.set_heuristic_strategy(heuristic_selection);
 
-    options.threads = threads.unwrap_or(1);
+    options.threads = threads.unwrap_or(256);
 
     options.verbose = verbose.unwrap_or(1);
 
@@ -418,7 +416,7 @@ pub fn solve_branch_bound(
 
     options.fixed_variables = fixed_variables;
 
-    let mut solver = BBSolver::new(p, options);
+    let mut solver = BBSolver::new(symm_p, options);
 
     // if we have a warm start, use it
     if let Some(x) = warm_start {
