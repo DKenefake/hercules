@@ -108,7 +108,7 @@ mod tests {
     use crate::tests::make_solver_qubo;
 
     #[test]
-    fn ensure_matrix_equivlence() {
+    fn ensure_matrix_equivalence() {
         // the idea of this test is to make sure that the conversion from sprs to clarabel is correct
 
         let qubo = make_solver_qubo();

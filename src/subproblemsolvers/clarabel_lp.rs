@@ -21,6 +21,9 @@ impl ClarabelLPSolver {
         Self {}
     }
 }
+
+/// Implements the Glover Relaxation to solve the LP associated with a QUBO node based on glover1974converting
+/// from the cited papers list
 impl SubProblemSolver for ClarabelLPSolver {
     fn solve_lower_bound(
         &self,
