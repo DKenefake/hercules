@@ -19,7 +19,8 @@ pub fn compute_iterative_persistence(
     // loop over the number of iters
     for _ in 0..iters {
         let incoming_persistent = compute_persistent(qubo, &new_persistent);
-        let incoming_persistent = solve_small_components(qubo, &incoming_persistent, 15);
+        let incoming_persistent = solve_small_components(qubo, &incoming_persistent, 10);
+
         if new_persistent == incoming_persistent {
             break;
         }

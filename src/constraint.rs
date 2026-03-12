@@ -3,6 +3,7 @@ use std::fmt::{Display, Formatter};
 
 /// Enum for the type of constraint that is being used in the Constraint struct
 /// This is used to define the type of constraint that is being used in the Constraint struct
+#[derive(Clone, Debug, Copy)]
 pub enum ConstraintType {
     AtLeastOne,
     ExactlyOne,
@@ -14,6 +15,7 @@ pub enum ConstraintType {
 
 /// The Constraint Struct is used to represent a constraint between two variables in a QUBO problem
 /// It contains the indices of the two variables and the type of constraint that is being used
+#[derive(Clone, Debug, Copy)]
 pub struct Constraint {
     pub(crate) x_i: usize,
     pub(crate) x_j: usize,
@@ -81,6 +83,30 @@ impl Constraint {
             ConstraintType::GreaterThan => self.greater_than_inference(persistent),
             ConstraintType::LessThan => self.less_than_inference(persistent),
             ConstraintType::Equal => Self::equal_inference(free, fixed_value),
+        }
+    }
+
+    /// Returns true if the constraint is an equality constraint (i.e., not an inequality)
+    pub const fn is_equality(&self) -> bool {
+        match self.constr_type {
+            ConstraintType::NoMoreThanOne
+            | ConstraintType::AtLeastOne
+            | ConstraintType::GreaterThan
+            | ConstraintType::LessThan => false,
+            ConstraintType::ExactlyOne | ConstraintType::Equal => true,
+        }
+    }
+
+    /// Generates the coefficents of the constraint in standard form Ax <=/= b
+    /// Returns (A_i, A_j, b)
+    pub const fn coeff_form(&self) -> (f64, f64, f64) {
+        match self.constr_type {
+            ConstraintType::NoMoreThanOne => (1.0, 1.0, 1.0), // x_i + x_j <= 1
+            ConstraintType::AtLeastOne => (-1.0, -1.0, -1.0), // x_i + x_j >= 1 -> -x_i - x_j <= -1
+            ConstraintType::ExactlyOne => (1.0, 1.0, 1.0), // x_i + x_j = 1
+            ConstraintType::GreaterThan => (-1.0, 1.0, 0.0), // x_i - x_j >= 0 -> -x_i + x_j <= 0
+            ConstraintType::LessThan => (1.0, -1.0, 0.0), // x_i - x_j <= 0
+            ConstraintType::Equal => (1.0, -1.0, 0.0), // x_i - x_j = 0
         }
     }
 

@@ -9,7 +9,7 @@ use crate::branchbound_utils::{check_integer_feasibility, get_current_time};
 use crate::branchboundlogger::SolverOutputLogger;
 use crate::lower_bound::li_lower_bound;
 use crate::preprocess;
-use crate::preprocess::preprocess_qubo;
+use crate::preprocess::{preprocess_qubo, preprocess_qubo_heavy};
 use crate::solver_options::SolverOptions;
 use std::collections::BinaryHeap;
 

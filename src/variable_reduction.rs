@@ -3,13 +3,25 @@ use crate::preprocess::preprocess_qubo;
 use crate::qubo::Qubo;
 use std::collections::HashMap;
 
+#[derive(Debug, Clone)]
+pub struct ProbedEquationSet {
+    pub constraints: Vec<Constraint>
+}
+
+impl ProbedEquationSet{
+    pub fn new(constraints: Vec<Constraint>) -> Self{
+        Self{constraints}
+    }
+
+}
+
 /// Find Equations and inequalities that can be used to strengthen the QUBO by probing using the presolver
 /// This is a probing method that tries to fix each variable to 0 and 1 and see what other variables can be fixed as a result
-fn find_constraints(
+pub fn probe(
     qubo: &Qubo,
     fixed_vars: &HashMap<usize, usize>,
     in_standard_form: bool,
-) -> (Vec<Constraint>, HashMap<usize, usize>) {
+) -> (ProbedEquationSet, HashMap<usize, usize>) {
 
     let mut constraints = Vec::new();
     let mut new_fixed_vars = HashMap::new();
@@ -37,9 +49,9 @@ fn find_constraints(
             // see if we have any equations
             if fixed_vars_0.contains_key(&j) && fixed_vars_1.contains_key(&j) {
                 if fixed_vars_1[&j] == 1 && fixed_vars_0[&j] == 0 {
-                    constraints.push(Constraint::new(i, j, ConstraintType::Equal));
+                    constraints.push(Constraint::new(i.min(j), j.max(i), ConstraintType::Equal));
                 } else if fixed_vars_0[&j] == 1 && fixed_vars_1[&j] == 0 {
-                    constraints.push(Constraint::new(i, j, ConstraintType::ExactlyOne));
+                    constraints.push(Constraint::new(i.min(j), j.max(i), ConstraintType::ExactlyOne));
                 } else if fixed_vars_0[&j] == 0  && fixed_vars_1[&j] == 0 {
                     new_fixed_vars.insert(j, 0);
                 } else { new_fixed_vars.insert(j, 1); }
@@ -47,7 +59,7 @@ fn find_constraints(
             }else{
                 if fixed_vars_0.contains_key(&j) {
                     if fixed_vars_0[&j] == 1 {
-                        constraints.push(Constraint::new(i, j, ConstraintType::AtLeastOne));
+                        constraints.push(Constraint::new(i.min(j), j.max(i), ConstraintType::AtLeastOne));
                     } else if fixed_vars_0[&j] == 0 {
                         constraints.push(Constraint::new(i, j, ConstraintType::LessThan));
                     }
@@ -56,12 +68,12 @@ fn find_constraints(
                     if fixed_vars_1[&j] == 1 {
                         constraints.push(Constraint::new(i, j, ConstraintType::GreaterThan));
                     } else if fixed_vars_1[&j] == 0 {
-                        constraints.push(Constraint::new(i, j, ConstraintType::NoMoreThanOne));
+                        constraints.push(Constraint::new(i.min(j), j.max(i), ConstraintType::NoMoreThanOne));
                     }
                 }
             }
         }
     }
 
-    (constraints, new_fixed_vars)
+    (ProbedEquationSet{constraints}, new_fixed_vars)
 }

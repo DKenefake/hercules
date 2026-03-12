@@ -1,8 +1,6 @@
 use crate::persistence::compute_iterative_persistence;
 /// This file is the main module that defines the preprocessing functions
-///
-/// Currently the following features are implemented:
-/// - Iterative persistence
+
 use crate::qubo::Qubo;
 use ndarray::Array1;
 use sprs::TriMat;
@@ -38,6 +36,38 @@ pub fn preprocess_qubo(
         compute_iterative_persistence(&qubo_shift, &initial_fixed, qubo_shift.num_x());
 
     fixed_variables
+}
+
+/// This is the heavy entry point for preprocessing + variable probing
+pub fn preprocess_qubo_heavy(
+    qubo: &Qubo,
+    fixed_variables: &HashMap<usize, usize>,
+    in_standard_form: bool,
+) -> HashMap<usize, usize> {
+    // copy the fixed variables
+    let mut new_persistent = fixed_variables.clone();
+
+    // the number of required iterations is always below the number of variables
+    let iters = qubo.num_x();
+
+    // loop over the number of iters
+    for _ in 0..iters {
+        let mut incoming_persistent = preprocess_qubo(&qubo, &new_persistent, in_standard_form);
+
+        let (_, probe_fixes) = crate::variable_reduction::probe(&qubo, &new_persistent, in_standard_form);
+
+        // add the probe fixes to the incoming persistent
+        for (key, value) in probe_fixes {
+            incoming_persistent.insert(key, value);
+        }
+
+        if new_persistent == incoming_persistent {
+            return new_persistent;
+        }
+        new_persistent = incoming_persistent;
+    }
+
+    new_persistent
 }
 
 /// Find variables that have no effect in the QUBO, where the linear term is zero and the quadratic
