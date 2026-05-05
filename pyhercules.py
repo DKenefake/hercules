@@ -6,7 +6,7 @@ import time
 random.seed(time.time())
 
 # read in the qubo problem
-problem = hercules.read_qubo('test_large.qubo')
+problem = hercules.read_qubo('test_data/test_large.qubo')
 num_x = problem[-1]
 
 # create a random initial point

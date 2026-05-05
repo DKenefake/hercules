@@ -306,6 +306,7 @@ pub fn get_persistence(
 /// if the file does not exist, then it will abort, nut the sdp_shift calculation should never fail
 #[pyfunction]
 #[pyo3(signature = (problem, stat_tolerance=None))]
+#[cfg(feature = "sdp")]
 pub fn get_sdp_shift(problem: QuboData, stat_tolerance: Option<f64>) -> PyResult<Vec<f64>> {
     // read in the QUBO from file
     let p = Qubo::from_vec(problem.0, problem.1, problem.2, problem.3, problem.4);

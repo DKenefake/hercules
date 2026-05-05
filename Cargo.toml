@@ -13,20 +13,22 @@ categories = ["science", "mathematics"]
 
 [lib]
 name = "hercules"
-crate-type = ["cdylib"]
+crate-type = ["rlib", "cdylib"]
+
+[features]
+default = []
+python = ["dep:pyo3"]
+sdp = ["dep:mixingcut"]
 
 [dependencies]
-sprs = "0.11.3"
+sprs = "=0.11.3"
 ndarray = "0.16.1"
 ndarray-linalg = { version = "0.17.0", features = ["intel-mkl-static"] }
 smolprng = {version = "0.1.6", features = ["std"]}
 rayon = "1.10.0"
-pyo3 = { version = "0.25.0", features = ["extension-module", "abi3-py37"] }
+pyo3 = { version = "0.25.0", optional = true, features = ["extension-module", "abi3-py37"] }
 clarabel = "0.10.0"
-mixingcut = "0.1.2"
-
-[doc]
-rustdocflags = [ "--html-in-header", "docs-header.html" ]
+mixingcut = { version = "0.1.2", optional = true }
 
 [package.metadata.docs.rs]
 rustdoc-args = [ "--html-in-header", "docs-header.html" ]
@@ -48,7 +50,6 @@ debug = false
 debug-assertions = false
 overflow-checks = false
 lto = true
-panic = "unwind"
 incremental = false
 codegen-units = 1
 rpath = false

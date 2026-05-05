@@ -20,6 +20,7 @@
 
 const VERSION: &str = env!("CARGO_PKG_VERSION");
 
+#[cfg(feature = "python")]
 use pyo3::prelude::*;
 
 pub mod branch_node;
@@ -40,6 +41,7 @@ pub mod local_search_utils;
 pub mod lower_bound;
 pub mod persistence;
 pub mod preprocess;
+#[cfg(feature = "python")]
 pub mod python_interopt;
 pub mod qubo;
 pub mod solver_options;
@@ -58,9 +60,11 @@ pub mod subproblemsolvers {
 
 #[allow(clippy::wildcard_imports)]
 // wildcard importing makes sense are we are importing everything anyway
+#[cfg(feature = "python")]
 use python_interopt::*;
 
 /// Gives python access to the rust interface
+#[cfg(feature = "python")]
 #[pymodule]
 fn hercules(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(pso, m)?)?;
@@ -72,6 +76,7 @@ fn hercules(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(get_persistence, m)?)?;
     m.add_function(wrap_pyfunction!(solve_branch_bound, m)?)?;
     m.add_function(wrap_pyfunction!(convex_symmetric_form, m)?)?;
+    #[cfg(feature = "sdp")]
     m.add_function(wrap_pyfunction!(get_sdp_shift, m)?)?;
     m.add_function(wrap_pyfunction!(get_qubo_components, m)?)?;
     Ok(())
