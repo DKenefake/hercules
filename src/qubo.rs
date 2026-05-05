@@ -106,10 +106,10 @@ impl Qubo {
     /// let (i, j, q, c, num_x) = p.to_vec();
     /// ```
     pub fn to_vec(&self) -> (Vec<usize>, Vec<usize>, Vec<f64>, Vec<f64>, usize) {
-        let mut i = Vec::new();
-        let mut j = Vec::new();
-        let mut q = Vec::new();
-        let mut c = Vec::new();
+        let mut i = Vec::with_capacity(self.q.nnz());
+        let mut j = Vec::with_capacity(self.q.nnz());
+        let mut q = Vec::with_capacity(self.q.nnz());
+        let mut c = Vec::with_capacity(self.c.len());
 
         for (&value, (row, col)) in &self.q {
             i.push(row);
@@ -182,8 +182,21 @@ impl Qubo {
     }
 
     pub fn eval_usize(&self, x: &Array1<usize>) -> f64 {
-        let x_f64 = x.mapv(|x| x as f64);
-        self.eval(&x_f64)
+        let mut obj = 0.0;
+
+        for (&q_ij, (i, j)) in &self.q {
+            if x[i] != 0 && x[j] != 0 {
+                obj += 0.5 * q_ij;
+            }
+        }
+
+        for (i, &c_i) in self.c.iter().enumerate() {
+            if x[i] != 0 {
+                obj += c_i;
+            }
+        }
+
+        obj
     }
 
     /// Return the number of variables in the QUBO
@@ -241,8 +254,19 @@ impl Qubo {
     /// ```
     pub fn eval_grad_usize(&self, x: &Array1<usize>) -> Array1<f64> {
         // takes the gradient of the QUBO at x, does not assume that the QUBO is symmetric
-        let x_f64 = x.mapv(|x| x as f64);
-        self.eval_grad(&x_f64)
+        let mut grad = self.c.clone();
+
+        for (&q_ij, (i, j)) in &self.q {
+            if x[j] != 0 {
+                grad[i] += 0.5 * q_ij;
+            }
+
+            if x[i] != 0 {
+                grad[j] += 0.5 * q_ij;
+            }
+        }
+
+        grad
     }
 
     /// Writes the QUBO to a file in the ORL problem format
@@ -314,25 +338,28 @@ impl Qubo {
 
         // read the file
         while reader.read_line(&mut line).unwrap() > 0 {
-            let row_data: Vec<_> = line.split_whitespace().collect();
+            let mut row_data = line.split_whitespace();
+            let first = row_data.next();
+            let second = row_data.next();
+            let third = row_data.next();
 
             // we add to the column vector if there are only two elements
-            if row_data.len() == 2 {
-                let i = row_data[0].parse::<usize>().unwrap();
-                let value = row_data[1].parse::<f64>().unwrap();
+            if let (Some(i), Some(value), None) = (first, second, third) {
+                let i = i.parse::<usize>().unwrap();
+                let value = value.parse::<f64>().unwrap();
                 c[i] = value;
             }
 
             // otherwise, we add to the sparse matrix
-            if row_data.len() == 3 {
-                let i = row_data[0].parse::<usize>().unwrap();
-                let j = row_data[1].parse::<usize>().unwrap();
-                let value = row_data[2].parse::<f64>().unwrap();
+            if let (Some(i), Some(j), Some(value)) = (first, second, third) {
+                let i = i.parse::<usize>().unwrap();
+                let j = j.parse::<usize>().unwrap();
+                let value = value.parse::<f64>().unwrap();
                 q.add_triplet(i, j, value);
             }
 
             // reset the line
-            line = String::new();
+            line.clear();
         }
 
         Self::new_with_c(q.to_csr(), c)

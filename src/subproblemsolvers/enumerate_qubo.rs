@@ -2,22 +2,41 @@ use crate::qubo::Qubo;
 use ndarray::Array1;
 
 pub fn enumerate_solve(qubo: &Qubo) -> (f64, Array1<usize>) {
-    // Enumerate all possible binary solutions solutions
     let num_vars = qubo.num_x();
-    let mut best_obj = f64::INFINITY;
-    let mut best_solution = Array1::<usize>::zeros(num_vars);
-    let mut solution = Array1::<usize>::zeros(num_vars);
+    let total_masks = 1usize
+        .checked_shl(num_vars as u32)
+        .expect("enumerate_solve only supports component sizes below the machine word width");
 
-    for i in 0..=(1 << num_vars) {
-        for j in 0..num_vars {
-            solution[j] = (i >> j) & 1;
+    let q_terms: Vec<_> = qubo.q.iter().map(|(&value, (i, j))| (i, j, value)).collect();
+    let c_terms = qubo.c.to_vec();
+
+    let mut best_obj = f64::INFINITY;
+    let mut best_mask = 0usize;
+
+    for mask in 0..total_masks {
+        let mut obj = 0.0;
+
+        for (i, &c_i) in c_terms.iter().enumerate() {
+            if (mask >> i) & 1 == 1 {
+                obj += c_i;
+            }
         }
 
-        let obj = qubo.eval_usize(&solution);
+        for &(i, j, q_ij) in &q_terms {
+            if ((mask >> i) & 1 == 1) && ((mask >> j) & 1 == 1) {
+                obj += 0.5 * q_ij;
+            }
+        }
+
         if obj < best_obj {
             best_obj = obj;
-            best_solution.clone_from(&solution);
+            best_mask = mask;
         }
+    }
+
+    let mut best_solution = Array1::<usize>::zeros(num_vars);
+    for i in 0..num_vars {
+        best_solution[i] = (best_mask >> i) & 1;
     }
 
     (best_obj, best_solution)

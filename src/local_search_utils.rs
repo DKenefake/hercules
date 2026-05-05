@@ -39,20 +39,26 @@ use ndarray::Array1;
 pub fn one_step_local_search_improved(
     qubo: &Qubo,
     x_0: &Array1<usize>,
-    selected_vars: &Vec<usize>,
+    selected_vars: &[usize],
 ) -> Array1<usize> {
     // Do a neighborhood search of up to one bit flip and returns the best solution
     // found, this can include the original solution, out of the selected variables.
 
     let (_, objs) = one_flip_objective(qubo, x_0);
 
-    let best_neighbor = objs
-        .iter()
-        .enumerate()
-        .filter(|(i, _)| selected_vars.contains(i))
-        .min_by(|(_, a), (_, b)| a.partial_cmp(b).unwrap())
-        .unwrap()
-        .0;
+    let best_neighbor = if selected_vars.len() == qubo.num_x() {
+        objs.iter()
+            .enumerate()
+            .min_by(|(_, a), (_, b)| a.partial_cmp(b).unwrap())
+            .unwrap()
+            .0
+    } else {
+        selected_vars
+            .iter()
+            .copied()
+            .min_by(|&i, &j| objs[i].partial_cmp(&objs[j]).unwrap())
+            .unwrap()
+    };
 
     let best_obj = objs[best_neighbor];
 
@@ -145,23 +151,35 @@ pub fn get_gain_criteria(qubo: &Qubo, x: &Array1<usize>) -> Array1<usize> {
 ///
 /// Run time is O(|Q|) + O(|x|)
 pub fn one_flip_objective(qubo: &Qubo, x_0: &Array1<usize>) -> (f64, Array1<f64>) {
-    // set up the array to hold the objective function values
+    // set up the objective shifts and affine term used in the delta formula
     let mut objs = Array1::<f64>::zeros(qubo.num_x());
-    let x_0f = x_0.mapv(|x| x as f64);
+    let mut affine = qubo.c.clone();
+    let mut obj_0 = 0.0;
 
-    // calculate the objective function for each variable and each term in the delta formula
-    let x_q = 0.5 * (&qubo.q * &x_0f);
-    let q_x = 0.5 * (&qubo.q.transpose_view() * &x_0f);
-    let q_jj = 0.5 * qubo.q.diag().to_dense();
-    let delta = 1.0 - 2.0 * &x_0f;
+    for (&q_ij, (i, j)) in &qubo.q {
+        let x_i = x_0[i] as f64;
+        let x_j = x_0[j] as f64;
+
+        obj_0 += 0.5 * q_ij * x_i * x_j;
+
+        if x_j != 0.0 {
+            affine[i] += 0.5 * q_ij;
+        }
+
+        if x_i != 0.0 {
+            affine[j] += 0.5 * q_ij;
+        }
+
+        if i == j {
+            objs[i] += 0.5 * q_ij;
+        }
+    }
 
     // generate the objective shifts for each variable
     for i in 0..qubo.num_x() {
-        objs[i] = q_jj[i] + delta[i] * (x_q[i] + q_x[i] + qubo.c[i]);
+        let delta = 1.0 - 2.0 * x_0[i] as f64;
+        objs[i] += delta * affine[i];
     }
-
-    // calculate the objective function for the original solution
-    let obj_0 = x_0f.dot(&x_q) + qubo.c.dot(&x_0f);
 
     (obj_0, objs)
 }
