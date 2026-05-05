@@ -5,28 +5,6 @@ use crate::qubo::Qubo;
 use ndarray::Array1;
 use sprs::TriMat;
 use std::collections::HashMap;
-use std::sync::atomic::{AtomicUsize, Ordering};
-
-static SOLVE_SMALL_COMPONENTS_CALLS: AtomicUsize = AtomicUsize::new(0);
-static COMPONENTS_SCANNED: AtomicUsize = AtomicUsize::new(0);
-static COMPONENTS_ENUMERATED: AtomicUsize = AtomicUsize::new(0);
-static ENUMERATED_COMPONENT_VARS: AtomicUsize = AtomicUsize::new(0);
-
-pub fn reset_preprocess_counters() {
-    SOLVE_SMALL_COMPONENTS_CALLS.store(0, Ordering::Relaxed);
-    COMPONENTS_SCANNED.store(0, Ordering::Relaxed);
-    COMPONENTS_ENUMERATED.store(0, Ordering::Relaxed);
-    ENUMERATED_COMPONENT_VARS.store(0, Ordering::Relaxed);
-}
-
-pub fn preprocess_counters() -> (usize, usize, usize, usize) {
-    (
-        SOLVE_SMALL_COMPONENTS_CALLS.load(Ordering::Relaxed),
-        COMPONENTS_SCANNED.load(Ordering::Relaxed),
-        COMPONENTS_ENUMERATED.load(Ordering::Relaxed),
-        ENUMERATED_COMPONENT_VARS.load(Ordering::Relaxed),
-    )
-}
 
 /// This is the main entry point for preprocessing
 pub fn preprocess_qubo(
@@ -132,23 +110,17 @@ pub fn solve_small_components(
     fixed_vars: &HashMap<usize, usize>,
     max_size: usize,
 ) -> HashMap<usize, usize> {
-    SOLVE_SMALL_COMPONENTS_CALLS.fetch_add(1, Ordering::Relaxed);
-
     // copy the fixed variables
     let mut new_fixed_variables = fixed_vars.clone();
 
     // get all the disconnected graphs
     let components = crate::graph_utils::get_all_disconnected_graphs(qubo, &new_fixed_variables);
-    COMPONENTS_SCANNED.fetch_add(components.len(), Ordering::Relaxed);
 
     for component in components {
         // if the component is too large, skip it same with it being empty
         if component.len() > max_size || component.is_empty() {
             continue;
         }
-
-        COMPONENTS_ENUMERATED.fetch_add(1, Ordering::Relaxed);
-        ENUMERATED_COMPONENT_VARS.fetch_add(component.len(), Ordering::Relaxed);
 
         // remove the fixed variables from the component
         let (sub_qubo, mapping) = make_component_qubo(qubo, &component, &new_fixed_variables);
