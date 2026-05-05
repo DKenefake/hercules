@@ -40,7 +40,7 @@ use smolprng::{Algorithm, PRNG};
 /// ```
 pub fn simple_local_search(qubo: &Qubo, x_0: &Array1<usize>, max_steps: usize) -> Array1<usize> {
     let mut x = x_0.clone();
-    let variables = (0..qubo.num_x()).collect();
+    let variables: Vec<usize> = (0..qubo.num_x()).collect();
     let mut x_1 = local_search_utils::one_step_local_search_improved(qubo, &x, &variables);
     let mut steps = 0;
 
@@ -186,7 +186,7 @@ pub fn simple_mixed_search(qubo: &Qubo, x_0: &Array1<usize>, max_steps: usize) -
     let mut x = x_0.clone();
     let mut x_1 = local_search_utils::get_gain_criteria(qubo, &x);
     let mut steps = 0;
-    let vars = (0..qubo.num_x()).collect();
+    let vars: Vec<usize> = (0..qubo.num_x()).collect();
 
     while x_1 != x && steps <= max_steps {
         x.clone_from(&x_1);
@@ -231,7 +231,7 @@ pub fn particle_swarm_search<T: Algorithm>(
         .collect();
 
     // select all variables
-    let selected_vars = (0..num_dim).collect();
+    let selected_vars: Vec<usize> = (0..num_dim).collect();
 
     // say at each particular point that we will contract 10% of the variables
     let num_contract = qubo.num_x() / 10 + 1;

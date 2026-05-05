@@ -31,12 +31,6 @@ pub struct BBSolver {
     pub solver_logger: SolverOutputLogger,
 }
 
-pub enum Event {
-    UpdateBestSolution(Array1<usize>, f64),
-    AddBranches(QuboBBNode, QuboBBNode),
-    Nill,
-}
-
 pub enum NodeLoggingAction {
     Visited,
     Processed,
@@ -49,8 +43,8 @@ pub enum PruneAction {
 }
 
 pub struct ProcessNodeState {
-    pub prune_action: PruneAction,
-    pub events: Vec<Event>,
+    pub best_update: Option<(Array1<usize>, f64)>,
+    pub branches: Option<(QuboBBNode, QuboBBNode)>,
     pub logging: NodeLoggingAction,
 }
 
@@ -145,8 +139,7 @@ impl BBSolver {
 
             // apply all the events from the parallel loop back to the solver
             for state in process_results {
-                self.apply_events(state.events);
-                self.apply_logging_action(state.logging);
+                self.apply_process_result(state);
             }
 
             // display the line, if verbose
@@ -160,10 +153,10 @@ impl BBSolver {
     }
 
     /// Checks if we can prune the node, based on the lower bound and best solution, returns an action
-    pub fn can_prune_action(&self, node: &QuboBBNode) -> (PruneAction, Event) {
+    pub fn can_prune_action(&self, node: &QuboBBNode) -> (PruneAction, Option<(Array1<usize>, f64)>) {
         // if our parent solution is above our current feasible soltion then prune
         if node.lower_bound > self.best_solution_value {
-            return (PruneAction::Prune, Event::Nill);
+            return (PruneAction::Prune, None);
         }
 
         // if the solution is complete, then we can update the best solution if better
@@ -178,13 +171,10 @@ impl BBSolver {
             let value = self.qubo.eval_usize(&solution);
             // evaluate the solution against the best solution we have so far
             // if we have a better solution update it
-            return (
-                PruneAction::Prune,
-                Event::UpdateBestSolution(solution, value),
-            );
+            return (PruneAction::Prune, Some((solution, value)));
         }
 
-        (PruneAction::Dont, Event::Nill)
+        (PruneAction::Dont, None)
     }
 
     // apply the logging action to the solver
@@ -208,7 +198,18 @@ impl BBSolver {
 
     /// main loop of the branch and bound algorithm
     pub fn process_node(&self, node: &QuboBBNode) -> ProcessNodeState {
-        // create a mutable copy of the node
+        let (prune_action, event) = self.can_prune_action(node);
+
+        // if we are pruning at this stage, then we can early return without cloning the node
+        if matches!(prune_action, PruneAction::Prune) {
+            return ProcessNodeState {
+                best_update: event,
+                branches: None,
+                logging: NodeLoggingAction::Processed,
+            };
+        }
+
+        // create a mutable copy of the node only when we know we need more work
         let mut node = node.clone();
 
         // pass to the presolver to see if there are any variables we can fix
@@ -224,8 +225,8 @@ impl BBSolver {
         // if we are pruning at this stage, then we can early return
         if matches!(prune_action, PruneAction::Prune) {
             return ProcessNodeState {
-                prune_action,
-                events: vec![event],
+                best_update: event,
+                branches: None,
                 logging: NodeLoggingAction::Processed,
             };
         }
@@ -241,8 +242,8 @@ impl BBSolver {
 
             // we will attempt to update the solution otherwise prune
             return ProcessNodeState {
-                prune_action,
-                events: vec![Event::UpdateBestSolution(rounded_sol, value)],
+                best_update: Some((rounded_sol, value)),
+                branches: None,
                 logging: NodeLoggingAction::Solved,
             };
         }
@@ -273,47 +274,43 @@ impl BBSolver {
             // evaluate the solution against the best solution we have so far
             // if we have a better solution update it
             return ProcessNodeState {
-                prune_action,
-                events: vec![Event::UpdateBestSolution(solution, value)],
+                best_update: Some((solution, value)),
+                branches: None,
                 logging: NodeLoggingAction::Solved,
             };
         }
 
-        // if we are going to branch, then we can generate a heuristic solution
-        let (heur_sol, heur_obj) = self.options.heuristic.make_heuristic(self, &node);
+        let best_update = self
+            .should_run_heuristic(&node)
+            .then(|| self.options.heuristic.make_heuristic(self, &node));
 
         // generate the branches
         let (zero_branch, one_branch) =
             Self::branch(node, branch_result.branch_variable, lower_bound, solution);
 
         ProcessNodeState {
-            prune_action,
-            events: vec![
-                Event::AddBranches(zero_branch, one_branch),
-                Event::UpdateBestSolution(heur_sol, heur_obj),
-            ],
+            best_update,
+            branches: Some((zero_branch, one_branch)),
             logging: NodeLoggingAction::Solved,
         }
     }
 
-    pub fn apply_events(&mut self, events: Vec<Event>) {
-        for action in events {
-            match action {
-                Event::UpdateBestSolution(solution, value) => {
-                    self.update_solution_if_better(&solution, value);
-                }
-                Event::AddBranches(zero_branch, one_branch) => {
-                    // only add the branches if their lower bound is better than the current best solution
-                    if zero_branch.lower_bound <= self.best_solution_value {
-                        self.nodes.push(zero_branch);
-                    }
-                    if one_branch.lower_bound <= self.best_solution_value {
-                        self.nodes.push(one_branch);
-                    }
-                }
-                Event::Nill => {}
+    pub fn apply_process_result(&mut self, state: ProcessNodeState) {
+        if let Some((solution, value)) = state.best_update {
+            self.update_solution_if_better(&solution, value);
+        }
+
+        if let Some((zero_branch, one_branch)) = state.branches {
+            // only add the branches if their lower bound is better than the current best solution
+            if zero_branch.lower_bound <= self.best_solution_value {
+                self.nodes.push(zero_branch);
+            }
+            if one_branch.lower_bound <= self.best_solution_value {
+                self.nodes.push(one_branch);
             }
         }
+
+        self.apply_logging_action(state.logging);
     }
 
     /// update the best solution if better than the current best solution
@@ -352,10 +349,10 @@ impl BBSolver {
             self.apply_logging_action(NodeLoggingAction::Visited);
 
             // if we can't prune it, then we return it
-            let (prune, event) = self.can_prune_action(&node);
+            let (prune, best_update) = self.can_prune_action(&node);
 
             // if we have stumbled into a better solution, then we can take it
-            if let Event::UpdateBestSolution(solution, value) = event {
+            if let Some((solution, value)) = best_update {
                 self.update_solution_if_better(&solution, value);
             }
 
@@ -369,10 +366,10 @@ impl BBSolver {
     }
 
     pub fn get_next_nodes(&mut self, n: usize) -> Vec<QuboBBNode> {
-        let mut nodes = Vec::new();
+        let mut nodes = Vec::with_capacity(n);
 
         // loop while we haven't filled our vector OR the node list is not empty
-        while nodes.len() <= n {
+        while nodes.len() < n {
             let next_node = self.get_next_node();
 
             // if there is a node to add, do so, else break out as there aren't any nodes left
@@ -412,6 +409,12 @@ impl BBSolver {
     /// Branch Selection Strategy - Currently selects the first variable that is not fixed
     pub fn make_branch(&self, node: &QuboBBNode) -> BranchResult {
         self.branch_strategy.make_branch(self, node)
+    }
+
+    fn should_run_heuristic(&self, node: &QuboBBNode) -> bool {
+        // Heuristics are most useful earlier in the tree when they can improve the incumbent
+        // before a lot of nodes have been generated.
+        node.fixed_variables.len() * 2 <= self.qubo.num_x()
     }
 
     /// Actually branches the node into two new nodes

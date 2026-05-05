@@ -19,6 +19,13 @@ jobs:
       - name: Run Rust tests
         run: cargo test --verbose --release
 
+  benchmarks:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Run Criterion benchmarks
+        run: cargo bench --bench microbench -- --sample-size 30
+
   python-bindings:
     runs-on: ubuntu-latest
     steps:

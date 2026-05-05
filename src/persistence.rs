@@ -78,39 +78,46 @@ pub fn grad_bounds(qubo: &Qubo, i: usize, persistent: &HashMap<usize, usize>) ->
     let binding = qubo.q.transpose_view();
     let y = binding.outer_view(i).unwrap();
 
-    // add the row and column together
-    let q_term = x + y;
-
-    // loop over the variables in this row
-    for (index, x_j) in q_term.iter() {
-        // dereference and multiply by 0.5 to make an auxiliary variable that is clearer
-        let mut value = *x_j;
-        value *= 0.5;
-
-        // if it is a fixed variable, we have effectively removed this variable from the QUBO
-        if persistent.contains_key(&index) {
-            lower += value * (persistent[&index] as f64);
-            upper += value * (persistent[&index] as f64);
-        } else {
-            // if it is not in the persistent set, then we can choose the best value
-
-            // if the value is negative, we would set it to 1 to minimize the gradient else 0
-            if value <= 0.0 {
-                lower += value;
-            }
-
-            // if the value is positive, we would set it to 1 to maximize the gradient else 0
-            if value >= 0.0 {
-                upper += value;
-            }
-        }
-    }
+    accumulate_grad_terms(x.iter(), persistent, &mut lower, &mut upper);
+    accumulate_grad_terms(y.iter(), persistent, &mut lower, &mut upper);
 
     // add the contribution from the constant term
     lower += qubo.c[i];
     upper += qubo.c[i];
 
     (lower, upper)
+}
+
+fn accumulate_grad_terms<'a, I>(
+    terms: I,
+    persistent: &HashMap<usize, usize>,
+    lower: &mut f64,
+    upper: &mut f64,
+) where
+    I: Iterator<Item = (usize, &'a f64)>,
+{
+    for (index, x_j) in terms {
+        let value = 0.5 * *x_j;
+
+        // if it is a fixed variable, we have effectively removed this variable from the QUBO
+        if let Some(&fixed) = persistent.get(&index) {
+            let fixed = fixed as f64;
+            *lower += value * fixed;
+            *upper += value * fixed;
+        } else {
+            // if it is not in the persistent set, then we can choose the best value
+
+            // if the value is negative, we would set it to 1 to minimize the gradient else 0
+            if value <= 0.0 {
+                *lower += value;
+            }
+
+            // if the value is positive, we would set it to 1 to maximize the gradient else 0
+            if value >= 0.0 {
+                *upper += value;
+            }
+        }
+    }
 }
 
 #[cfg(test)]

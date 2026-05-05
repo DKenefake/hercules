@@ -139,13 +139,13 @@ pub fn solve_small_components(
 
 pub fn make_component_qubo(
     qubo: &Qubo,
-    component: &Vec<usize>,
+    component: &[usize],
     fixed_vars: &HashMap<usize, usize>,
 ) -> (Qubo, HashMap<usize, usize>) {
     let mut Q_tri = TriMat::new((component.len(), component.len()));
     let mut c_new = Array1::<f64>::zeros(component.len());
 
-    let mut index_map = HashMap::new();
+    let mut index_map = HashMap::with_capacity(component.len());
 
     for (new_index, &old_index) in component.iter().enumerate() {
         index_map.insert(old_index, new_index);
@@ -153,16 +153,22 @@ pub fn make_component_qubo(
     }
 
     for (&value, (i, j)) in &qubo.q {
-        if index_map.contains_key(&i) && index_map.contains_key(&j) {
-            let i_new = index_map[&i];
-            let j_new = index_map[&j];
-            Q_tri.add_triplet(i_new, j_new, value);
-        } else if index_map.contains_key(&i) && fixed_vars.contains_key(&j) {
-            let i_new = index_map[&i];
-            c_new[i_new] += 0.5 * value * (fixed_vars[&j] as f64);
-        } else if index_map.contains_key(&j) && fixed_vars.contains_key(&i) {
-            let j_new = index_map[&j];
-            c_new[j_new] += 0.5 * value * (fixed_vars[&i] as f64);
+        match (
+            index_map.get(&i),
+            index_map.get(&j),
+            fixed_vars.get(&i),
+            fixed_vars.get(&j),
+        ) {
+            (Some(&i_new), Some(&j_new), _, _) => {
+                Q_tri.add_triplet(i_new, j_new, value);
+            }
+            (Some(&i_new), None, _, Some(&fixed_j)) => {
+                c_new[i_new] += 0.5 * value * fixed_j as f64;
+            }
+            (None, Some(&j_new), Some(&fixed_i), _) => {
+                c_new[j_new] += 0.5 * value * fixed_i as f64;
+            }
+            _ => {}
         }
     }
 
@@ -190,7 +196,7 @@ pub fn make_sub_problem(
     let mut constant = 0.0;
 
     // make a map between the unfixed variables and the new index
-    let mut unfixed_map = HashMap::new();
+    let mut unfixed_map = HashMap::with_capacity(num_unfixed);
 
     for i in 0..qubo.num_x() {
         if fixed_vars.contains_key(&i) {
@@ -201,31 +207,25 @@ pub fn make_sub_problem(
     }
 
     for (&q_ij, (i, j)) in &qubo.q {
-        let i_fixed = fixed_vars.contains_key(&i);
-        let j_fixed = fixed_vars.contains_key(&j);
-
-        // if both variables are fixed, then we can ignore this
-        if i_fixed && j_fixed {
-            constant += 0.5
-                * q_ij
-                * (*fixed_vars.get(&i).unwrap() as f64)
-                * (*fixed_vars.get(&j).unwrap() as f64);
-        } else if i_fixed && !j_fixed {
-            // we know that i is fixed and j is not
-            let j_new = *unfixed_map.get(&j).unwrap();
-
-            c_new[j_new] += 0.5 * q_ij * (*fixed_vars.get(&i).unwrap() as f64);
-        } else if !i_fixed && j_fixed {
-            // we know that j is fixed and i is not
-            let i_new = *unfixed_map.get(&i).unwrap();
-
-            c_new[i_new] += 0.5 * q_ij * (*fixed_vars.get(&j).unwrap() as f64);
-        } else {
-            // both variables are unfixed
-            let i_new = *unfixed_map.get(&i).unwrap();
-            let j_new = *unfixed_map.get(&j).unwrap();
-
-            Q_tri.add_triplet(i_new, j_new, q_ij);
+        match (
+            fixed_vars.get(&i),
+            fixed_vars.get(&j),
+            unfixed_map.get(&i),
+            unfixed_map.get(&j),
+        ) {
+            (Some(&fixed_i), Some(&fixed_j), _, _) => {
+                constant += 0.5 * q_ij * fixed_i as f64 * fixed_j as f64;
+            }
+            (Some(&fixed_i), None, _, Some(&j_new)) => {
+                c_new[j_new] += 0.5 * q_ij * fixed_i as f64;
+            }
+            (None, Some(&fixed_j), Some(&i_new), _) => {
+                c_new[i_new] += 0.5 * q_ij * fixed_j as f64;
+            }
+            (None, None, Some(&i_new), Some(&j_new)) => {
+                Q_tri.add_triplet(i_new, j_new, q_ij);
+            }
+            _ => {}
         }
     }
 

@@ -179,22 +179,16 @@ pub fn msls(problem: QuboData, xs: Vec<Vec<usize>>) -> PyResult<(Vec<Vec<usize>>
     let p = Qubo::from_vec(problem.0, problem.1, problem.2, problem.3, problem.4);
 
     // convert the input to the correct type
-    let xs = xs
-        .iter()
-        .map(|x| Array1::<usize>::from(x.clone()))
-        .collect();
+    let xs = xs.into_iter().map(Array1::<usize>::from).collect();
 
     // run the multi-start local search
     let x_solns = local_search::multi_simple_local_search(&p, &xs);
 
+    // calculate the objective of each solution before converting back to Python lists
+    let objs = x_solns.iter().map(|x| p.eval_usize(x)).collect();
+
     // convert the output to the correct type
     let x_solns_vec: Vec<Vec<_>> = x_solns.iter().map(ndarray::ArrayBase::to_vec).collect();
-
-    // calculate the objective of each solution
-    let objs = x_solns_vec
-        .iter()
-        .map(|x| p.eval_usize(&Array1::<usize>::from(x.clone())))
-        .collect();
 
     // return the solutions and their objectives
     Ok((x_solns_vec, objs))
@@ -218,9 +212,9 @@ pub fn read_qubo(filename: String) -> PyResult<QuboData> {
     // read in the QUBO from file
     let p = Qubo::read_qubo(filename.as_str());
 
-    let mut i_indexs = Vec::new();
-    let mut j_indexs = Vec::new();
-    let mut q_values = Vec::new();
+    let mut i_indexs = Vec::with_capacity(p.q.nnz());
+    let mut j_indexs = Vec::with_capacity(p.q.nnz());
+    let mut q_values = Vec::with_capacity(p.q.nnz());
     let c_values = p.c.to_vec();
     let num_x = p.num_x();
 

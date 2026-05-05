@@ -30,6 +30,13 @@ pyo3 = { version = "0.25.0", optional = true, features = ["extension-module", "a
 clarabel = "0.10.0"
 mixingcut = { version = "0.1.2", optional = true }
 
+[dev-dependencies]
+criterion = "0.5.1"
+
+[[bench]]
+name = "microbench"
+harness = false
+
 [package.metadata.docs.rs]
 rustdoc-args = [ "--html-in-header", "docs-header.html" ]
 
