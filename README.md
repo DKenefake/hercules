@@ -88,7 +88,7 @@ solver options being used.
 use hercules::qubo::Qubo;
 use hercules::branchbound::BBSolver;
 use hercules::solver_options::SolverOptions;
-use hercules::branch_subproblem::SubProblemSelection
+use hercules::branch_subproblem::SubProblemSelection;
 
 // read in the QUBO problem
 let p = Qubo::read_qubo("test_data/test_large.qubo");
@@ -100,7 +100,7 @@ let mut options = SolverOptions::new();
 options.sub_problem_solver = SubProblemSelection::ClarabelLP;
 
 // set up the solver
-let solver = BBSolver::new(p, options);
+let mut solver = BBSolver::new(p, options);
 
 // solve the QUBO problem
 let (x_soln, obj) = solver.solve();
@@ -118,9 +118,43 @@ problem = hercules.read_qubo('test_data/test_large.qubo')
 x_soln, obj = hercules.solve_branch_bound(problem, timeout=20.0, sub_problem_solver = "clarabel_lp")
 ```
 
-## Python Interface: Using Hercules from Python
+## Packaging
 
-Hercules can be used from Python using the Py03 crate. This is currently a work in progress, and a standalone package is not currently available. This can be built via maturin via the ``maturin develop`` command. 
+Hercules can now be used as either a normal Rust library or a Python extension module from the same repository.
+
+### Rust library
+
+The default build targets the Rust library only:
+
+```toml
+[dependencies]
+hercules = "0.5"
+```
+
+Then build as usual with `cargo build` or `cargo check`.
+
+### Python package
+
+The Python bindings live behind the `python` feature and are configured for `maturin` via [pyproject.toml](/C:/Users/Dusti/codexherc/hercules/pyproject.toml).
+
+```bash
+maturin develop
+```
+
+Or build a wheel with:
+
+```bash
+maturin build
+```
+
+### Optional SDP feature
+
+The SDP-specific `get_sdp_shift` Python binding is behind the optional `sdp` feature:
+
+```bash
+maturin develop --features sdp
+cargo build --features sdp
+```
 
 ## Docker
 
