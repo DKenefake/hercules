@@ -28,3 +28,13 @@ jobs:
           python-version: "3.11"
       - name: Check Python-enabled build
         run: cargo check --verbose --features python
+
+  sdp-bindings:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Check Python + SDP build
+        run: cargo check --verbose --features "python sdp"

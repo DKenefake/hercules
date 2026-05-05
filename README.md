@@ -149,18 +149,11 @@ maturin build
 
 ### Optional SDP feature
 
-The SDP-specific `get_sdp_shift` Python binding is behind the optional `sdp` feature:
+The SDP-specific `get_sdp_shift` Python binding is behind the optional `sdp` feature. When enabled, Rust's
+`convex_symmetric_form` also uses the SDP-based diagonal-shift initialization:
 
 ```bash
 maturin develop --features sdp
 cargo build --features sdp
 ```
 
-## Docker
-
-A Docker image is available [here](https://hub.docker.com/repository/docker/dkenefake/hercules/general).
-To run this, pull down the image and run the following:
-
-```bash
-docker run --platform linux/amd64 dkenefake/hercules:test python pyhercules.py
-```
