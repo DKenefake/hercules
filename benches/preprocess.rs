@@ -57,8 +57,14 @@ fn preprocess_benches(c: &mut Criterion) {
         });
     });
 
+    group.finish();
+
+    let mut large_probe_group = c.benchmark_group("preprocess");
+    large_probe_group.warm_up_time(Duration::from_millis(250));
+    large_probe_group.sample_size(10);
+
     for max_candidates in [25usize, 50, 100] {
-        group.bench_function(
+        large_probe_group.bench_function(
             BenchmarkId::new("probe_limited/test_large", max_candidates),
             |b| {
                 b.iter(|| {
@@ -73,7 +79,7 @@ fn preprocess_benches(c: &mut Criterion) {
         );
     }
 
-    group.bench_function(BenchmarkId::new("preprocess_qubo_heavy", "test_large"), |b| {
+    large_probe_group.bench_function(BenchmarkId::new("preprocess_qubo_heavy", "test_large"), |b| {
         b.iter(|| {
             preprocess_qubo_heavy(
                 black_box(&data.qubo_test_large),
@@ -83,7 +89,7 @@ fn preprocess_benches(c: &mut Criterion) {
         });
     });
 
-    group.finish();
+    large_probe_group.finish();
 }
 
 criterion_group!(benches, preprocess_benches);
