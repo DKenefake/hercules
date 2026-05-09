@@ -97,7 +97,7 @@ let p = Qubo::read_qubo("test_data/test_large.qubo");
 let mut options = SolverOptions::new();
 
 // use the LP relaxation as proposed by Glover
-options.sub_problem_solver = SubProblemSelection::ClarabelLP;
+options.sub_problem_solver = SubProblemSelection::ClarabelQP;
 
 // set up the solver
 let mut solver = BBSolver::new(p, options);
@@ -115,7 +115,7 @@ import hercules
 problem = hercules.read_qubo('test_data/test_large.qubo')
 
 # the python interface requires a specified timeout 
-x_soln, obj = hercules.solve_branch_bound(problem, timeout=20.0, sub_problem_solver = "clarabel_lp")
+x_soln, obj = hercules.solve_branch_bound(problem, timeout=20.0, sub_problem_solver = "clarabel_qp")
 ```
 
 ## Packaging
@@ -146,14 +146,3 @@ Or build a wheel with:
 ```bash
 maturin build
 ```
-
-### Optional SDP feature
-
-The SDP-specific `get_sdp_shift` Python binding is behind the optional `sdp` feature. When enabled, Rust's
-`convex_symmetric_form` also uses the SDP-based diagonal-shift initialization:
-
-```bash
-maturin develop --features sdp
-cargo build --features sdp
-```
-

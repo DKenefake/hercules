@@ -15,6 +15,7 @@ pub struct BenchData {
     pub qubo_enum: Qubo,
     pub qubo_solve: Qubo,
     pub qubo_gka6a: Qubo,
+    pub qubo_test_large: Qubo,
     pub x_small: Array1<usize>,
     pub x_medium: Array1<usize>,
     pub selected_small: Vec<usize>,
@@ -48,6 +49,7 @@ pub fn make_bench_data() -> BenchData {
     let qubo_enum = Qubo::make_random_qubo(10, &mut enum_prng, 0.25);
     let qubo_solve = Qubo::make_random_qubo(96, &mut solve_prng, 0.08);
     let qubo_gka6a = Qubo::read_qubo("test_data/gka6a.qubo");
+    let qubo_test_large = Qubo::read_qubo("test_data/test_large.qubo");
     let x_small = generate_random_binary_point(qubo_small.num_x(), &mut prng, 0.5);
     let x_medium = generate_random_binary_point(qubo_medium.num_x(), &mut prng, 0.5);
     let selected_small: Vec<usize> = (0..qubo_small.num_x()).collect();
@@ -66,6 +68,7 @@ pub fn make_bench_data() -> BenchData {
         qubo_enum,
         qubo_solve,
         qubo_gka6a,
+        qubo_test_large,
         x_small,
         x_medium,
         selected_small,

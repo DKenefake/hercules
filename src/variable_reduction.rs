@@ -1,6 +1,7 @@
 use crate::constraint::{Constraint, ConstraintType};
-use crate::preprocess::preprocess_qubo;
+use crate::preprocess::{prepare_preprocess, preprocess_with_prepared, PreparedPreprocess};
 use crate::qubo::Qubo;
+use ndarray::Array1;
 use std::collections::HashMap;
 
 #[derive(Debug, Clone)]
@@ -12,7 +13,6 @@ impl ProbedEquationSet{
     pub fn new(constraints: Vec<Constraint>) -> Self{
         Self{constraints}
     }
-
 }
 
 /// Find Equations and inequalities that can be used to strengthen the QUBO by probing using the presolver
@@ -22,52 +22,95 @@ pub fn probe(
     fixed_vars: &HashMap<usize, usize>,
     in_standard_form: bool,
 ) -> (ProbedEquationSet, HashMap<usize, usize>) {
+    let candidates = (0..qubo.num_x())
+        .filter(|i| !fixed_vars.contains_key(i))
+        .collect::<Vec<_>>();
+    let prepared = prepare_preprocess(qubo, in_standard_form);
+
+    probe_candidates(&prepared, &candidates, fixed_vars, qubo.num_x())
+}
+
+/// A cheaper probing variant that only explores the top scoring candidate variables.
+/// Candidates are ranked by the absolute incident quadratic weight remaining in the QUBO.
+pub fn probe_limited(
+    qubo: &Qubo,
+    fixed_vars: &HashMap<usize, usize>,
+    in_standard_form: bool,
+    max_candidates: usize,
+) -> (ProbedEquationSet, HashMap<usize, usize>) {
+    if max_candidates == 0 {
+        return (ProbedEquationSet::new(Vec::new()), HashMap::new());
+    }
+
+    let candidates = select_probe_candidates(qubo, fixed_vars, max_candidates);
+    let prepared = prepare_preprocess(qubo, in_standard_form);
+
+    probe_candidates(&prepared, &candidates, fixed_vars, qubo.num_x())
+}
+
+fn probe_candidates(
+    prepared: &PreparedPreprocess,
+    candidates: &[usize],
+    fixed_vars: &HashMap<usize, usize>,
+    num_x: usize,
+) -> (ProbedEquationSet, HashMap<usize, usize>) {
 
     let mut constraints = Vec::new();
     let mut new_fixed_vars = HashMap::new();
-    let n = qubo.num_x();
+    let probe_base = fixed_vars.clone();
 
-    for i in 0..n {
-        if fixed_vars.contains_key(&i) {
-            continue;
-        }
-
-        let mut fixed_vars_0 = fixed_vars.clone();
-        let mut fixed_vars_1 = fixed_vars.clone();
+    for &i in candidates {
+        let mut fixed_vars_0 = probe_base.clone();
+        let mut fixed_vars_1 = probe_base.clone();
 
         fixed_vars_0.insert(i, 0);
         fixed_vars_1.insert(i, 1);
 
-        let fixed_vars_0 = preprocess_qubo(qubo, &fixed_vars_0, in_standard_form);
-        let fixed_vars_1 = preprocess_qubo(qubo, &fixed_vars_1, in_standard_form);
+        let fixed_vars_0 = preprocess_with_prepared(&prepared, &fixed_vars_0);
+        let fixed_vars_1 = preprocess_with_prepared(&prepared, &fixed_vars_1);
 
-        for j in 0..n {
-            if i == j || fixed_vars.contains_key(&j) {
+        let mut candidate_vars = Vec::with_capacity(fixed_vars_0.len() + fixed_vars_1.len());
+        candidate_vars.extend(fixed_vars_0.keys().copied());
+        candidate_vars.extend(
+            fixed_vars_1
+                .keys()
+                .copied()
+                .filter(|j| !fixed_vars_0.contains_key(j)),
+        );
+
+        for j in candidate_vars {
+            if j >= num_x || i == j || fixed_vars.contains_key(&j) {
                 continue;
             }
 
+            let val_0 = fixed_vars_0.get(&j).copied();
+            let val_1 = fixed_vars_1.get(&j).copied();
+
             // see if we have any equations
-            if fixed_vars_0.contains_key(&j) && fixed_vars_1.contains_key(&j) {
-                if fixed_vars_1[&j] == 1 && fixed_vars_0[&j] == 0 {
+            if let (Some(v0), Some(v1)) = (val_0, val_1) {
+                if v1 == 1 && v0 == 0 {
                     constraints.push(Constraint::new(i.min(j), j.max(i), ConstraintType::Equal));
-                } else if fixed_vars_0[&j] == 1 && fixed_vars_1[&j] == 0 {
+                } else if v0 == 1 && v1 == 0 {
                     constraints.push(Constraint::new(i.min(j), j.max(i), ConstraintType::ExactlyOne));
-                } else if fixed_vars_0[&j] == 0  && fixed_vars_1[&j] == 0 {
+                } else if v0 == 0  && v1 == 0 {
                     new_fixed_vars.insert(j, 0);
-                } else { new_fixed_vars.insert(j, 1); }
-            // see if we have any inequalities
-            }else{
-                if fixed_vars_0.contains_key(&j) {
-                    if fixed_vars_0[&j] == 1 {
-                        constraints.push(Constraint::new(i.min(j), j.max(i), ConstraintType::AtLeastOne));
-                    } else if fixed_vars_0[&j] == 0 {
-                        constraints.push(Constraint::new(i, j, ConstraintType::LessThan));
-                    }
+                } else {
+                    new_fixed_vars.insert(j, 1);
                 }
-                else if fixed_vars_1.contains_key(&j) {
-                    if fixed_vars_1[&j] == 1 {
+            // see if we have any inequalities
+            } else {
+                if let Some(v0) = val_0 {
+                    if v0 == 1 {
+                        constraints.push(Constraint::new(i.min(j), j.max(i), ConstraintType::AtLeastOne));
+                    } else if v0 == 0 {
+                        // x_i = 0 => x_j = 0, so x_j <= x_i.
                         constraints.push(Constraint::new(i, j, ConstraintType::GreaterThan));
-                    } else if fixed_vars_1[&j] == 0 {
+                    }
+                } else if let Some(v1) = val_1 {
+                    if v1 == 1 {
+                        // x_i = 1 => x_j = 1, so x_i <= x_j.
+                        constraints.push(Constraint::new(i, j, ConstraintType::LessThan));
+                    } else if v1 == 0 {
                         constraints.push(Constraint::new(i.min(j), j.max(i), ConstraintType::NoMoreThanOne));
                     }
                 }
@@ -76,4 +119,69 @@ pub fn probe(
     }
 
     (ProbedEquationSet{constraints}, new_fixed_vars)
+}
+
+fn select_probe_candidates(
+    qubo: &Qubo,
+    fixed_vars: &HashMap<usize, usize>,
+    max_candidates: usize,
+) -> Vec<usize> {
+    let mut edge_mass = Array1::<f64>::zeros(qubo.num_x());
+
+    for (&value, (i, j)) in &qubo.q {
+        if fixed_vars.contains_key(&i) || fixed_vars.contains_key(&j) {
+            continue;
+        }
+
+        let weight = value.abs();
+        edge_mass[i] += weight;
+        edge_mass[j] += weight;
+    }
+
+    let mut candidates = (0..qubo.num_x())
+        .filter(|i| !fixed_vars.contains_key(i))
+        .collect::<Vec<_>>();
+
+    candidates.sort_by(|&i, &j| edge_mass[j].total_cmp(&edge_mass[i]).then_with(|| i.cmp(&j)));
+    candidates.truncate(max_candidates.min(candidates.len()));
+    candidates
+}
+
+#[cfg(test)]
+mod tests {
+    use super::ProbedEquationSet;
+    use crate::constraint::{Constraint, ConstraintType};
+    use std::collections::HashMap;
+
+    fn contains_constraint(
+        set: &ProbedEquationSet,
+        x_i: usize,
+        x_j: usize,
+        constraint_type: ConstraintType,
+    ) -> bool {
+        let display = Constraint::new(x_i, x_j, constraint_type).to_string();
+        set.constraints
+            .iter()
+            .any(|constraint| constraint.to_string() == display)
+    }
+
+    #[test]
+    fn greater_than_constraint_matches_zero_to_zero_implication() {
+        let set = ProbedEquationSet::new(vec![Constraint::new(2, 5, ConstraintType::GreaterThan)]);
+        let mut persistent = HashMap::new();
+        persistent.insert(2, 0);
+
+        assert!(contains_constraint(&set, 2, 5, ConstraintType::GreaterThan));
+        assert_eq!(set.constraints[0].make_inference(&persistent), Some((5, 0)));
+    }
+
+    #[test]
+    fn less_than_constraint_matches_one_to_one_implication() {
+        let set = ProbedEquationSet::new(vec![Constraint::new(2, 5, ConstraintType::LessThan)]);
+        let mut persistent = HashMap::new();
+        persistent.insert(2, 1);
+
+        assert!(contains_constraint(&set, 2, 5, ConstraintType::LessThan));
+        assert_eq!(set.constraints[0].make_inference(&persistent), Some((5, 1)));
+    }
 }
