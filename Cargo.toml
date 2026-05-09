@@ -34,7 +34,15 @@ mixingcut = { version = "0.1.2", optional = true }
 criterion = "0.5.1"
 
 [[bench]]
-name = "microbench"
+name = "helpers"
+harness = false
+
+[[bench]]
+name = "preprocess"
+harness = false
+
+[[bench]]
+name = "solver"
 harness = false
 
 [package.metadata.docs.rs]

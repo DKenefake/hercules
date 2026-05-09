@@ -21,10 +21,25 @@ jobs:
 
   benchmarks:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
     steps:
       - uses: actions/checkout@v4
       - name: Run Criterion benchmarks
-        run: cargo bench --bench microbench -- --sample-size 30
+        run: cargo bench --bench helpers --bench preprocess --bench solver -- --sample-size 30 | tee benchmark-output.txt
+      - name: Store benchmark result
+        uses: benchmark-action/github-action-benchmark@v1
+        with:
+          name: hercules-criterion
+          tool: cargo
+          output-file-path: benchmark-output.txt
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          auto-push: ${{ github.event_name == 'push' }}
+          save-data-file: ${{ github.event_name == 'push' }}
+          comment-on-alert: true
+          fail-on-alert: true
+          alert-threshold: '120%'
+          fail-threshold: '140%'
 
   python-bindings:
     runs-on: ubuntu-latest
