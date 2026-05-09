@@ -4,8 +4,9 @@ use common::make_bench_data;
 use criterion::{black_box, criterion_group, criterion_main, BenchmarkId, Criterion};
 use hercules::graph_utils::get_all_disconnected_graphs;
 use hercules::persistence::compute_iterative_persistence;
-use hercules::preprocess::{preprocess_qubo, solve_small_components};
+use hercules::preprocess::{preprocess_qubo, preprocess_qubo_heavy, solve_small_components};
 use hercules::subproblemsolvers::enumerate_qubo::enumerate_solve;
+use hercules::variable_reduction::probe_limited;
 use std::time::Duration;
 
 fn preprocess_benches(c: &mut Criterion) {
@@ -52,6 +53,32 @@ fn preprocess_benches(c: &mut Criterion) {
                 black_box(&data.process_solver.qubo_pp_form),
                 black_box(&data.empty_fixed),
                 black_box(true),
+            )
+        });
+    });
+
+    for max_candidates in [25usize, 50, 100] {
+        group.bench_function(
+            BenchmarkId::new("probe_limited/test_large", max_candidates),
+            |b| {
+                b.iter(|| {
+                    probe_limited(
+                        black_box(&data.qubo_test_large),
+                        black_box(&data.empty_fixed),
+                        black_box(false),
+                        black_box(max_candidates),
+                    )
+                });
+            },
+        );
+    }
+
+    group.bench_function(BenchmarkId::new("preprocess_qubo_heavy", "test_large"), |b| {
+        b.iter(|| {
+            preprocess_qubo_heavy(
+                black_box(&data.qubo_test_large),
+                black_box(&data.empty_fixed),
+                black_box(false),
             )
         });
     });

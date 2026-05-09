@@ -6,36 +6,46 @@ use ndarray::Array1;
 use sprs::TriMat;
 use std::collections::HashMap;
 
+pub(crate) struct PreparedPreprocess {
+    no_effect_vars: HashMap<usize, usize>,
+    qubo_pp: Qubo,
+}
+
+pub(crate) fn prepare_preprocess(qubo: &Qubo, in_standard_form: bool) -> PreparedPreprocess {
+    let no_effect_vars = fix_no_effect_variables(qubo);
+    let qubo_pp = if in_standard_form {
+        qubo.clone()
+    } else {
+        shift_qubo(qubo)
+    };
+
+    PreparedPreprocess {
+        no_effect_vars,
+        qubo_pp,
+    }
+}
+
+pub(crate) fn preprocess_with_prepared(
+    prepared: &PreparedPreprocess,
+    fixed_variables: &HashMap<usize, usize>,
+) -> HashMap<usize, usize> {
+    let mut initial_fixed = fixed_variables.clone();
+
+    for (&key, &value) in &prepared.no_effect_vars {
+        initial_fixed.insert(key, value);
+    }
+
+    compute_iterative_persistence(&prepared.qubo_pp, &initial_fixed, prepared.qubo_pp.num_x())
+}
+
 /// This is the main entry point for preprocessing
 pub fn preprocess_qubo(
     qubo: &Qubo,
     fixed_variables: &HashMap<usize, usize>,
     in_standard_form: bool,
 ) -> HashMap<usize, usize> {
-    // copy the fixed variables
-    let mut initial_fixed = fixed_variables.clone();
-
-    // find variables that have no effect in the QUBO
-    let no_effect_vars = fix_no_effect_variables(qubo);
-
-    // combine the fixed variables with the no effect variables
-    for (key, value) in no_effect_vars {
-        initial_fixed.insert(key, value);
-    }
-
-    // create an auxiliary QUBO were we have zeroed out the diagonal elements
-    if in_standard_form {
-        return compute_iterative_persistence(qubo, &initial_fixed, qubo.num_x());
-    }
-
-    let qubo_shift = shift_qubo(qubo);
-
-    // start with an initial persistence check against the zero diagonal QUBO
-    // This is provably the tightest bound we can get for this calculation
-    let fixed_variables =
-        compute_iterative_persistence(&qubo_shift, &initial_fixed, qubo_shift.num_x());
-
-    fixed_variables
+    let prepared = prepare_preprocess(qubo, in_standard_form);
+    preprocess_with_prepared(&prepared, fixed_variables)
 }
 
 /// This is the heavy entry point for preprocessing + variable probing
@@ -46,15 +56,17 @@ pub fn preprocess_qubo_heavy(
 ) -> HashMap<usize, usize> {
     // copy the fixed variables
     let mut new_persistent = fixed_variables.clone();
+    let prepared = prepare_preprocess(qubo, in_standard_form);
 
     // the number of required iterations is always below the number of variables
     let iters = qubo.num_x();
 
     // loop over the number of iters
     for _ in 0..iters {
-        let mut incoming_persistent = preprocess_qubo(&qubo, &new_persistent, in_standard_form);
+        let mut incoming_persistent = preprocess_with_prepared(&prepared, &new_persistent);
 
-        let (_, probe_fixes) = crate::variable_reduction::probe(&qubo, &new_persistent, in_standard_form);
+        let (_, probe_fixes) =
+            crate::variable_reduction::probe(&qubo, &incoming_persistent, in_standard_form);
 
         // add the probe fixes to the incoming persistent
         for (key, value) in probe_fixes {

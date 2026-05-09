@@ -1,7 +1,7 @@
 use crate::preprocess::solve_small_components;
 use crate::qubo::Qubo;
 use std::cmp::min;
-use std::collections::HashMap;
+use std::collections::{HashMap, VecDeque};
 
 /// This function takes a QUBO and a set of persistent variables and returns a new set of persistent variables by repeatedly
 /// recomputing the persistent variables until.
@@ -15,10 +15,11 @@ pub fn compute_iterative_persistence(
 
     // the number of required iterations is always below the number of variables
     let iters = min(iter_lim, qubo.num_x());
+    let adjacency = build_gradient_adjacency(qubo);
 
     // loop over the number of iters
     for _ in 0..iters {
-        let incoming_persistent = compute_persistent(qubo, &new_persistent);
+        let incoming_persistent = propagate_persistent(qubo, &new_persistent, &adjacency);
         let incoming_persistent = solve_small_components(qubo, &incoming_persistent, 10);
 
         if new_persistent == incoming_persistent {
@@ -28,6 +29,123 @@ pub fn compute_iterative_persistence(
     }
 
     new_persistent
+}
+
+fn propagate_persistent(
+    qubo: &Qubo,
+    persistent: &HashMap<usize, usize>,
+    adjacency: &[Vec<(usize, f64)>],
+) -> HashMap<usize, usize> {
+    let num_x = qubo.num_x();
+    let mut new_persistent = persistent.clone();
+    let mut fixed_values = vec![None; num_x];
+
+    for (&index, &value) in persistent {
+        fixed_values[index] = Some(value as u8);
+    }
+
+    let mut lower = qubo.c.to_vec();
+    let mut upper = qubo.c.to_vec();
+
+    for i in 0..num_x {
+        for &(neighbor, coeff) in &adjacency[i] {
+            if let Some(value) = fixed_values[neighbor] {
+                apply_fixed_term(&mut lower[i], &mut upper[i], coeff, value);
+            } else {
+                apply_free_term(&mut lower[i], &mut upper[i], coeff);
+            }
+        }
+    }
+
+    let mut queue = VecDeque::new();
+
+    for i in 0..num_x {
+        if fixed_values[i].is_some() {
+            continue;
+        }
+
+        if lower[i] > 0.0 {
+            fixed_values[i] = Some(0);
+            new_persistent.insert(i, 0);
+            queue.push_back((i, 0u8));
+        } else if upper[i] < 0.0 {
+            fixed_values[i] = Some(1);
+            new_persistent.insert(i, 1);
+            queue.push_back((i, 1u8));
+        }
+    }
+
+    while let Some((fixed_variable, value)) = queue.pop_front() {
+        for &(target, coeff) in &adjacency[fixed_variable] {
+
+            if fixed_values[target].is_some() {
+                continue;
+            }
+
+            remove_free_term(&mut lower[target], &mut upper[target], coeff);
+            apply_fixed_term(&mut lower[target], &mut upper[target], coeff, value);
+
+            if lower[target] > 0.0 {
+                fixed_values[target] = Some(0);
+                new_persistent.insert(target, 0);
+                queue.push_back((target, 0u8));
+            } else if upper[target] < 0.0 {
+                fixed_values[target] = Some(1);
+                new_persistent.insert(target, 1);
+                queue.push_back((target, 1u8));
+            }
+        }
+    }
+
+    new_persistent
+}
+
+fn apply_free_term(lower: &mut f64, upper: &mut f64, coeff: f64) {
+    if coeff <= 0.0 {
+        *lower += coeff;
+    }
+    if coeff >= 0.0 {
+        *upper += coeff;
+    }
+}
+
+fn remove_free_term(lower: &mut f64, upper: &mut f64, coeff: f64) {
+    if coeff <= 0.0 {
+        *lower -= coeff;
+    }
+    if coeff >= 0.0 {
+        *upper -= coeff;
+    }
+}
+
+fn apply_fixed_term(lower: &mut f64, upper: &mut f64, coeff: f64, value: u8) {
+    let contribution = coeff * f64::from(value);
+    *lower += contribution;
+    *upper += contribution;
+}
+
+fn build_gradient_adjacency(qubo: &Qubo) -> Vec<Vec<(usize, f64)>> {
+    let num_x = qubo.num_x();
+    let mut counts = vec![0usize; num_x];
+
+    for (&_value, (i, j)) in &qubo.q {
+        counts[i] += 1;
+        counts[j] += 1;
+    }
+
+    let mut adjacency = counts
+        .into_iter()
+        .map(Vec::with_capacity)
+        .collect::<Vec<_>>();
+
+    for (&value, (i, j)) in &qubo.q {
+        let coeff = 0.5 * value;
+
+        adjacency[i].push((j, coeff));
+        adjacency[j].push((i, coeff));
+    }
+
+    adjacency
 }
 
 /// This function takes a QUBO and a set of persistent variables and returns a new set of persistent variables by computing the
