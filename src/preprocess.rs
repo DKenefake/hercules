@@ -1,4 +1,5 @@
 use crate::persistence::compute_iterative_persistence;
+use crate::subproblemsolvers::roofdual::roof_duality_presolve;
 /// This file is the main module that defines the preprocessing functions
 
 use crate::qubo::Qubo;
@@ -25,7 +26,8 @@ pub fn preprocess_qubo(
 
     // create an auxiliary QUBO were we have zeroed out the diagonal elements
     if in_standard_form {
-        return compute_iterative_persistence(qubo, &initial_fixed, qubo.num_x());
+        let fixed_variables = compute_iterative_persistence(qubo, &initial_fixed, qubo.num_x());
+        return apply_roof_duality_closure(qubo, fixed_variables);
     }
 
     let qubo_shift = shift_qubo(qubo);
@@ -35,7 +37,27 @@ pub fn preprocess_qubo(
     let fixed_variables =
         compute_iterative_persistence(&qubo_shift, &initial_fixed, qubo_shift.num_x());
 
-    fixed_variables
+    apply_roof_duality_closure(&qubo_shift, fixed_variables)
+}
+
+fn apply_roof_duality_closure(
+    qubo: &Qubo,
+    mut fixed_variables: HashMap<usize, usize>,
+) -> HashMap<usize, usize> {
+    let roof_dual = roof_duality_presolve(qubo, &fixed_variables);
+    let mut changed = false;
+
+    for (key, value) in roof_dual.fixed_variables {
+        if fixed_variables.insert(key, value) != Some(value) {
+            changed = true;
+        }
+    }
+
+    if changed {
+        compute_iterative_persistence(qubo, &fixed_variables, qubo.num_x())
+    } else {
+        fixed_variables
+    }
 }
 
 /// This is the heavy entry point for preprocessing + variable probing

@@ -486,6 +486,24 @@ mod tests {
     }
 
     #[test]
+    pub fn branch_bound_roof_dual_subproblem_test() {
+        let eye = CsMat::eye(3);
+        let c = Array1::from_vec(vec![-1.1, -2.0, -3.0]);
+        let p = Qubo::new_with_c(eye, c);
+
+        let mut options = SolverOptions::new();
+        options.sub_problem_solver = SubProblemSelection::RoofDualQPBO;
+        options.verbose = 0;
+        options.threads = 1;
+
+        let mut solver = branchbound::BBSolver::new(p.clone(), options);
+        let (solution, value) = solver.solve();
+
+        assert_eq!(solution, Array1::from_vec(vec![1, 1, 1]));
+        assert!((value - p.eval_usize(&solution)).abs() <= 1e-9);
+    }
+
+    #[test]
     pub fn test_gka2b_solve() {
         let file_path = "test_data/gka2b.qubo";
         let p = Qubo::read_qubo(file_path);

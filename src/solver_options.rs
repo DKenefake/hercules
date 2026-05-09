@@ -70,9 +70,12 @@ impl SolverOptions {
             match s.as_str() {
                 "hercules_cd" => {
                     self.sub_problem_solver = SubProblemSelection::HerculesCDQP;
-                },
+                }
                 "clarabel_lp" => {
                     self.sub_problem_solver = SubProblemSelection::ClarabelLP;
+                }
+                "roof_dual" => {
+                    self.sub_problem_solver = SubProblemSelection::RoofDualQPBO;
                 }
                 _ => self.sub_problem_solver = SubProblemSelection::ClarabelQP,
             }
@@ -129,6 +132,16 @@ mod tests {
         assert!(matches!(
             options.sub_problem_solver,
             SubProblemSelection::ClarabelQP
+        ));
+    }
+
+    #[test]
+    fn test_solver_options_set_sub_problem_strat_roof_dual() {
+        let mut options = SolverOptions::new();
+        options.set_sub_problem_strategy(Some("roof_dual".to_string()));
+        assert!(matches!(
+            options.sub_problem_solver,
+            SubProblemSelection::RoofDualQPBO
         ));
     }
 
