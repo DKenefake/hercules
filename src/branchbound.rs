@@ -1,3 +1,4 @@
+use crate::constraint::Constraint;
 use crate::qubo::Qubo;
 use ndarray::Array1;
 use rayon::prelude::*;
@@ -11,6 +12,7 @@ use crate::lower_bound::li_lower_bound;
 use crate::preprocess;
 use crate::preprocess::preprocess_qubo;
 use crate::solver_options::SolverOptions;
+use crate::variable_reduction::probe_limited;
 use std::collections::BinaryHeap;
 
 /// Struct for the B&B Solver
@@ -29,6 +31,7 @@ pub struct BBSolver {
     pub options: SolverOptions,
     pub early_stop: bool,
     pub solver_logger: SolverOutputLogger,
+    pub root_constraints: Vec<Constraint>,
 }
 
 pub enum NodeLoggingAction {
@@ -52,6 +55,8 @@ pub enum SolverResult {
     OptimalSolution(Array1<f64>, f64),
     SubOptimalSolution(Array1<f64>, f64),
 }
+
+const ROOT_PROBE_LIMIT: usize = 25;
 
 impl BBSolver {
     /// Creates a new B&B solver
@@ -84,6 +89,7 @@ impl BBSolver {
             options,
             early_stop: false,
             solver_logger: SolverOutputLogger::new(output_level),
+            root_constraints: Vec::new(),
         }
     }
 
@@ -98,6 +104,9 @@ impl BBSolver {
         // preprocess the problem
         let fixed_variables =
             preprocess_qubo(&self.qubo_pp_form, &self.options.fixed_variables, true);
+        let (probe_constraints, _) =
+            probe_limited(&self.qubo_pp_form, &fixed_variables, true, ROOT_PROBE_LIMIT);
+        self.root_constraints = probe_constraints.constraints;
         self.options.fixed_variables.clone_from(&fixed_variables);
 
         // create the root node
@@ -154,6 +163,14 @@ impl BBSolver {
 
     /// Checks if we can prune the node, based on the lower bound and best solution, returns an action
     pub fn can_prune_action(&self, node: &QuboBBNode) -> (PruneAction, Option<(Array1<usize>, f64)>) {
+        if self
+            .root_constraints
+            .iter()
+            .any(|constraint| !constraint.check(&node.fixed_variables))
+        {
+            return (PruneAction::Prune, None);
+        }
+
         // if our parent solution is above our current feasible soltion then prune
         if node.lower_bound > self.best_solution_value {
             return (PruneAction::Prune, None);

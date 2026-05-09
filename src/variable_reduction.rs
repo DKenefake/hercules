@@ -13,7 +13,6 @@ impl ProbedEquationSet{
     pub fn new(constraints: Vec<Constraint>) -> Self{
         Self{constraints}
     }
-
 }
 
 /// Find Equations and inequalities that can be used to strengthen the QUBO by probing using the presolver
@@ -104,11 +103,13 @@ fn probe_candidates(
                     if v0 == 1 {
                         constraints.push(Constraint::new(i.min(j), j.max(i), ConstraintType::AtLeastOne));
                     } else if v0 == 0 {
-                        constraints.push(Constraint::new(i, j, ConstraintType::LessThan));
+                        // x_i = 0 => x_j = 0, so x_j <= x_i.
+                        constraints.push(Constraint::new(i, j, ConstraintType::GreaterThan));
                     }
                 } else if let Some(v1) = val_1 {
                     if v1 == 1 {
-                        constraints.push(Constraint::new(i, j, ConstraintType::GreaterThan));
+                        // x_i = 1 => x_j = 1, so x_i <= x_j.
+                        constraints.push(Constraint::new(i, j, ConstraintType::LessThan));
                     } else if v1 == 0 {
                         constraints.push(Constraint::new(i.min(j), j.max(i), ConstraintType::NoMoreThanOne));
                     }
@@ -144,4 +145,43 @@ fn select_probe_candidates(
     candidates.sort_by(|&i, &j| edge_mass[j].total_cmp(&edge_mass[i]).then_with(|| i.cmp(&j)));
     candidates.truncate(max_candidates.min(candidates.len()));
     candidates
+}
+
+#[cfg(test)]
+mod tests {
+    use super::ProbedEquationSet;
+    use crate::constraint::{Constraint, ConstraintType};
+    use std::collections::HashMap;
+
+    fn contains_constraint(
+        set: &ProbedEquationSet,
+        x_i: usize,
+        x_j: usize,
+        constraint_type: ConstraintType,
+    ) -> bool {
+        let display = Constraint::new(x_i, x_j, constraint_type).to_string();
+        set.constraints
+            .iter()
+            .any(|constraint| constraint.to_string() == display)
+    }
+
+    #[test]
+    fn greater_than_constraint_matches_zero_to_zero_implication() {
+        let set = ProbedEquationSet::new(vec![Constraint::new(2, 5, ConstraintType::GreaterThan)]);
+        let mut persistent = HashMap::new();
+        persistent.insert(2, 0);
+
+        assert!(contains_constraint(&set, 2, 5, ConstraintType::GreaterThan));
+        assert_eq!(set.constraints[0].make_inference(&persistent), Some((5, 0)));
+    }
+
+    #[test]
+    fn less_than_constraint_matches_one_to_one_implication() {
+        let set = ProbedEquationSet::new(vec![Constraint::new(2, 5, ConstraintType::LessThan)]);
+        let mut persistent = HashMap::new();
+        persistent.insert(2, 1);
+
+        assert!(contains_constraint(&set, 2, 5, ConstraintType::LessThan));
+        assert_eq!(set.constraints[0].make_inference(&persistent), Some((5, 1)));
+    }
 }
