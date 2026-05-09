@@ -26,7 +26,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Run Criterion benchmarks
-        run: cargo bench --bench helpers --bench preprocess --bench solver -- --sample-size 30 | tee benchmark-output.txt
+        run: cargo bench --bench helpers --bench preprocess --bench solver -- --sample-size 30 --output-format bencher | tee benchmark-output.txt
       - name: Store benchmark result
         uses: benchmark-action/github-action-benchmark@v1
         with:
