@@ -3,6 +3,7 @@ use crate::branchbound::BBSolver;
 use crate::{local_search_utils, utils};
 use ndarray::Array1;
 
+#[derive(Clone, Copy)]
 pub enum HeuristicSelection {
     SimpleRounding,
     LocalSearch,

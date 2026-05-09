@@ -61,13 +61,8 @@ const ROOT_PROBE_LIMIT: usize = 25;
 impl BBSolver {
     /// Creates a new B&B solver
     pub fn new(qubo: Qubo, options: SolverOptions) -> Self {
-
-        // make sure the QUBO is in symmetric form
         let qubo = qubo.convex_symmetric_form();
-
-        // create auxiliary variables
         let num_x = qubo.num_x();
-
         let subproblem_solver = get_sub_problem_solver(&qubo, &options.sub_problem_solver);
         let branch_strategy = options.branch_strategy;
         let start_time = get_current_time();
