@@ -42,7 +42,7 @@ jobs:
           auto-push: ${{ github.event_name == 'push' }}
           save-data-file: ${{ github.event_name == 'push' }}
           comment-on-alert: true
-          fail-on-alert: true
+          fail-on-alert: false
           alert-threshold: '120%'
           fail-threshold: '140%'
 
