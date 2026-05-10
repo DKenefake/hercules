@@ -365,14 +365,14 @@ pub fn get_qubo_components(
 /// x_0, _ = hercules.pso(problem, 0, 10, 100)
 ///
 /// # solve the QUBO using branch and bound
-/// x, obj, time, nodes_visited, nodes_processed = hercules.solve_branch_bound(problem, timeout = 10.0, warm_start = x_0, seed = 12345, branch_strategy = "MostViolated", sub_problem_solver="Clarabel", threads=32, verbose=1)
+/// x, obj, time, nodes_visited, nodes_processed = hercules.solve_branch_bound(problem, timeout = 10.0, warm_start = x_0, seed = 12345, branch_strategy = "MostViolated", sub_problem_solver="Clarabel", cheap_lower_bound_problem="roof_dual", threads=32, verbose=1)
 /// ```
 ///
 /// # Errors
 ///
 /// This shouldn't error, but if it does, it will abort.
 #[pyfunction]
-#[pyo3(signature = (problem, timeout, warm_start=None, seed=None, branch_strategy=None, sub_problem_solver=None, heuristic_selection = None, threads=None, verbose=None))]
+#[pyo3(signature = (problem, timeout, warm_start=None, seed=None, branch_strategy=None, sub_problem_solver=None, cheap_lower_bound_problem=None, heuristic_selection = None, threads=None, verbose=None))]
 pub fn solve_branch_bound(
     problem: QuboData,
     timeout: f64,
@@ -380,6 +380,7 @@ pub fn solve_branch_bound(
     seed: Option<usize>,
     branch_strategy: Option<String>,
     sub_problem_solver: Option<String>,
+    cheap_lower_bound_problem: Option<String>,
     heuristic_selection: Option<String>,
     threads: Option<usize>,
     verbose: Option<usize>,
@@ -399,6 +400,8 @@ pub fn solve_branch_bound(
     options.set_branch_strategy(branch_strategy);
 
     options.set_sub_problem_strategy(sub_problem_solver);
+
+    options.set_node_lower_bound_strategy(cheap_lower_bound_problem);
 
     options.set_heuristic_strategy(heuristic_selection);
 

@@ -11,7 +11,8 @@ use crate::branchboundlogger::SolverOutputLogger;
 use crate::lower_bound::li_lower_bound;
 use crate::preprocess;
 use crate::preprocess::preprocess_qubo;
-use crate::solver_options::SolverOptions;
+use crate::solver_options::{NodeLowerBoundSelection, SolverOptions};
+use crate::subproblemsolvers::roofdual::roof_duality_presolve;
 use crate::variable_reduction::probe_limited;
 use std::collections::BinaryHeap;
 
@@ -227,9 +228,16 @@ impl BBSolver {
         // pass to the presolver to see if there are any variables we can fix
         node.fixed_variables = preprocess_qubo(&self.qubo_pp_form, &node.fixed_variables, true);
 
-        // calculate the lower bound via the li lower bound formula
-        let li_bound = li_lower_bound(&self.qubo, &node.fixed_variables);
-        node.lower_bound = node.lower_bound.max(li_bound);
+        let node_bound = match self.options.node_lower_bound {
+            NodeLowerBoundSelection::Li => li_lower_bound(&self.qubo, &node.fixed_variables),
+            NodeLowerBoundSelection::RoofDual => roof_duality_presolve(
+                &self.qubo_pp_form,
+                &node.fixed_variables,
+            )
+            .lower_bound
+            .unwrap_or(f64::NEG_INFINITY),
+        };
+        node.lower_bound = node.lower_bound.max(node_bound);
 
         // with this expanded set, can we prune the node?
         let (prune_action, event) = self.can_prune_action(&node);

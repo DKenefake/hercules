@@ -3,11 +3,18 @@ use crate::branch_subproblem::SubProblemSelection;
 use crate::heuristic_stratagy::HeuristicSelection;
 use std::collections::HashMap;
 
+#[derive(Clone, Copy)]
+pub enum NodeLowerBoundSelection {
+    Li,
+    RoofDual,
+}
+
 /// Options for the B&B solver for run time
 pub struct SolverOptions {
     pub fixed_variables: HashMap<usize, usize>,
     pub branch_strategy: BranchStrategy,
     pub sub_problem_solver: SubProblemSelection,
+    pub node_lower_bound: NodeLowerBoundSelection,
     pub heuristic: HeuristicSelection,
     pub max_time: f64,
     pub seed: usize,
@@ -21,6 +28,7 @@ impl SolverOptions {
             fixed_variables: HashMap::new(),
             branch_strategy: BranchStrategy::MostViolated,
             sub_problem_solver: SubProblemSelection::ClarabelQP,
+            node_lower_bound: NodeLowerBoundSelection::RoofDual,
             heuristic: HeuristicSelection::LocalSearch,
             max_time: 100.0,
             seed: 0,
@@ -82,6 +90,22 @@ impl SolverOptions {
         }
     }
 
+    pub fn set_node_lower_bound_strategy(&mut self, strategy: Option<String>) {
+        if let Some(s) = strategy {
+            match s.as_str() {
+                "li" => {
+                    self.node_lower_bound = NodeLowerBoundSelection::Li;
+                }
+                "roof_dual" => {
+                    self.node_lower_bound = NodeLowerBoundSelection::RoofDual;
+                }
+                _ => {
+                    self.node_lower_bound = NodeLowerBoundSelection::RoofDual;
+                }
+            }
+        }
+    }
+
     pub fn set_heuristic_strategy(&mut self, strategy: Option<String>) {
         if let Some(s) = strategy {
             match s.as_str() {
@@ -106,7 +130,7 @@ mod tests {
     use crate::branch_stratagy::BranchStrategy;
     use crate::branch_subproblem::SubProblemSelection;
     use crate::heuristic_stratagy::HeuristicSelection;
-    use crate::solver_options::SolverOptions;
+    use crate::solver_options::{NodeLowerBoundSelection, SolverOptions};
 
     #[test]
     fn test_solver_options_set_branch_strat() {
@@ -142,6 +166,35 @@ mod tests {
         assert!(matches!(
             options.sub_problem_solver,
             SubProblemSelection::RoofDualQPBO
+        ));
+    }
+
+    #[test]
+    fn test_solver_options_default_node_lower_bound() {
+        let options = SolverOptions::new();
+        assert!(matches!(
+            options.node_lower_bound,
+            NodeLowerBoundSelection::RoofDual
+        ));
+    }
+
+    #[test]
+    fn test_solver_options_set_node_lower_bound_li() {
+        let mut options = SolverOptions::new();
+        options.set_node_lower_bound_strategy(Some("li".to_string()));
+        assert!(matches!(
+            options.node_lower_bound,
+            NodeLowerBoundSelection::Li
+        ));
+    }
+
+    #[test]
+    fn test_solver_options_set_node_lower_bound_roof_dual() {
+        let mut options = SolverOptions::new();
+        options.set_node_lower_bound_strategy(Some("roof_dual".to_string()));
+        assert!(matches!(
+            options.node_lower_bound,
+            NodeLowerBoundSelection::RoofDual
         ));
     }
 
