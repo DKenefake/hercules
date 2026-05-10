@@ -35,7 +35,11 @@ pub(crate) fn preprocess_with_prepared(
         initial_fixed.insert(key, value);
     }
 
-    compute_iterative_persistence(&prepared.qubo_pp, &initial_fixed, prepared.qubo_pp.num_x())
+    compute_iterative_persistence(
+        &prepared.qubo_pp,
+        &initial_fixed,
+        prepared.qubo_pp.num_x(),
+    )
 }
 
 /// This is the main entry point for preprocessing

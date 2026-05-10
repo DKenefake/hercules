@@ -4,6 +4,7 @@ use crate::qubo::Qubo;
 use crate::subproblemsolvers::clarabel_lp::ClarabelLPSolver;
 use crate::subproblemsolvers::clarabel_qp::ClarabelQPSolver;
 use crate::subproblemsolvers::hercules_cd_qp::HerculesCDQPSolver;
+use crate::subproblemsolvers::roofdual::RoofDualSolver;
 use ndarray::Array1;
 
 pub type SubProblemResult = (f64, Array1<f64>);
@@ -39,6 +40,7 @@ pub enum SubProblemSelection {
     ClarabelQP,
     ClarabelLP,
     HerculesCDQP,
+    RoofDualQPBO,
 }
 
 pub fn get_sub_problem_solver(
@@ -49,5 +51,6 @@ pub fn get_sub_problem_solver(
         SubProblemSelection::ClarabelQP => Box::new(ClarabelQPSolver::new(qubo)),
         SubProblemSelection::ClarabelLP => Box::new(ClarabelLPSolver::new(qubo)),
         SubProblemSelection::HerculesCDQP => Box::new(HerculesCDQPSolver::new(qubo)),
+        SubProblemSelection::RoofDualQPBO => Box::new(RoofDualSolver::new(qubo)),
     }
 }

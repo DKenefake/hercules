@@ -56,6 +56,7 @@ pub mod subproblemsolvers {
     pub mod hercules_cd_qp;
 
     pub mod enumerate_qubo;
+    pub mod roofdual;
 }
 
 #[allow(clippy::wildcard_imports)]
