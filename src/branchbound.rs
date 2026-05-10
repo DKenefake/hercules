@@ -230,12 +230,13 @@ impl BBSolver {
 
         let node_bound = match self.options.node_lower_bound {
             NodeLowerBoundSelection::Li => li_lower_bound(&self.qubo, &node.fixed_variables),
-            NodeLowerBoundSelection::RoofDual => roof_duality_presolve(
-                &self.qubo_pp_form,
-                &node.fixed_variables,
-            )
-            .lower_bound
-            .unwrap_or(f64::NEG_INFINITY),
+            NodeLowerBoundSelection::RoofDual => {
+                let roof_result = roof_duality_presolve(&self.qubo_pp_form, &node.fixed_variables);
+                for (index, value) in roof_result.fixed_variables {
+                    node.fixed_variables.insert(index, value);
+                }
+                roof_result.lower_bound.unwrap_or(f64::NEG_INFINITY)
+            }
         };
         node.lower_bound = node.lower_bound.max(node_bound);
 

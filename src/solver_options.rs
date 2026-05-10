@@ -197,7 +197,6 @@ mod tests {
             NodeLowerBoundSelection::RoofDual
         ));
     }
-
     #[test]
     fn test_solver_options_set_heuristic_strat_1() {
         let mut options = SolverOptions::new();
