@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1778349208804,
+  "lastUpdate": 1778375843132,
   "repoUrl": "https://github.com/DKenefake/hercules",
   "entries": {
     "hercules-criterion": [
@@ -239,6 +239,162 @@ window.BENCHMARK_DATA = {
             "name": "solver/branch_bound_solve/gka6a",
             "value": 67486659,
             "range": "± 181437",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "Dustin.Kenefake@gmail.com",
+            "name": "Dustin Kenefake",
+            "username": "DKenefake"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "54c0bbdb6f3498618abdd3d9958cabc9d191bb68",
+          "message": "Merge pull request #12 from DKenefake/roofdual\n\nAdding roofdual solver",
+          "timestamp": "2026-05-09T21:10:16-04:00",
+          "tree_id": "56fcfc55aed82481717a3f4707aacb11bff0b37a",
+          "url": "https://github.com/DKenefake/hercules/commit/54c0bbdb6f3498618abdd3d9958cabc9d191bb68"
+        },
+        "date": 1778375842421,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "helpers/eval_usize/128",
+            "value": 1176,
+            "range": "± 2",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "helpers/eval_grad_usize/128",
+            "value": 1662,
+            "range": "± 9",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "helpers/one_flip_objective/64",
+            "value": 858,
+            "range": "± 3",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "helpers/one_step_local_search/64",
+            "value": 942,
+            "range": "± 3",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "preprocess/iterative_persistence/64",
+            "value": 79528,
+            "range": "± 937",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "preprocess/disconnected_graphs/64",
+            "value": 894,
+            "range": "± 4",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "preprocess/solve_small_components/64",
+            "value": 103084,
+            "range": "± 73",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "preprocess/enumerate_solve/10",
+            "value": 71140,
+            "range": "± 271",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "preprocess/preprocess_qubo/64",
+            "value": 12869,
+            "range": "± 20",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "preprocess/probe_limited/test_large/25",
+            "value": 1780888621,
+            "range": "± 2818554",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "preprocess/probe_limited/test_large/50",
+            "value": 3572347926,
+            "range": "± 21034448",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "preprocess/probe_limited/test_large/100",
+            "value": 7081928064,
+            "range": "± 3154384",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "preprocess/preprocess_qubo_heavy/test_large",
+            "value": 288144960,
+            "range": "± 200294",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "solver/process_node/64",
+            "value": 410664,
+            "range": "± 1366",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "solver/convex_symmetric_form/random64",
+            "value": 1272595,
+            "range": "± 14795",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "solver/convex_symmetric_form/gka6a",
+            "value": 562505,
+            "range": "± 9039",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "solver/branch_bound_solve/random96",
+            "value": 31776440,
+            "range": "± 200633",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "solver/branch_bound_solve/gka1b",
+            "value": 11092838,
+            "range": "± 86656",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "solver/branch_bound_solve/gka2b",
+            "value": 53712433,
+            "range": "± 140305",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "solver/branch_bound_solve/gka6a",
+            "value": 65409567,
+            "range": "± 241249",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "solver/branch_bound_solve/gka7a",
+            "value": 42395803,
+            "range": "± 227886",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "solver/branch_bound_solve/bqp50",
+            "value": 428745054,
+            "range": "± 2896561",
             "unit": "ns/iter"
           }
         ]
