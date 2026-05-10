@@ -1,5 +1,6 @@
 use hercules::branch_stratagy::BranchStrategy;
 use hercules::branch_node::QuboBBNode;
+use hercules::branch_subproblem::SubProblemSelection;
 use hercules::branchbound::BBSolver;
 use hercules::initial_points::generate_random_binary_point;
 use hercules::qubo::Qubo;
@@ -14,7 +15,11 @@ pub struct BenchData {
     pub qubo_medium: Qubo,
     pub qubo_enum: Qubo,
     pub qubo_solve: Qubo,
+    pub qubo_gka1b: Qubo,
+    pub qubo_gka2b: Qubo,
     pub qubo_gka6a: Qubo,
+    pub qubo_gka7a: Qubo,
+    pub qubo_bqp50: Qubo,
     pub qubo_test_large: Qubo,
     pub x_small: Array1<usize>,
     pub x_medium: Array1<usize>,
@@ -27,6 +32,7 @@ pub struct BenchData {
 pub fn make_solver_options() -> SolverOptions {
     let mut options = SolverOptions::new();
     options.branch_strategy = BranchStrategy::MostFixed;
+    options.sub_problem_solver = SubProblemSelection::ClarabelQP;
     options.verbose = 0;
     options.threads = 1;
     options.max_time = f64::INFINITY;
@@ -48,7 +54,11 @@ pub fn make_bench_data() -> BenchData {
     let qubo_medium = Qubo::make_random_qubo(128, &mut prng, 0.08);
     let qubo_enum = Qubo::make_random_qubo(10, &mut enum_prng, 0.25);
     let qubo_solve = Qubo::make_random_qubo(96, &mut solve_prng, 0.08);
+    let qubo_gka1b = Qubo::read_qubo("test_data/gka1b.qubo");
+    let qubo_gka2b = Qubo::read_qubo("test_data/gka2b.qubo");
     let qubo_gka6a = Qubo::read_qubo("test_data/gka6a.qubo");
+    let qubo_gka7a = Qubo::read_qubo("test_data/gka7a.qubo");
+    let qubo_bqp50 = Qubo::read_qubo("test_data/bqp50.qubo");
     let qubo_test_large = Qubo::read_qubo("test_data/test_large.qubo");
     let x_small = generate_random_binary_point(qubo_small.num_x(), &mut prng, 0.5);
     let x_medium = generate_random_binary_point(qubo_medium.num_x(), &mut prng, 0.5);
@@ -67,7 +77,11 @@ pub fn make_bench_data() -> BenchData {
         qubo_medium,
         qubo_enum,
         qubo_solve,
+        qubo_gka1b,
+        qubo_gka2b,
         qubo_gka6a,
+        qubo_gka7a,
+        qubo_bqp50,
         qubo_test_large,
         x_small,
         x_medium,
