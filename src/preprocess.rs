@@ -246,7 +246,8 @@ pub fn make_sub_problem(
     }
 
     for (i, &c_i) in qubo.c.iter().enumerate() {
-        if fixed_vars.contains_key(&i) {
+        if let Some(&fixed_i) = fixed_vars.get(&i) {
+            constant += c_i * fixed_i as f64;
             continue;
         }
         let i_new = *unfixed_map.get(&i).unwrap();
@@ -398,5 +399,20 @@ mod tests {
 
         // check the constant term
         assert_eq!(0.5, constant);
+    }
+
+    #[test]
+    fn test_generate_sub_problem_includes_fixed_linear_term_in_constant() {
+        let q = CsMat::<f64>::zero((2, 2));
+        let c = Array1::<f64>::from_vec(vec![3.5, -2.0]);
+        let p = Qubo::new_with_c(q, c);
+
+        let mut fixed_variables = HashMap::new();
+        fixed_variables.insert(0, 1);
+
+        let (sub_p, _, constant) = super::make_sub_problem(&p, &fixed_variables);
+
+        assert_eq!(sub_p.c[0], -2.0);
+        assert_eq!(constant, 3.5);
     }
 }
