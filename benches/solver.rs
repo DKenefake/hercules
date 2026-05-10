@@ -45,7 +45,6 @@ fn solver_benches(c: &mut Criterion) {
     bench_solve_case(&mut group, "gka6a", &data.qubo_gka6a);
     bench_solve_case(&mut group, "gka7a", &data.qubo_gka7a);
     bench_solve_case(&mut group, "bqp50", &data.qubo_bqp50);
-    bench_solve_case(&mut group, "mk487a", &data.qubo_mk487a);
 
     group.finish();
 }

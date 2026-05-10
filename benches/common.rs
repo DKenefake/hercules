@@ -20,7 +20,6 @@ pub struct BenchData {
     pub qubo_gka6a: Qubo,
     pub qubo_gka7a: Qubo,
     pub qubo_bqp50: Qubo,
-    pub qubo_mk487a: Qubo,
     pub qubo_test_large: Qubo,
     pub x_small: Array1<usize>,
     pub x_medium: Array1<usize>,
@@ -60,7 +59,6 @@ pub fn make_bench_data() -> BenchData {
     let qubo_gka6a = Qubo::read_qubo("test_data/gka6a.qubo");
     let qubo_gka7a = Qubo::read_qubo("test_data/gka7a.qubo");
     let qubo_bqp50 = Qubo::read_qubo("test_data/bqp50.qubo");
-    let qubo_mk487a = Qubo::read_qubo("test_data/mk487a.qubo");
     let qubo_test_large = Qubo::read_qubo("test_data/test_large.qubo");
     let x_small = generate_random_binary_point(qubo_small.num_x(), &mut prng, 0.5);
     let x_medium = generate_random_binary_point(qubo_medium.num_x(), &mut prng, 0.5);
@@ -84,7 +82,6 @@ pub fn make_bench_data() -> BenchData {
         qubo_gka6a,
         qubo_gka7a,
         qubo_bqp50,
-        qubo_mk487a,
         qubo_test_large,
         x_small,
         x_medium,
