@@ -32,7 +32,7 @@ pub struct BenchData {
 pub fn make_solver_options() -> SolverOptions {
     let mut options = SolverOptions::new();
     options.branch_strategy = BranchStrategy::MostFixed;
-    options.sub_problem_solver = SubProblemSelection::ClarabelQP;
+    options.sub_problem_solver = SubProblemSelection::HerculesABQP;
     options.verbose = 0;
     options.threads = 1;
     options.max_time = f64::INFINITY;

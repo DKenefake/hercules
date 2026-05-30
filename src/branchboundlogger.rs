@@ -14,6 +14,11 @@ pub struct SolverOutputLogger {
     pub output_level: usize,
 }
 
+const NODE_COL_WIDTH: usize = 13;
+const BOUND_COL_WIDTH: usize = 16;
+const GAP_COL_WIDTH: usize = 14;
+const TIME_COL_WIDTH: usize = 12;
+
 impl SolverOutputLogger {
     pub const fn new(level: usize) -> Self {
         Self {
@@ -36,7 +41,15 @@ impl SolverOutputLogger {
         println!("Fixed variables: {fixed_vars}");
 
         println!("----------------------------------------------------------------------------");
-        println!("Nodes Visited |  Nodes Unvisited  |  Best Solution  |   Lower Bound  |    Gap (%)    | Time (sec)");
+        println!(
+            "{:<NODE_COL_WIDTH$} | {:<NODE_COL_WIDTH$} | {:<BOUND_COL_WIDTH$} | {:<BOUND_COL_WIDTH$} | {:<GAP_COL_WIDTH$} | {:<TIME_COL_WIDTH$}",
+            "Nodes Visited",
+            "Nodes Unvisited",
+            "Best Solution",
+            "Lower Bound",
+            "Gap (%)",
+            "Time (sec)",
+        );
     }
 
     pub fn generate_output_line(&self, solver_instance: &BBSolver) {
@@ -56,7 +69,13 @@ impl SolverOutputLogger {
         let lower_bound = lower_bound.min(upper_bound);
         let current_time = get_current_time() - solver_instance.time_start;
         let num_unvisited = solver_instance.nodes.len();
-        println!("{num_nodes:<13} | {num_unvisited:<13} | {upper_bound:<13.8} | {lower_bound:<11.8} | {gap:<13.8} | {current_time:<13.8}");
+        println!(
+            "{num_nodes:>NODE_COL_WIDTH$} | {num_unvisited:>NODE_COL_WIDTH$} | {} | {} | {} | {}",
+            format_metric(upper_bound, BOUND_COL_WIDTH),
+            format_metric(lower_bound, BOUND_COL_WIDTH),
+            format_metric(gap, GAP_COL_WIDTH),
+            format_metric(current_time, TIME_COL_WIDTH),
+        );
     }
 
     pub fn generate_exit_line(&self, solver_instance: &BBSolver) {
@@ -120,10 +139,19 @@ impl SolverOutputLogger {
     }
 }
 
+fn format_metric(value: f64, width: usize) -> String {
+    let abs_value = value.abs();
+    if (abs_value >= 1.0e6) || (abs_value > 0.0 && abs_value < 1.0e-4) {
+        format!("{value:>width$.6e}")
+    } else {
+        format!("{value:>width$.8}")
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use crate::branchbound::BBSolver;
-    use crate::branchboundlogger::SolverOutputLogger;
+    use crate::branchboundlogger::{format_metric, SolverOutputLogger};
     use crate::qubo::Qubo;
     use crate::solver_options::SolverOptions;
     use ndarray::Array1;
@@ -142,5 +170,11 @@ mod tests {
 
         solver_logger.output_warm_start_info(&solver);
         solver_logger.generate_exit_line(&solver);
+    }
+
+    #[test]
+    fn test_format_metric_uses_scientific_for_large_values() {
+        let formatted = format_metric(1_843_228_941.715_74, 14);
+        assert!(formatted.contains('e'));
     }
 }

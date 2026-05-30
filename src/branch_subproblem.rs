@@ -3,6 +3,7 @@ use crate::branchbound::BBSolver;
 use crate::qubo::Qubo;
 use crate::subproblemsolvers::clarabel_lp::ClarabelLPSolver;
 use crate::subproblemsolvers::clarabel_qp::ClarabelQPSolver;
+use crate::subproblemsolvers::hercules_abqp::HerculesABQPSolver;
 use crate::subproblemsolvers::hercules_cd_qp::HerculesCDQPSolver;
 use crate::subproblemsolvers::roofdual::RoofDualSolver;
 use ndarray::Array1;
@@ -39,6 +40,7 @@ pub trait SubProblemSolver {
 pub enum SubProblemSelection {
     ClarabelQP,
     ClarabelLP,
+    HerculesABQP,
     HerculesCDQP,
     RoofDualQPBO,
 }
@@ -50,6 +52,7 @@ pub fn get_sub_problem_solver(
     match sub_problem_selection {
         SubProblemSelection::ClarabelQP => Box::new(ClarabelQPSolver::new(qubo)),
         SubProblemSelection::ClarabelLP => Box::new(ClarabelLPSolver::new(qubo)),
+        SubProblemSelection::HerculesABQP => Box::new(HerculesABQPSolver::new(qubo)),
         SubProblemSelection::HerculesCDQP => Box::new(HerculesCDQPSolver::new(qubo)),
         SubProblemSelection::RoofDualQPBO => Box::new(RoofDualSolver::new(qubo)),
     }

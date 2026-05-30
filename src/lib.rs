@@ -20,6 +20,8 @@
 
 const VERSION: &str = env!("CARGO_PKG_VERSION");
 
+use intel_mkl_src as _;
+
 #[cfg(feature = "python")]
 use pyo3::prelude::*;
 
@@ -53,6 +55,7 @@ pub mod subproblemsolvers {
     pub mod clarabel_lp;
     pub mod clarabel_qp;
 
+    pub mod hercules_abqp;
     pub mod hercules_cd_qp;
 
     pub mod enumerate_qubo;

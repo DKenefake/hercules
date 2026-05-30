@@ -188,7 +188,7 @@ pub fn msls(problem: QuboData, xs: Vec<Vec<usize>>) -> PyResult<(Vec<Vec<usize>>
     let objs = x_solns.iter().map(|x| p.eval_usize(x)).collect();
 
     // convert the output to the correct type
-    let x_solns_vec: Vec<Vec<_>> = x_solns.iter().map(ndarray::ArrayBase::to_vec).collect();
+    let x_solns_vec: Vec<Vec<_>> = x_solns.iter().map(|x| x.to_vec()).collect();
 
     // return the solutions and their objectives
     Ok((x_solns_vec, objs))

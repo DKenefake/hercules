@@ -592,6 +592,7 @@ mod tests {
         let sub_problem_solvers = vec![
             SubProblemSelection::ClarabelQP,
             SubProblemSelection::ClarabelLP,
+            SubProblemSelection::HerculesABQP,
             SubProblemSelection::HerculesCDQP,
         ];
 
