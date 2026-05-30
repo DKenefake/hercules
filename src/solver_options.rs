@@ -27,7 +27,7 @@ impl SolverOptions {
         Self {
             fixed_variables: HashMap::new(),
             branch_strategy: BranchStrategy::MostViolated,
-            sub_problem_solver: SubProblemSelection::ClarabelQP,
+            sub_problem_solver: SubProblemSelection::HerculesABQP,
             node_lower_bound: NodeLowerBoundSelection::RoofDual,
             heuristic: HeuristicSelection::LocalSearch,
             max_time: 100.0,
@@ -79,13 +79,16 @@ impl SolverOptions {
                 "hercules_cd" => {
                     self.sub_problem_solver = SubProblemSelection::HerculesCDQP;
                 }
+                "hercules_abqp" => {
+                    self.sub_problem_solver = SubProblemSelection::HerculesABQP;
+                }
                 "clarabel_lp" => {
                     self.sub_problem_solver = SubProblemSelection::ClarabelLP;
                 }
                 "roof_dual" => {
                     self.sub_problem_solver = SubProblemSelection::RoofDualQPBO;
                 }
-                _ => self.sub_problem_solver = SubProblemSelection::ClarabelQP,
+                _ => self.sub_problem_solver = SubProblemSelection::HerculesABQP,
             }
         }
     }
@@ -150,12 +153,22 @@ mod tests {
     }
 
     #[test]
+    fn test_solver_options_set_sub_problem_strat_abqp() {
+        let mut options = SolverOptions::new();
+        options.set_sub_problem_strategy(Some("hercules_abqp".to_string()));
+        assert!(matches!(
+            options.sub_problem_solver,
+            SubProblemSelection::HerculesABQP
+        ));
+    }
+
+    #[test]
     fn test_solver_options_set_sub_problem_strat_3() {
         let mut options = SolverOptions::new();
         options.set_sub_problem_strategy(Some("qweqwe".to_string()));
         assert!(matches!(
             options.sub_problem_solver,
-            SubProblemSelection::ClarabelQP
+            SubProblemSelection::HerculesABQP
         ));
     }
 

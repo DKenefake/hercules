@@ -124,18 +124,31 @@ Hercules can now be used as either a normal Rust library or a Python extension m
 
 ### Rust library
 
-The default build targets the Rust library only:
+Add Hercules as a normal Rust dependency:
 
 ```toml
 [dependencies]
 hercules = "0.5"
 ```
 
-Then build as usual with `cargo build` or `cargo check`.
+Then build as usual:
+
+```bash
+cargo build
+```
+
+Useful checks during development:
+
+```bash
+cargo check
+cargo test --lib
+```
 
 ### Python package
 
-The Python bindings live behind the `python` feature and are configured for `maturin` via [pyproject.toml](/C:/Users/Dusti/codexherc/hercules/pyproject.toml).
+The Python bindings live behind the `python` feature and are configured for `maturin` via `pyproject.toml`.
+
+From an activated virtual environment, install an editable build with:
 
 ```bash
 maturin develop
@@ -145,4 +158,10 @@ Or build a wheel with:
 
 ```bash
 maturin build
+```
+
+If you want the optimized wheel locally, use:
+
+```bash
+maturin build --release
 ```
