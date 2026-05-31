@@ -1,30 +1,44 @@
+use crate::FixedVarMap;
 use crate::preprocess::solve_small_components;
 use crate::qubo::Qubo;
 use std::cmp::min;
-use std::collections::{HashMap, VecDeque};
+use std::collections::VecDeque;
+
+pub(crate) type GradientAdjacency = Vec<Vec<(usize, f64)>>;
 
 /// This function takes a QUBO and a set of persistent variables and returns a new set of persistent variables by repeatedly
 /// recomputing the persistent variables until.
 pub fn compute_iterative_persistence(
     qubo: &Qubo,
-    persistent: &HashMap<usize, usize>,
+    persistent: &FixedVarMap,
     iter_lim: usize,
-) -> HashMap<usize, usize> {
-    // make a copy of the passed persistence variable
-    let mut new_persistent = persistent.clone();
-
-    // the number of required iterations is always below the number of variables
-    let iters = min(iter_lim, qubo.num_x());
+) -> FixedVarMap {
     let adjacency = build_gradient_adjacency(qubo);
+    compute_iterative_persistence_with_adjacency(qubo, persistent, iter_lim, &adjacency)
+}
 
-    // loop over the number of iters
+pub(crate) fn compute_iterative_persistence_with_adjacency(
+    qubo: &Qubo,
+    persistent: &FixedVarMap,
+    iter_lim: usize,
+    adjacency: &GradientAdjacency,
+) -> FixedVarMap {
+    let mut new_persistent = persistent.clone();
+    let iters = min(iter_lim, qubo.num_x());
+
     for _ in 0..iters {
-        let incoming_persistent = propagate_persistent(qubo, &new_persistent, &adjacency);
-        let incoming_persistent = solve_small_components(qubo, &incoming_persistent, 10);
+        let previous_len = new_persistent.len();
+        let incoming_persistent = propagate_persistent(qubo, &new_persistent, adjacency);
 
-        if new_persistent == incoming_persistent {
+        if incoming_persistent.len() == previous_len {
             break;
         }
+
+        let incoming_persistent = solve_small_components(qubo, &incoming_persistent, 10);
+        if incoming_persistent.len() == previous_len {
+            break;
+        }
+
         new_persistent = incoming_persistent;
     }
 
@@ -33,9 +47,9 @@ pub fn compute_iterative_persistence(
 
 fn propagate_persistent(
     qubo: &Qubo,
-    persistent: &HashMap<usize, usize>,
+    persistent: &FixedVarMap,
     adjacency: &[Vec<(usize, f64)>],
-) -> HashMap<usize, usize> {
+) -> FixedVarMap {
     let num_x = qubo.num_x();
     let mut new_persistent = persistent.clone();
     let mut fixed_values = vec![None; num_x];
@@ -77,7 +91,6 @@ fn propagate_persistent(
 
     while let Some((fixed_variable, value)) = queue.pop_front() {
         for &(target, coeff) in &adjacency[fixed_variable] {
-
             if fixed_values[target].is_some() {
                 continue;
             }
@@ -124,7 +137,7 @@ fn apply_fixed_term(lower: &mut f64, upper: &mut f64, coeff: f64, value: u8) {
     *upper += contribution;
 }
 
-fn build_gradient_adjacency(qubo: &Qubo) -> Vec<Vec<(usize, f64)>> {
+pub(crate) fn build_gradient_adjacency(qubo: &Qubo) -> GradientAdjacency {
     let num_x = qubo.num_x();
     let mut counts = vec![0usize; num_x];
 
@@ -152,8 +165,8 @@ fn build_gradient_adjacency(qubo: &Qubo) -> Vec<Vec<(usize, f64)>> {
 /// persistent variables once.
 pub fn compute_persistent(
     qubo: &Qubo,
-    persistent: &HashMap<usize, usize>,
-) -> HashMap<usize, usize> {
+    persistent: &FixedVarMap,
+) -> FixedVarMap {
     // create a new hashmap to store the new persistent variables
     let mut new_persistent = persistent.clone();
 
@@ -184,7 +197,7 @@ pub fn compute_persistent(
 ///
 /// # Panics
 /// This function should not panic as the unwraps are bounded on the size of the QUBO matrix
-pub fn grad_bounds(qubo: &Qubo, i: usize, persistent: &HashMap<usize, usize>) -> (f64, f64) {
+pub fn grad_bounds(qubo: &Qubo, i: usize, persistent: &FixedVarMap) -> (f64, f64) {
     // set up tracking variables for each bound
     let mut lower = 0.0;
     let mut upper = 0.0;
@@ -208,7 +221,7 @@ pub fn grad_bounds(qubo: &Qubo, i: usize, persistent: &HashMap<usize, usize>) ->
 
 fn accumulate_grad_terms<'a, I>(
     terms: I,
-    persistent: &HashMap<usize, usize>,
+    persistent: &FixedVarMap,
     lower: &mut f64,
     upper: &mut f64,
 ) where
@@ -244,7 +257,7 @@ mod tests {
     use crate::qubo::Qubo;
     use ndarray::Array1;
     use sprs::CsMat;
-    use std::collections::HashMap;
+    use crate::FixedVarMap as HashMap;
 
     #[test]
     fn test_persistence() {
@@ -252,7 +265,7 @@ mod tests {
         let eye = CsMat::eye(3);
         let c = Array1::from_vec(vec![1.0, 2.0, 3.0]);
         let p = Qubo::new_with_c(eye, c);
-        let persist = compute_iterative_persistence(&p, &HashMap::new(), 3);
+        let persist = compute_iterative_persistence(&p, &HashMap::default(), 3);
 
         assert!(persist.contains_key(&0));
         assert!(persist.contains_key(&1));
@@ -267,9 +280,9 @@ mod tests {
         let eye = CsMat::eye(3);
         let c = Array1::from_vec(vec![1.0, 2.0, 3.0]);
         let p = Qubo::new_with_c(eye, c);
-        assert_eq!(grad_bounds(&p, 0, &HashMap::new()), (1.0, 2.0));
-        assert_eq!(grad_bounds(&p, 1, &HashMap::new()), (2.0, 3.0));
-        assert_eq!(grad_bounds(&p, 2, &HashMap::new()), (3.0, 4.0));
+        assert_eq!(grad_bounds(&p, 0, &HashMap::default()), (1.0, 2.0));
+        assert_eq!(grad_bounds(&p, 1, &HashMap::default()), (2.0, 3.0));
+        assert_eq!(grad_bounds(&p, 2, &HashMap::default()), (3.0, 4.0));
     }
 
     #[test]
@@ -278,7 +291,7 @@ mod tests {
         let c = Array1::from_vec(vec![1.0, 2.0, 3.0]);
         let p = Qubo::new_with_c(eye, c);
 
-        let mut fixed_vars = HashMap::new();
+        let mut fixed_vars = HashMap::default();
         fixed_vars.insert(0, 1);
         fixed_vars.insert(2, 1);
 
@@ -293,9 +306,9 @@ mod tests {
         let c = Array1::from_vec(vec![1.0, 2.0, 3.0]);
         let p = Qubo::new_with_c(zero, c);
 
-        assert_eq!(grad_bounds(&p, 0, &HashMap::new()), (1.0, 1.0));
-        assert_eq!(grad_bounds(&p, 1, &HashMap::new()), (2.0, 2.0));
-        assert_eq!(grad_bounds(&p, 2, &HashMap::new()), (3.0, 3.0));
+        assert_eq!(grad_bounds(&p, 0, &HashMap::default()), (1.0, 1.0));
+        assert_eq!(grad_bounds(&p, 1, &HashMap::default()), (2.0, 2.0));
+        assert_eq!(grad_bounds(&p, 2, &HashMap::default()), (3.0, 3.0));
     }
 
     // old test, not really relevant anymore as the presolve will solve this entirely

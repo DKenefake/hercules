@@ -17,7 +17,7 @@ pub struct SubProblemOptions {
 
 /// Options for the sub-problem solver
 /// - max_iterations: maximum number of iterations to run the solver for
-///  If None, the solver will run until convergence or a default maximum number of iterations
+///   If None, the solver will run until convergence or a default maximum number of iterations
 impl SubProblemOptions {
     pub const fn new(max_iterations: Option<usize>) -> Self {
         Self { max_iterations }

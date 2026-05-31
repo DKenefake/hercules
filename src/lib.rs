@@ -21,6 +21,8 @@
 const VERSION: &str = env!("CARGO_PKG_VERSION");
 
 use intel_mkl_src as _;
+pub type FixedVarMap = rustc_hash::FxHashMap<usize, usize>;
+pub type VarMap = rustc_hash::FxHashMap<usize, usize>;
 
 #[cfg(feature = "python")]
 use pyo3::prelude::*;

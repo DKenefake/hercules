@@ -1,8 +1,8 @@
 use crate::constraint::{Constraint, ConstraintType};
 use crate::preprocess::{prepare_preprocess, preprocess_with_prepared, PreparedPreprocess};
 use crate::qubo::Qubo;
+use crate::FixedVarMap;
 use ndarray::Array1;
-use std::collections::HashMap;
 
 #[derive(Debug, Clone)]
 pub struct ProbedEquationSet {
@@ -10,8 +10,8 @@ pub struct ProbedEquationSet {
 }
 
 impl ProbedEquationSet{
-    pub fn new(constraints: Vec<Constraint>) -> Self{
-        Self{constraints}
+    pub const fn new(constraints: Vec<Constraint>) -> Self {
+        Self { constraints }
     }
 }
 
@@ -19,9 +19,9 @@ impl ProbedEquationSet{
 /// This is a probing method that tries to fix each variable to 0 and 1 and see what other variables can be fixed as a result
 pub fn probe(
     qubo: &Qubo,
-    fixed_vars: &HashMap<usize, usize>,
+    fixed_vars: &FixedVarMap,
     in_standard_form: bool,
-) -> (ProbedEquationSet, HashMap<usize, usize>) {
+) -> (ProbedEquationSet, FixedVarMap) {
     let candidates = (0..qubo.num_x())
         .filter(|i| !fixed_vars.contains_key(i))
         .collect::<Vec<_>>();
@@ -34,12 +34,12 @@ pub fn probe(
 /// Candidates are ranked by the absolute incident quadratic weight remaining in the QUBO.
 pub fn probe_limited(
     qubo: &Qubo,
-    fixed_vars: &HashMap<usize, usize>,
+    fixed_vars: &FixedVarMap,
     in_standard_form: bool,
     max_candidates: usize,
-) -> (ProbedEquationSet, HashMap<usize, usize>) {
+) -> (ProbedEquationSet, FixedVarMap) {
     if max_candidates == 0 {
-        return (ProbedEquationSet::new(Vec::new()), HashMap::new());
+        return (ProbedEquationSet::new(Vec::new()), FixedVarMap::default());
     }
 
     let candidates = select_probe_candidates(qubo, fixed_vars, max_candidates);
@@ -51,12 +51,12 @@ pub fn probe_limited(
 fn probe_candidates(
     prepared: &PreparedPreprocess,
     candidates: &[usize],
-    fixed_vars: &HashMap<usize, usize>,
+    fixed_vars: &FixedVarMap,
     num_x: usize,
-) -> (ProbedEquationSet, HashMap<usize, usize>) {
+) -> (ProbedEquationSet, FixedVarMap) {
 
     let mut constraints = Vec::new();
-    let mut new_fixed_vars = HashMap::new();
+    let mut new_fixed_vars = FixedVarMap::default();
     let probe_base = fixed_vars.clone();
 
     for &i in candidates {
@@ -66,8 +66,8 @@ fn probe_candidates(
         fixed_vars_0.insert(i, 0);
         fixed_vars_1.insert(i, 1);
 
-        let fixed_vars_0 = preprocess_with_prepared(&prepared, &fixed_vars_0);
-        let fixed_vars_1 = preprocess_with_prepared(&prepared, &fixed_vars_1);
+        let fixed_vars_0 = preprocess_with_prepared(prepared, &fixed_vars_0);
+        let fixed_vars_1 = preprocess_with_prepared(prepared, &fixed_vars_1);
 
         let mut candidate_vars = Vec::with_capacity(fixed_vars_0.len() + fixed_vars_1.len());
         candidate_vars.extend(fixed_vars_0.keys().copied());
@@ -123,7 +123,7 @@ fn probe_candidates(
 
 fn select_probe_candidates(
     qubo: &Qubo,
-    fixed_vars: &HashMap<usize, usize>,
+    fixed_vars: &FixedVarMap,
     max_candidates: usize,
 ) -> Vec<usize> {
     let mut edge_mass = Array1::<f64>::zeros(qubo.num_x());
@@ -151,7 +151,7 @@ fn select_probe_candidates(
 mod tests {
     use super::ProbedEquationSet;
     use crate::constraint::{Constraint, ConstraintType};
-    use std::collections::HashMap;
+    use crate::FixedVarMap as HashMap;
 
     fn contains_constraint(
         set: &ProbedEquationSet,
@@ -168,7 +168,7 @@ mod tests {
     #[test]
     fn greater_than_constraint_matches_zero_to_zero_implication() {
         let set = ProbedEquationSet::new(vec![Constraint::new(2, 5, ConstraintType::GreaterThan)]);
-        let mut persistent = HashMap::new();
+        let mut persistent = HashMap::default();
         persistent.insert(2, 0);
 
         assert!(contains_constraint(&set, 2, 5, ConstraintType::GreaterThan));
@@ -178,7 +178,7 @@ mod tests {
     #[test]
     fn less_than_constraint_matches_one_to_one_implication() {
         let set = ProbedEquationSet::new(vec![Constraint::new(2, 5, ConstraintType::LessThan)]);
-        let mut persistent = HashMap::new();
+        let mut persistent = HashMap::default();
         persistent.insert(2, 1);
 
         assert!(contains_constraint(&set, 2, 5, ConstraintType::LessThan));

@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use crate::FixedVarMap;
 use std::fmt::{Display, Formatter};
 
 /// Enum for the type of constraint that is being used in the Constraint struct
@@ -33,7 +33,7 @@ impl Constraint {
     }
 
     /// Checks if the persistent variables are consistent with the constraint
-    pub fn check(&self, persistent: &HashMap<usize, usize>) -> bool {
+    pub fn check(&self, persistent: &FixedVarMap) -> bool {
         // can only be computed if both variables are fixed
         if self.how_many_fixed(persistent) != 2 {
             return true;
@@ -63,7 +63,7 @@ impl Constraint {
 
     /// Given a set of persistent variables, computes of an inference can be made and if so
     /// returns the index and value of the fixed variable
-    pub fn make_inference(&self, persistent: &HashMap<usize, usize>) -> Option<(usize, usize)> {
+    pub fn make_inference(&self, persistent: &FixedVarMap) -> Option<(usize, usize)> {
         // count how many fixed variables we have
         let num_fixed = self.how_many_fixed(persistent);
 
@@ -101,12 +101,10 @@ impl Constraint {
     /// Returns (A_i, A_j, b)
     pub const fn coeff_form(&self) -> (f64, f64, f64) {
         match self.constr_type {
-            ConstraintType::NoMoreThanOne => (1.0, 1.0, 1.0), // x_i + x_j <= 1
+            ConstraintType::NoMoreThanOne | ConstraintType::ExactlyOne => (1.0, 1.0, 1.0), // x_i + x_j <= 1 / = 1
             ConstraintType::AtLeastOne => (-1.0, -1.0, -1.0), // x_i + x_j >= 1 -> -x_i - x_j <= -1
-            ConstraintType::ExactlyOne => (1.0, 1.0, 1.0), // x_i + x_j = 1
             ConstraintType::GreaterThan => (-1.0, 1.0, 0.0), // x_i - x_j >= 0 -> -x_i + x_j <= 0
-            ConstraintType::LessThan => (1.0, -1.0, 0.0), // x_i - x_j <= 0
-            ConstraintType::Equal => (1.0, -1.0, 0.0), // x_i - x_j = 0
+            ConstraintType::LessThan | ConstraintType::Equal => (1.0, -1.0, 0.0), // x_i - x_j <= 0 / = 0
         }
     }
 
@@ -134,7 +132,7 @@ impl Constraint {
         x_i_val == x_j_val
     }
 
-    pub fn how_many_fixed(&self, persistent: &HashMap<usize, usize>) -> usize {
+    pub fn how_many_fixed(&self, persistent: &FixedVarMap) -> usize {
         let mut count = 0;
         if persistent.contains_key(&self.x_i) {
             count += 1;
@@ -150,7 +148,7 @@ impl Constraint {
     /// If one variable is fixed, returns (fixed_variable_index, free_variable_index, fixed_value)
     pub fn get_standard_form(
         &self,
-        persistent: &HashMap<usize, usize>,
+        persistent: &FixedVarMap,
     ) -> Option<(usize, usize, usize)> {
         if self.how_many_fixed(persistent) != 1 {
             return None;
@@ -217,7 +215,7 @@ impl Constraint {
     /// returns the index and value of the fixed variable, otherwise returns None
     pub fn greater_than_inference(
         &self,
-        persistent: &HashMap<usize, usize>,
+        persistent: &FixedVarMap,
     ) -> Option<(usize, usize)> {
         // examines the constraint x_i >= x_j, to see if we can make a logical implication
 
@@ -242,7 +240,7 @@ impl Constraint {
     /// Given a constraint of the type x_i <= x_j, solves if we can make an inference on it
     pub fn less_than_inference(
         &self,
-        persistent: &HashMap<usize, usize>,
+        persistent: &FixedVarMap,
     ) -> Option<(usize, usize)> {
         // examines the constraint x_i <= x_j, to see if we can make a logical implication
 
@@ -275,7 +273,6 @@ impl Constraint {
 
 impl Display for Constraint {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-
         let constr_str = match self.constr_type {
             ConstraintType::AtLeastOne => format!("x_{} + x_{} >= 1", self.x_i, self.x_j),
             ConstraintType::NoMoreThanOne => format!("x_{} + x_{} <= 1", self.x_i, self.x_j),
@@ -284,20 +281,18 @@ impl Display for Constraint {
             ConstraintType::LessThan => format!("x_{} <= x_{}", self.x_i, self.x_j),
             ConstraintType::Equal => format!("x_{} = x_{}", self.x_i, self.x_j),
         };
-        write!(f, "{}", constr_str)
-
+        write!(f, "{constr_str}")
     }
 }
-
 
 #[cfg(test)]
 mod tests {
     use crate::constraint::{Constraint, ConstraintType};
-    use std::collections::HashMap;
+    use crate::FixedVarMap as HashMap;
 
     #[test]
     fn test_constraints_10() {
-        let mut persistent: HashMap<usize, usize> = HashMap::new();
+        let mut persistent: HashMap = HashMap::default();
         persistent.insert(0, 1);
         persistent.insert(1, 0);
 
@@ -318,7 +313,7 @@ mod tests {
 
     #[test]
     fn test_constraints_11() {
-        let mut persistent = HashMap::new();
+        let mut persistent = HashMap::default();
         persistent.insert(0, 1);
         persistent.insert(1, 1);
 
@@ -339,7 +334,7 @@ mod tests {
 
     #[test]
     fn test_constraints_01() {
-        let mut persistent = HashMap::new();
+        let mut persistent = HashMap::default();
         persistent.insert(0, 0);
         persistent.insert(1, 1);
 
@@ -359,7 +354,7 @@ mod tests {
     }
     #[test]
     fn test_constraints_00() {
-        let mut persistent = HashMap::new();
+        let mut persistent = HashMap::default();
         persistent.insert(0, 0);
         persistent.insert(1, 0);
 
@@ -380,7 +375,7 @@ mod tests {
 
     #[test]
     fn test_inference_0X() {
-        let mut persistent = HashMap::new();
+        let mut persistent = HashMap::default();
         persistent.insert(0, 0);
 
         let c_at_least = Constraint::new(0, 1, ConstraintType::AtLeastOne);
@@ -400,7 +395,7 @@ mod tests {
 
     #[test]
     fn test_inference_1X() {
-        let mut persistent = HashMap::new();
+        let mut persistent = HashMap::default();
         persistent.insert(0, 1);
 
         let c_at_least = Constraint::new(0, 1, ConstraintType::AtLeastOne);
@@ -420,7 +415,7 @@ mod tests {
 
     #[test]
     fn test_inference_X0() {
-        let mut persistent = HashMap::new();
+        let mut persistent = HashMap::default();
         persistent.insert(1, 0);
 
         let c_at_least = Constraint::new(0, 1, ConstraintType::AtLeastOne);
@@ -440,7 +435,7 @@ mod tests {
 
     #[test]
     fn test_inference_X1() {
-        let mut persistent = HashMap::new();
+        let mut persistent = HashMap::default();
         persistent.insert(1, 1);
 
         let c_at_least = Constraint::new(0, 1, ConstraintType::AtLeastOne);
@@ -460,7 +455,7 @@ mod tests {
 
     #[test]
     fn test_inference_XX() {
-        let mut persistent = HashMap::new();
+        let mut persistent = HashMap::default();
         persistent.insert(3, 1);
 
         let c_at_least = Constraint::new(0, 1, ConstraintType::AtLeastOne);
@@ -480,7 +475,7 @@ mod tests {
 
     #[test]
     fn test_inference_00() {
-        let mut persistent = HashMap::new();
+        let mut persistent = HashMap::default();
         persistent.insert(0, 0);
         persistent.insert(1, 0);
 

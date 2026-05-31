@@ -1,10 +1,9 @@
 use crate::branch_node::QuboBBNode;
 use crate::branchbound::BBSolver;
 use crate::graph_utils::get_all_disconnected_graphs;
-use crate::preprocess::preprocess_qubo;
+use crate::FixedVarMap;
 use ndarray::Array1;
 use smolprng::{JsfLarge, PRNG};
-use std::collections::HashMap;
 
 #[derive(Copy, Clone)]
 pub enum BranchStrategy {
@@ -26,7 +25,7 @@ pub enum BranchStrategy {
 
 pub struct BranchResult {
     pub branch_variable: usize,
-    pub found_fixed_vars: HashMap<usize, usize>,
+    pub found_fixed_vars: FixedVarMap,
 }
 
 impl BranchStrategy {
@@ -83,7 +82,7 @@ fn connected_components(solver: &BBSolver, node: &QuboBBNode) -> BranchResult {
 
     BranchResult {
         branch_variable: selected_variable,
-        found_fixed_vars: HashMap::new(),
+        found_fixed_vars: FixedVarMap::default(),
     }
 }
 
@@ -121,7 +120,7 @@ fn most_edges(solver: &BBSolver, node: &QuboBBNode) -> BranchResult {
 
     BranchResult {
         branch_variable: index_max_edges,
-        found_fixed_vars: HashMap::new(),
+        found_fixed_vars: FixedVarMap::default(),
     }
 }
 
@@ -160,7 +159,7 @@ fn largest_edges(solver: &BBSolver, node: &QuboBBNode) -> BranchResult {
 
     BranchResult {
         branch_variable: index_max_edges,
-        found_fixed_vars: HashMap::new(),
+        found_fixed_vars: FixedVarMap::default(),
     }
 }
 
@@ -169,7 +168,7 @@ pub fn most_fixed(solver: &BBSolver, node: &QuboBBNode) -> BranchResult {
     let mut most_fixed = 0;
     let mut branch_variable = 0;
 
-    let mut found_fixed_vars = HashMap::new();
+    let mut found_fixed_vars = FixedVarMap::default();
 
     for i in 0..solver.qubo.num_x() {
         if !node.fixed_variables.contains_key(&i) && !found_fixed_vars.contains_key(&i) {
@@ -185,8 +184,8 @@ pub fn most_fixed(solver: &BBSolver, node: &QuboBBNode) -> BranchResult {
                 list_1.insert(key, value);
             }
 
-            let fixed_0 = preprocess_qubo(&solver.qubo_pp_form, &list_0, true);
-            let fixed_1 = preprocess_qubo(&solver.qubo_pp_form, &list_1, true);
+            let fixed_0 = solver.preprocess_fixed_variables(&list_0);
+            let fixed_1 = solver.preprocess_fixed_variables(&list_1);
 
             for (&key, &value) in &fixed_0 {
                 // if this variable is not already fixed then we have the potential to fix it via a check
@@ -223,7 +222,7 @@ pub fn first_not_fixed(solver: &BBSolver, node: &QuboBBNode) -> BranchResult {
         if !node.fixed_variables.contains_key(&i) {
             return BranchResult {
                 branch_variable: i,
-                found_fixed_vars: HashMap::new(),
+                found_fixed_vars: FixedVarMap::default(),
             };
         }
     }
@@ -248,7 +247,7 @@ pub fn largest_diag(solver: &BBSolver, node: &QuboBBNode) -> BranchResult {
 
     BranchResult {
         branch_variable: index_max_diag,
-        found_fixed_vars: HashMap::new(),
+        found_fixed_vars: FixedVarMap::default(),
     }
 }
 
@@ -269,7 +268,7 @@ pub fn most_violated(solver: &BBSolver, node: &QuboBBNode) -> BranchResult {
 
     BranchResult {
         branch_variable: index_most_violated,
-        found_fixed_vars: HashMap::new(),
+        found_fixed_vars: FixedVarMap::default(),
     }
 }
 
@@ -319,7 +318,7 @@ pub fn worst_approximation_second_order(solver: &BBSolver, node: &QuboBBNode) ->
 
     BranchResult {
         branch_variable: index_worst_approximation,
-        found_fixed_vars: HashMap::new(),
+        found_fixed_vars: FixedVarMap::default(),
     }
 }
 
@@ -338,7 +337,7 @@ pub fn full_strong_branching(solver: &BBSolver, node: &QuboBBNode) -> BranchResu
     let mut best_score = f64::NEG_INFINITY;
     let mut best_variable = *unfixed_variables.first().unwrap();
 
-    let mut found_fixes: HashMap<usize, usize> = HashMap::new();
+    let mut found_fixes: FixedVarMap = FixedVarMap::default();
 
     for i in &unfixed_variables {
         let mut list_0 = fixed_variables.clone();
@@ -352,8 +351,8 @@ pub fn full_strong_branching(solver: &BBSolver, node: &QuboBBNode) -> BranchResu
             list_1.insert(key, value);
         }
 
-        list_0 = preprocess_qubo(&solver.qubo_pp_form, &list_0, true);
-        list_1 = preprocess_qubo(&solver.qubo_pp_form, &list_1, true);
+        list_0 = solver.preprocess_fixed_variables(&list_0);
+        list_1 = solver.preprocess_fixed_variables(&list_1);
 
         // make new nodes
         let node_0 = QuboBBNode {
@@ -440,7 +439,7 @@ pub fn partial_strong_branching(solver: &BBSolver, node: &QuboBBNode) -> BranchR
 
     let end = usize::min(25, unfixed_vars.len());
 
-    let mut found_fixes = HashMap::new();
+    let mut found_fixes = FixedVarMap::default();
 
     let mut best_score = f64::NEG_INFINITY;
     let mut best_variable = *indx.first().unwrap();
@@ -459,8 +458,8 @@ pub fn partial_strong_branching(solver: &BBSolver, node: &QuboBBNode) -> BranchR
             list_1.insert(key, value);
         }
 
-        list_0 = preprocess_qubo(&solver.qubo_pp_form, &list_0, true);
-        list_1 = preprocess_qubo(&solver.qubo_pp_form, &list_1, true);
+        list_0 = solver.preprocess_fixed_variables(&list_0);
+        list_1 = solver.preprocess_fixed_variables(&list_1);
 
         // make new nodes
         let node_0 = QuboBBNode {
@@ -536,7 +535,7 @@ pub fn random(solver: &BBSolver, node: &QuboBBNode) -> BranchResult {
         if !node.fixed_variables.contains_key(&i) {
             return BranchResult {
                 branch_variable: i,
-                found_fixed_vars: HashMap::new(),
+                found_fixed_vars: FixedVarMap::default(),
             };
         }
     }
@@ -546,7 +545,7 @@ pub fn random(solver: &BBSolver, node: &QuboBBNode) -> BranchResult {
         if !node.fixed_variables.contains_key(&i) {
             return BranchResult {
                 branch_variable: i,
-                found_fixed_vars: HashMap::new(),
+                found_fixed_vars: FixedVarMap::default(),
             };
         }
     }
@@ -581,7 +580,7 @@ pub fn worst_approximation(solver: &BBSolver, node: &QuboBBNode) -> BranchResult
 
     BranchResult {
         branch_variable: index_worst_approximation,
-        found_fixed_vars: HashMap::new(),
+        found_fixed_vars: FixedVarMap::default(),
     }
 }
 
@@ -638,7 +637,7 @@ pub fn moving_edges(solver: &BBSolver, node: &QuboBBNode) -> BranchResult {
 
     BranchResult {
         branch_variable: index_max_edges,
-        found_fixed_vars: HashMap::new(),
+        found_fixed_vars: FixedVarMap::default(),
     }
 }
 

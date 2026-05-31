@@ -54,6 +54,7 @@ mod tests {
     use crate::heuristic_stratagy::HeuristicSelection;
     use crate::qubo::Qubo;
     use crate::solver_options::SolverOptions;
+    use crate::FixedVarMap;
     use crate::utils;
     use ndarray::Array1;
     use smolprng::{JsfLarge, PRNG};
@@ -81,7 +82,7 @@ mod tests {
             let node = QuboBBNode {
                 lower_bound: f64::NEG_INFINITY,
                 solution: x_0.clone(),
-                fixed_variables: std::collections::HashMap::new(),
+                fixed_variables: FixedVarMap::default(),
             };
 
             // compute the next step
@@ -113,7 +114,7 @@ mod tests {
             let node = QuboBBNode {
                 lower_bound: f64::NEG_INFINITY,
                 solution: x_0.clone(),
-                fixed_variables: std::collections::HashMap::new(),
+                fixed_variables: FixedVarMap::default(),
             };
 
             let rounded_sol = utils::rounded_vector(&x_0);

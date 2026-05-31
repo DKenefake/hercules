@@ -1,12 +1,12 @@
+use crate::FixedVarMap;
 use crate::qubo::Qubo;
-use std::collections::HashMap;
 
 /// Given a QUBO and a set of fixed variables, find all disconnected subgraphs in the QUBO graph
 /// that do not include any fixed variables. Each subgraph is represented as a vector of variable
 /// indices.
 pub fn get_all_disconnected_graphs(
     qubo: &Qubo,
-    fixed_vars: &HashMap<usize, usize>,
+    fixed_vars: &FixedVarMap,
 ) -> Vec<Vec<usize>> {
     let mut visited = vec![false; qubo.num_x()];
     for &fixed in fixed_vars.keys() {
@@ -48,7 +48,7 @@ mod tests {
     use crate::graph_utils::get_all_disconnected_graphs;
     use crate::qubo::Qubo;
     use sprs::TriMat;
-    use std::collections::HashMap;
+    use crate::FixedVarMap as HashMap;
 
     #[test]
     fn test_disconnected_graphs_1() {
@@ -64,7 +64,7 @@ mod tests {
 
         let p = Qubo::new(q_tri.to_csc());
 
-        let fixed_vars = HashMap::new();
+        let fixed_vars = HashMap::default();
         let components = get_all_disconnected_graphs(&p, &fixed_vars);
 
         // we expect two components: [0, 1, 2] and [3, 4]
@@ -77,7 +77,7 @@ mod tests {
             .any(|c| c.len() == 2 && c.contains(&3) && c.contains(&4)));
 
         // now test with fixing variable 1
-        let mut fixed_vars = HashMap::new();
+        let mut fixed_vars = HashMap::default();
         fixed_vars.insert(1, 0);
         let components = get_all_disconnected_graphs(&p, &fixed_vars);
 
@@ -103,14 +103,14 @@ mod tests {
 
         let p = Qubo::new(q_tri.to_csc());
 
-        let fixed_vars = HashMap::new();
+        let fixed_vars = HashMap::default();
         let components = get_all_disconnected_graphs(&p, &fixed_vars);
         // we expect one component: [0, 1, 2, 3, 4]
         assert_eq!(components.len(), 1);
         assert_eq!(components[0].len(), 5);
 
         // now test with fixing variable 0
-        let mut fixed_vars = HashMap::new();
+        let mut fixed_vars = HashMap::default();
         fixed_vars.insert(0, 0);
 
         let components = get_all_disconnected_graphs(&p, &fixed_vars);
@@ -136,7 +136,7 @@ mod tests {
         q_tri.add_triplet(3, 0, 1.0);
         q_tri.add_triplet(0, 3, 1.0);
         let p = Qubo::new(q_tri.to_csc());
-        let fixed_vars = HashMap::new();
+        let fixed_vars = HashMap::default();
         let components = get_all_disconnected_graphs(&p, &fixed_vars);
 
         // we expect one component: [0, 1, 2, 3]
@@ -144,7 +144,7 @@ mod tests {
         assert_eq!(components[0].len(), 4);
 
         // now test with fixing variable 1
-        let mut fixed_vars = HashMap::new();
+        let mut fixed_vars = HashMap::default();
         fixed_vars.insert(1, 0);
         let components = get_all_disconnected_graphs(&p, &fixed_vars);
 

@@ -4,13 +4,13 @@ use crate::branchbound::BBSolver;
 use crate::persistence::compute_iterative_persistence;
 use crate::qubo::Qubo;
 use crate::solver_options::SolverOptions;
+use crate::FixedVarMap;
 use ndarray::Array1;
-use std::collections::HashMap;
 
 /// run k-opt on a given QUBO
 pub fn solve_kopt(
     qubo: &Qubo,
-    fixed_variables: &HashMap<usize, usize>,
+    fixed_variables: &FixedVarMap,
     initial_guess: Option<Array1<usize>>,
 ) -> Array1<usize> {
     // create a hashmap to store the persistent variables

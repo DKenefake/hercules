@@ -1,7 +1,7 @@
+use crate::FixedVarMap;
 use crate::branch_stratagy::BranchStrategy;
 use crate::branch_subproblem::SubProblemSelection;
 use crate::heuristic_stratagy::HeuristicSelection;
-use std::collections::HashMap;
 
 #[derive(Clone, Copy)]
 pub enum NodeLowerBoundSelection {
@@ -11,7 +11,7 @@ pub enum NodeLowerBoundSelection {
 
 /// Options for the B&B solver for run time
 pub struct SolverOptions {
-    pub fixed_variables: HashMap<usize, usize>,
+    pub fixed_variables: FixedVarMap,
     pub branch_strategy: BranchStrategy,
     pub sub_problem_solver: SubProblemSelection,
     pub node_lower_bound: NodeLowerBoundSelection,
@@ -25,7 +25,7 @@ pub struct SolverOptions {
 impl SolverOptions {
     pub fn new() -> Self {
         Self {
-            fixed_variables: HashMap::new(),
+            fixed_variables: FixedVarMap::default(),
             branch_strategy: BranchStrategy::MostViolated,
             sub_problem_solver: SubProblemSelection::HerculesABQP,
             node_lower_bound: NodeLowerBoundSelection::RoofDual,
@@ -96,15 +96,8 @@ impl SolverOptions {
     pub fn set_node_lower_bound_strategy(&mut self, strategy: Option<String>) {
         if let Some(s) = strategy {
             match s.as_str() {
-                "li" => {
-                    self.node_lower_bound = NodeLowerBoundSelection::Li;
-                }
-                "roof_dual" => {
-                    self.node_lower_bound = NodeLowerBoundSelection::RoofDual;
-                }
-                _ => {
-                    self.node_lower_bound = NodeLowerBoundSelection::RoofDual;
-                }
+                "li" => self.node_lower_bound = NodeLowerBoundSelection::Li,
+                _ => self.node_lower_bound = NodeLowerBoundSelection::RoofDual,
             }
         }
     }
@@ -112,10 +105,7 @@ impl SolverOptions {
     pub fn set_heuristic_strategy(&mut self, strategy: Option<String>) {
         if let Some(s) = strategy {
             match s.as_str() {
-                "LocalSearch" => self.heuristic = HeuristicSelection::LocalSearch,
-                "SimpleRounding" => {
-                    self.heuristic = HeuristicSelection::SimpleRounding;
-                }
+                "SimpleRounding" => self.heuristic = HeuristicSelection::SimpleRounding,
                 _ => self.heuristic = HeuristicSelection::LocalSearch,
             }
         }

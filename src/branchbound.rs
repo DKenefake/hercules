@@ -1,3 +1,4 @@
+use crate::FixedVarMap;
 use crate::constraint::Constraint;
 use crate::qubo::Qubo;
 use ndarray::Array1;
@@ -10,7 +11,7 @@ use crate::branchbound_utils::{check_integer_feasibility, get_current_time};
 use crate::branchboundlogger::SolverOutputLogger;
 use crate::lower_bound::li_lower_bound;
 use crate::preprocess;
-use crate::preprocess::preprocess_qubo;
+use crate::preprocess::{prepare_preprocess, preprocess_with_prepared, PreparedPreprocess};
 use crate::solver_options::{NodeLowerBoundSelection, SolverOptions};
 use crate::subproblemsolvers::roofdual::roof_duality_presolve;
 use crate::variable_reduction::probe_limited;
@@ -29,6 +30,7 @@ pub struct BBSolver {
     pub time_start: f64,
     pub branch_strategy: BranchStrategy,
     pub subproblem_solver: Box<dyn SubProblemSolver + Sync>,
+    prepared_preprocess: PreparedPreprocess,
     pub options: SolverOptions,
     pub early_stop: bool,
     pub solver_logger: SolverOutputLogger,
@@ -69,6 +71,7 @@ impl BBSolver {
         let start_time = get_current_time();
         let output_level = options.verbose;
         let pp_form = preprocess::shift_qubo(&qubo);
+        let prepared_preprocess = prepare_preprocess(&pp_form, true);
 
         Self {
             qubo,
@@ -82,6 +85,7 @@ impl BBSolver {
             time_start: start_time,
             branch_strategy,
             subproblem_solver,
+            prepared_preprocess,
             options,
             early_stop: false,
             solver_logger: SolverOutputLogger::new(output_level),
@@ -99,7 +103,7 @@ impl BBSolver {
     pub fn solve(&mut self) -> (Array1<usize>, f64) {
         // preprocess the problem
         let fixed_variables =
-            preprocess_qubo(&self.qubo_pp_form, &self.options.fixed_variables, true);
+            preprocess_with_prepared(&self.prepared_preprocess, &self.options.fixed_variables);
         let (probe_constraints, _) =
             probe_limited(&self.qubo_pp_form, &fixed_variables, true, ROOT_PROBE_LIMIT);
         self.root_constraints = probe_constraints.constraints;
@@ -191,7 +195,7 @@ impl BBSolver {
     }
 
     // apply the logging action to the solver
-    pub fn apply_logging_action(&mut self, action: NodeLoggingAction) {
+    pub const fn apply_logging_action(&mut self, action: NodeLoggingAction) {
         match action {
             NodeLoggingAction::Visited => {
                 // increment the number of nodes visited
@@ -226,7 +230,7 @@ impl BBSolver {
         let mut node = node.clone();
 
         // pass to the presolver to see if there are any variables we can fix
-        node.fixed_variables = preprocess_qubo(&self.qubo_pp_form, &node.fixed_variables, true);
+        node.fixed_variables = self.preprocess_fixed_variables(&node.fixed_variables);
 
         let node_bound = match self.options.node_lower_bound {
             NodeLowerBoundSelection::Li => li_lower_bound(&self.qubo, &node.fixed_variables),
@@ -468,6 +472,13 @@ impl BBSolver {
     pub fn solve_node(&self, node: &QuboBBNode) -> (f64, Array1<f64>) {
         self.subproblem_solver.solve_lower_bound(self, node, None)
     }
+
+    pub fn preprocess_fixed_variables(
+        &self,
+        fixed_variables: &FixedVarMap,
+    ) -> FixedVarMap {
+        preprocess_with_prepared(&self.prepared_preprocess, fixed_variables)
+    }
 }
 
 #[cfg(test)]
@@ -481,7 +492,7 @@ mod tests {
     use crate::{branchbound, local_search};
     use ndarray::Array1;
     use sprs::CsMat;
-    use std::collections::HashMap;
+    use crate::FixedVarMap as HashMap;
 
     pub fn get_default_solver_options() -> SolverOptions {
         let mut options = SolverOptions::new();
@@ -611,7 +622,7 @@ mod tests {
     ) {
         let mut prng = make_test_prng();
 
-        let fixed_variables = preprocess_qubo(&qubo, &HashMap::new(), false);
+        let fixed_variables = preprocess_qubo(&qubo, &HashMap::default(), false);
 
         let guess = local_search::particle_swarm_search(&qubo, 10, 100, &mut prng);
 

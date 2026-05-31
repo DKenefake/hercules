@@ -1,5 +1,6 @@
 //! Acts as the interface to rust code from python. Currently only supports reading the QUBO from a file, and running one of the search algorithms.
 use crate::qubo::Qubo;
+use crate::FixedVarMap;
 use std::collections::HashMap;
 
 use ndarray::Array1;
@@ -277,9 +278,10 @@ pub fn get_persistence(
     let p = Qubo::from_vec(problem.0, problem.1, problem.2, problem.3, problem.4);
     let p_symm = p.make_symmetric();
 
+    let fixed: FixedVarMap = fixed.into_iter().collect();
     let new_fixed = preprocess_qubo(&p_symm, &fixed, false);
 
-    Ok(new_fixed)
+    Ok(new_fixed.into_iter().collect())
 }
 
 /// This function computes the optimal diagonal shift the maximizes the relaxed solution of the QUBO
@@ -349,6 +351,7 @@ pub fn get_qubo_components(
     // make the QUBO symmetric
     let p_symm = p.make_symmetric();
 
+    let fixed_vars: FixedVarMap = fixed_vars.into_iter().collect();
     Ok(get_all_disconnected_graphs(&p_symm, &fixed_vars))
 }
 
@@ -391,7 +394,7 @@ pub fn solve_branch_bound(
     let symm_p = p_input.make_symmetric();
 
     // run preprocessing on the symmetric QUBO
-    let fixed_variables = preprocess_qubo(&symm_p, &HashMap::new(), false);
+    let fixed_variables = preprocess_qubo(&symm_p, &FixedVarMap::default(), false);
 
     let mut options = SolverOptions::new();
 
@@ -495,7 +498,7 @@ pub fn k_opt(
 ) -> PyResult<Vec<usize>> {
     // read in the QUBO from vec form
     let p = Qubo::from_vec(problem.0, problem.1, problem.2, problem.3, problem.4);
-    let persistent = fixed;
+    let persistent: FixedVarMap = fixed.into_iter().collect();
 
     let warm_start = initial_guess.map(Array1::<usize>::from);
 
