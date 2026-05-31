@@ -12,3 +12,4 @@ license = { file = "LICENSE.md" }
 
 [tool.maturin]
 features = ["python"]
+profile = "release"

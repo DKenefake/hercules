@@ -3,8 +3,8 @@ use crate::branch_subproblem::{SubProblemOptions, SubProblemResult, SubProblemSo
 use crate::branchbound::BBSolver;
 use crate::preprocess::make_sub_problem;
 use crate::qubo::Qubo;
+use crate::FixedVarMap;
 use ndarray::Array1;
-use std::collections::HashMap;
 
 #[derive(Clone)]
 pub struct HerculesCDQPSolver {}
@@ -41,7 +41,7 @@ impl SubProblemSolver for HerculesCDQPSolver {
 fn cd_main_loop(
     mut x_0: Array1<f64>,
     qubo: &Qubo,
-    fixed_variables: &HashMap<usize, usize>,
+    fixed_variables: &FixedVarMap,
     max_iterations: usize,
 ) -> Array1<f64> {
     // project to a smaller problem space

@@ -1,14 +1,18 @@
-use crate::persistence::compute_iterative_persistence;
-/// This file is the main module that defines the preprocessing functions
-
+use crate::persistence::{
+    build_gradient_adjacency, compute_iterative_persistence_with_adjacency, GradientAdjacency,
+};
+use crate::FixedVarMap;
+use crate::VarMap;
 use crate::qubo::Qubo;
 use ndarray::Array1;
 use sprs::TriMat;
 use std::collections::HashMap;
 
+/// This file is the main module that defines the preprocessing functions.
 pub(crate) struct PreparedPreprocess {
-    no_effect_vars: HashMap<usize, usize>,
+    no_effect_vars: FixedVarMap,
     qubo_pp: Qubo,
+    adjacency: GradientAdjacency,
 }
 
 pub(crate) fn prepare_preprocess(qubo: &Qubo, in_standard_form: bool) -> PreparedPreprocess {
@@ -18,36 +22,39 @@ pub(crate) fn prepare_preprocess(qubo: &Qubo, in_standard_form: bool) -> Prepare
     } else {
         shift_qubo(qubo)
     };
+    let adjacency = build_gradient_adjacency(&qubo_pp);
 
     PreparedPreprocess {
         no_effect_vars,
         qubo_pp,
+        adjacency,
     }
 }
 
 pub(crate) fn preprocess_with_prepared(
     prepared: &PreparedPreprocess,
-    fixed_variables: &HashMap<usize, usize>,
-) -> HashMap<usize, usize> {
+    fixed_variables: &FixedVarMap,
+) -> FixedVarMap {
     let mut initial_fixed = fixed_variables.clone();
 
     for (&key, &value) in &prepared.no_effect_vars {
         initial_fixed.insert(key, value);
     }
 
-    compute_iterative_persistence(
+    compute_iterative_persistence_with_adjacency(
         &prepared.qubo_pp,
         &initial_fixed,
         prepared.qubo_pp.num_x(),
+        &prepared.adjacency,
     )
 }
 
 /// This is the main entry point for preprocessing
 pub fn preprocess_qubo(
     qubo: &Qubo,
-    fixed_variables: &HashMap<usize, usize>,
+    fixed_variables: &FixedVarMap,
     in_standard_form: bool,
-) -> HashMap<usize, usize> {
+) -> FixedVarMap {
     let prepared = prepare_preprocess(qubo, in_standard_form);
     preprocess_with_prepared(&prepared, fixed_variables)
 }
@@ -55,9 +62,9 @@ pub fn preprocess_qubo(
 /// This is the heavy entry point for preprocessing + variable probing
 pub fn preprocess_qubo_heavy(
     qubo: &Qubo,
-    fixed_variables: &HashMap<usize, usize>,
+    fixed_variables: &FixedVarMap,
     in_standard_form: bool,
-) -> HashMap<usize, usize> {
+) -> FixedVarMap {
     // copy the fixed variables
     let mut new_persistent = fixed_variables.clone();
     let prepared = prepare_preprocess(qubo, in_standard_form);
@@ -67,17 +74,18 @@ pub fn preprocess_qubo_heavy(
 
     // loop over the number of iters
     for _ in 0..iters {
+        let previous_len = new_persistent.len();
         let mut incoming_persistent = preprocess_with_prepared(&prepared, &new_persistent);
 
         let (_, probe_fixes) =
-            crate::variable_reduction::probe(&qubo, &incoming_persistent, in_standard_form);
+            crate::variable_reduction::probe(qubo, &incoming_persistent, in_standard_form);
 
         // add the probe fixes to the incoming persistent
         for (key, value) in probe_fixes {
             incoming_persistent.insert(key, value);
         }
 
-        if new_persistent == incoming_persistent {
+        if incoming_persistent.len() == previous_len {
             return new_persistent;
         }
         new_persistent = incoming_persistent;
@@ -113,7 +121,7 @@ pub fn find_no_effect_variables(qubo: &Qubo) -> Vec<usize> {
 
 /// Fixes variables that have no effect in the QUBO, where the linear term is zero and the quadratic
 /// terms are zero. This is useful for reducing the size of the QUBO.
-pub fn fix_no_effect_variables(qubo: &Qubo) -> HashMap<usize, usize> {
+pub fn fix_no_effect_variables(qubo: &Qubo) -> FixedVarMap {
     let no_effect_vars = find_no_effect_variables(qubo);
 
     no_effect_vars.iter().map(|&i| (i, 0)).collect()
@@ -123,9 +131,9 @@ pub fn fix_no_effect_variables(qubo: &Qubo) -> HashMap<usize, usize> {
 /// enough
 pub fn solve_small_components(
     qubo: &Qubo,
-    fixed_vars: &HashMap<usize, usize>,
+    fixed_vars: &FixedVarMap,
     max_size: usize,
-) -> HashMap<usize, usize> {
+) -> FixedVarMap {
     // copy the fixed variables
     let mut new_fixed_variables = fixed_vars.clone();
 
@@ -156,12 +164,13 @@ pub fn solve_small_components(
 pub fn make_component_qubo(
     qubo: &Qubo,
     component: &[usize],
-    fixed_vars: &HashMap<usize, usize>,
-) -> (Qubo, HashMap<usize, usize>) {
+    fixed_vars: &FixedVarMap,
+) -> (Qubo, VarMap) {
     let mut Q_tri = TriMat::new((component.len(), component.len()));
     let mut c_new = Array1::<f64>::zeros(component.len());
 
-    let mut index_map = HashMap::with_capacity(component.len());
+    let mut index_map = VarMap::default();
+    index_map.reserve(component.len());
 
     for (new_index, &old_index) in component.iter().enumerate() {
         index_map.insert(old_index, new_index);
@@ -200,7 +209,7 @@ pub fn make_component_qubo(
 /// This function will not panic if there are no free variables left removing unfixed varaibles.
 pub fn make_sub_problem(
     qubo: &Qubo,
-    fixed_vars: &HashMap<usize, usize>,
+    fixed_vars: &FixedVarMap,
 ) -> (Qubo, HashMap<usize, usize>, f64) {
     // do some accounting
     let num_fixed = fixed_vars.len();
@@ -284,14 +293,14 @@ mod tests {
     use crate::qubo::Qubo;
     use ndarray::Array1;
     use sprs::{CsMat, TriMat};
-    use std::collections::HashMap;
+    use crate::FixedVarMap as HashMap;
 
     #[test]
     fn test_preprocess_qubo_1() {
         let eye = CsMat::eye(3);
         let c = Array1::from_vec(vec![1.1, 2.0, 3.0]);
         let p = Qubo::new_with_c(eye, c);
-        let fixed_variables = HashMap::new();
+        let fixed_variables = HashMap::default();
         let fixed_variables = preprocess_qubo(&p, &fixed_variables, false);
         assert_eq!(fixed_variables.len(), 3);
     }
@@ -306,7 +315,7 @@ mod tests {
         let p = Qubo::new_with_c(q, c);
 
         // we have variable x_0 fixed to 1
-        let mut fixed_variables = HashMap::new();
+        let mut fixed_variables = HashMap::default();
         fixed_variables.insert(0, 1);
 
         // this should generate a subproblem with the following matrix
@@ -361,7 +370,7 @@ mod tests {
         let p = Qubo::new_with_c(q.to_csr(), c);
 
         // we have variable x_0 fixed to 1
-        let mut fixed_variables = HashMap::new();
+        let mut fixed_variables = HashMap::default();
         fixed_variables.insert(0, 1);
 
         // this should generate a subproblem with the following matrix
@@ -407,7 +416,7 @@ mod tests {
         let c = Array1::<f64>::from_vec(vec![3.5, -2.0]);
         let p = Qubo::new_with_c(q, c);
 
-        let mut fixed_variables = HashMap::new();
+        let mut fixed_variables = HashMap::default();
         fixed_variables.insert(0, 1);
 
         let (sub_p, _, constant) = super::make_sub_problem(&p, &fixed_variables);

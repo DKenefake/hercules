@@ -625,20 +625,20 @@ mod tests {
     #[test]
     fn test_qubo_from_vec() {
         // Create a QUBO from a list of tuples:
-        let x = vec![0, 1, 2];
-        let y = vec![0, 1, 2];
-        let q = vec![1.0, 1.0, 1.0];
-        let c = vec![0.0, 0.0, 0.0];
+        let row_indices = vec![0, 1, 2];
+        let col_indices = vec![0, 1, 2];
+        let q_values = vec![1.0, 1.0, 1.0];
+        let c_values = vec![0.0, 0.0, 0.0];
         let num_x = 3;
 
         // actually create the QUBO
-        let p = Qubo::from_vec(x, y, q, c, num_x);
+        let qubo = Qubo::from_vec(row_indices, col_indices, q_values, c_values, num_x);
 
         // check that the QUBO was created correctly
-        assert_eq!(p.num_x(), 3);
-        assert_eq!(p.q.nnz(), 3);
-        assert_eq!(p.c.len(), 3);
-        assert_eq!(p.q, CsMat::<f64>::eye(3));
+        assert_eq!(qubo.num_x(), 3);
+        assert_eq!(qubo.q.nnz(), 3);
+        assert_eq!(qubo.c.len(), 3);
+        assert_eq!(qubo.q, CsMat::<f64>::eye(3));
     }
 
     #[test]
@@ -666,16 +666,16 @@ mod tests {
     #[test]
     fn test_qubo_eval_grad_non_symmetric() {
         // Create a QUBO from a list of tuples:
-        let x = vec![0];
-        let y = vec![2];
-        let q = vec![1.0];
-        let c = vec![0.0, 0.0, 0.0];
+        let row_indices = vec![0];
+        let col_indices = vec![2];
+        let q_values = vec![1.0];
+        let c_values = vec![0.0, 0.0, 0.0];
         let num_x = 3;
 
         // actually create the QUBO
-        let p = Qubo::from_vec(x, y, q, c, num_x);
+        let qubo = Qubo::from_vec(row_indices, col_indices, q_values, c_values, num_x);
         let x_0 = Array1::from_vec(vec![1.0, 1.0, 1.0]);
-        let grad = p.eval_grad(&x_0);
+        let grad = qubo.eval_grad(&x_0);
 
         assert_eq!(grad, Array1::from_vec(vec![0.5, 0.0, 0.5]));
     }
@@ -694,15 +694,15 @@ mod tests {
     #[test]
     fn test_make_symmetric_from_non_symmetric() {
         // Create a QUBO from a list of tuples:
-        let x = vec![0, 0];
-        let y = vec![0, 2];
-        let q = vec![1.0, 1.0];
-        let c = vec![0.0, 0.0, 0.0];
+        let row_indices = vec![0, 0];
+        let col_indices = vec![0, 2];
+        let q_values = vec![1.0, 1.0];
+        let c_values = vec![0.0, 0.0, 0.0];
         let num_x = 3;
-        let p = Qubo::from_vec(x, y, q, c, num_x);
+        let qubo = Qubo::from_vec(row_indices, col_indices, q_values, c_values, num_x);
 
         // make a symmetric QUBO from this QUBO
-        let p_sym = p.make_symmetric();
+        let p_sym = qubo.make_symmetric();
 
         assert_eq!(p_sym.q.nnz(), 3);
         assert_eq!(p_sym.q.get(0, 0), Some(&1.0f64));
@@ -713,15 +713,15 @@ mod tests {
     #[test]
     fn test_make_symmetric_from_non_symmetric_off_diagonal() {
         // Create a QUBO from a list of tuples:
-        let x = vec![0, 0, 2];
-        let y = vec![0, 2, 0];
-        let q = vec![1.0, 1.5, 0.5];
-        let c = vec![0.0, 0.0, 0.0];
+        let row_indices = vec![0, 0, 2];
+        let col_indices = vec![0, 2, 0];
+        let q_values = vec![1.0, 1.5, 0.5];
+        let c_values = vec![0.0, 0.0, 0.0];
         let num_x = 3;
-        let p = Qubo::from_vec(x, y, q, c, num_x);
+        let qubo = Qubo::from_vec(row_indices, col_indices, q_values, c_values, num_x);
 
         // make a symmetric QUBO from this QUBO
-        let p_sym = p.make_symmetric();
+        let p_sym = qubo.make_symmetric();
 
         assert_eq!(p_sym.q.nnz(), 3);
         assert_eq!(p_sym.q.get(0, 0), Some(&1.0f64));
@@ -780,18 +780,18 @@ mod tests {
     #[test]
     fn test_is_symmetric_on_not_symmetric() {
         // Create a QUBO from a list of tuples:
-        let x = vec![0, 0];
-        let y = vec![0, 2];
-        let q = vec![1.0, 1.0];
-        let c = vec![0.0, 0.0, 0.0];
+        let row_indices = vec![0, 0];
+        let col_indices = vec![0, 2];
+        let q_values = vec![1.0, 1.0];
+        let c_values = vec![0.0, 0.0, 0.0];
         let num_x = 3;
-        let p = Qubo::from_vec(x, y, q, c, num_x);
+        let qubo = Qubo::from_vec(row_indices, col_indices, q_values, c_values, num_x);
 
         // make a symmetric QUBO from this QUBO
-        let p_sym = p.make_symmetric();
+        let p_sym = qubo.make_symmetric();
 
         assert_eq!(p_sym.is_symmetric(), true);
-        assert_eq!(p.is_symmetric(), false);
+        assert_eq!(qubo.is_symmetric(), false);
     }
 
     #[test]
@@ -837,12 +837,12 @@ mod tests {
     #[test]
     fn test_round_trip_from_to_vec() {
         let mut prng = crate::tests::make_test_prng();
-        let p = Qubo::make_random_qubo(50, &mut prng, 0.1);
-        let (i, j, q, c, num_x) = p.to_vec();
-        let p_reconstructed = Qubo::from_vec(i, j, q, c, num_x);
+        let qubo = Qubo::make_random_qubo(50, &mut prng, 0.1);
+        let (row_indices, col_indices, q_values, c_values, num_x) = qubo.to_vec();
+        let reconstructed = Qubo::from_vec(row_indices, col_indices, q_values, c_values, num_x);
 
-        assert_eq!(p.q, p_reconstructed.q);
-        assert_eq!(p.c, p_reconstructed.c);
-        assert_eq!(p.num_x(), p_reconstructed.num_x());
+        assert_eq!(qubo.q, reconstructed.q);
+        assert_eq!(qubo.c, reconstructed.c);
+        assert_eq!(qubo.num_x(), reconstructed.num_x());
     }
 }

@@ -93,7 +93,7 @@ impl SubProblemSolver for ClarabelQPSolver {
 }
 
 impl ClarabelQPSolver {
-    pub fn new(_: &Qubo) -> Self {
+    pub const fn new(_: &Qubo) -> Self {
         Self {}
     }
     pub fn make_cb_form(p0: &CsMat<f64>) -> CscMatrix {

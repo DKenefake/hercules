@@ -5,13 +5,13 @@
 //! - Lower Bound Function Proposed in Li2012 (Initial)
 
 use crate::qubo::Qubo;
+use crate::FixedVarMap;
 use ndarray::Array1;
-use std::collections::HashMap;
 
 /// Calculates the initial lower bound for a qubo, based on pardalos1990
 ///
 /// Is roughly as expensive as an objective evaluation
-pub fn pardalos_rodgers_lower_bound(qubo: &Qubo, fixed_variables: &HashMap<usize, usize>) -> f64 {
+pub fn pardalos_rodgers_lower_bound(qubo: &Qubo, fixed_variables: &FixedVarMap) -> f64 {
     // calculate the lower bound
     let mut lower_bound = 0.0;
 
@@ -55,7 +55,7 @@ pub fn pardalos_rodgers_lower_bound(qubo: &Qubo, fixed_variables: &HashMap<usize
 ///
 /// Is roughly as expensive as an objective evaluation, it has been shown that it is a tighter bound
 /// than the one generated in pardalos1999, and it is roughly the same computational cost
-pub fn li_lower_bound(qubo: &Qubo, fixed_variables: &HashMap<usize, usize>) -> f64 {
+pub fn li_lower_bound(qubo: &Qubo, fixed_variables: &FixedVarMap) -> f64 {
     // tracking variable for the lower bound
     let mut lower_bound = 0.0;
     let mut a = Array1::<f64>::zeros(qubo.num_x());
@@ -113,7 +113,7 @@ mod tests {
     use crate::tests::make_solver_qubo;
     use ndarray::Array1;
     use sprs::TriMat;
-    use std::collections::HashMap;
+    use crate::FixedVarMap as HashMap;
 
     /// This is based on the first example problem in the li2012 paper
     #[test]
@@ -134,7 +134,7 @@ mod tests {
 
         let c = Array1::from_vec(vec![7.0, 11.0, -7.0]);
         let qubo = Qubo::new_with_c(q.to_csr(), c);
-        let fixed_vars = HashMap::new();
+        let fixed_vars = HashMap::default();
 
         let pardalos_lb = pardalos_rodgers_lower_bound(&qubo, &fixed_vars);
         let li_lb = li_lower_bound(&qubo, &fixed_vars);
@@ -154,7 +154,7 @@ mod tests {
 
         let c = Array1::from_vec(vec![-4.0, 3.0]);
         let qubo = Qubo::new_with_c(q.to_csr(), c);
-        let mut fixed_vars = HashMap::new();
+        let mut fixed_vars = HashMap::default();
 
         fixed_vars.insert(0, 1);
         fixed_vars.insert(1, 1);
@@ -177,7 +177,7 @@ mod tests {
 
         let c = Array1::from_vec(vec![-4.0, 3.0]);
         let qubo = Qubo::new_with_c(q.to_csr(), c);
-        let mut fixed_vars = HashMap::new();
+        let mut fixed_vars = HashMap::default();
 
         fixed_vars.insert(0, 0);
 
@@ -199,7 +199,7 @@ mod tests {
 
         let c = Array1::from_vec(vec![-4.0, 3.0]);
         let qubo = Qubo::new_with_c(q.to_csr(), c);
-        let mut fixed_vars = HashMap::new();
+        let mut fixed_vars = HashMap::default();
 
         fixed_vars.insert(0, 1);
 
@@ -214,7 +214,7 @@ mod tests {
     fn test_lower_bound_qubo_problem() {
         let p = make_solver_qubo();
 
-        let fixed_vars = HashMap::new();
+        let fixed_vars = HashMap::default();
 
         let pardalos_lb = pardalos_rodgers_lower_bound(&p, &fixed_vars);
         let li_lb = li_lower_bound(&p, &fixed_vars);

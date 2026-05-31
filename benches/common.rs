@@ -2,12 +2,12 @@ use hercules::branch_stratagy::BranchStrategy;
 use hercules::branch_node::QuboBBNode;
 use hercules::branch_subproblem::SubProblemSelection;
 use hercules::branchbound::BBSolver;
+use hercules::FixedVarMap;
 use hercules::initial_points::generate_random_binary_point;
 use hercules::qubo::Qubo;
 use hercules::solver_options::SolverOptions;
 use ndarray::Array1;
 use smolprng::{JsfLarge, PRNG};
-use std::collections::HashMap;
 
 #[allow(dead_code)]
 pub struct BenchData {
@@ -24,11 +24,12 @@ pub struct BenchData {
     pub x_small: Array1<usize>,
     pub x_medium: Array1<usize>,
     pub selected_small: Vec<usize>,
-    pub empty_fixed: HashMap<usize, usize>,
+    pub empty_fixed: FixedVarMap,
     pub process_solver: BBSolver,
     pub process_node: QuboBBNode,
 }
 
+#[must_use]
 pub fn make_solver_options() -> SolverOptions {
     let mut options = SolverOptions::new();
     options.branch_strategy = BranchStrategy::MostFixed;
@@ -39,6 +40,7 @@ pub fn make_solver_options() -> SolverOptions {
     options
 }
 
+#[must_use]
 pub fn make_bench_data() -> BenchData {
     let mut prng = PRNG {
         generator: JsfLarge::from(12_345_679_u64),
@@ -63,7 +65,7 @@ pub fn make_bench_data() -> BenchData {
     let x_small = generate_random_binary_point(qubo_small.num_x(), &mut prng, 0.5);
     let x_medium = generate_random_binary_point(qubo_medium.num_x(), &mut prng, 0.5);
     let selected_small: Vec<usize> = (0..qubo_small.num_x()).collect();
-    let empty_fixed = HashMap::new();
+    let empty_fixed = FixedVarMap::default();
 
     let process_solver = BBSolver::new(qubo_small.clone(), make_solver_options());
     let process_node = QuboBBNode {

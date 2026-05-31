@@ -17,7 +17,7 @@ impl ClarabelLPSolver {
         CscMatrix::new(p0.rows(), p0.cols(), t, y, u)
     }
 
-    pub fn new(_: &Qubo) -> Self {
+    pub const fn new(_: &Qubo) -> Self {
         Self {}
     }
 }

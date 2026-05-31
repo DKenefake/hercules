@@ -14,6 +14,7 @@ use crate::branch_subproblem::{SubProblemOptions, SubProblemResult, SubProblemSo
 use crate::branchbound::BBSolver;
 use crate::preprocess::make_sub_problem;
 use crate::qubo::Qubo;
+use crate::FixedVarMap;
 use ndarray::Array1;
 use petgraph::algo::maximum_flow::dinics;
 use petgraph::graph::{DiGraph, EdgeIndex, NodeIndex};
@@ -23,7 +24,7 @@ use std::collections::{HashMap, VecDeque};
 /// Result of a roof-duality pass.
 #[derive(Debug, Clone)]
 pub struct RoofDualityResult {
-    pub fixed_variables: HashMap<usize, usize>,
+    pub fixed_variables: FixedVarMap,
     pub lower_bound: Option<f64>,
     pub unlabeled_variables: Vec<usize>,
 }
@@ -67,7 +68,7 @@ pub struct ReducedRoofDualProblem {
 pub struct RoofDualSolver {}
 
 impl RoofDualSolver {
-    pub fn new(_: &Qubo) -> Self {
+    pub const fn new(_: &Qubo) -> Self {
         Self {}
     }
 }
@@ -96,7 +97,7 @@ impl SubProblemSolver for RoofDualSolver {
 /// Build the rooted bi-form corresponding to the reduced subproblem.
 pub fn build_reduced_roof_dual_problem(
     qubo: &Qubo,
-    fixed_variables: &HashMap<usize, usize>,
+    fixed_variables: &FixedVarMap,
 ) -> ReducedRoofDualProblem {
     let (sub_problem, original_to_reduced, mut constant) = make_sub_problem(qubo, fixed_variables);
     let num_variables = sub_problem.num_x();
@@ -184,13 +185,13 @@ pub fn build_reduced_roof_dual_problem(
 /// Solve the roof-duality relaxation and extract strong persistencies.
 pub fn roof_duality_presolve(
     qubo: &Qubo,
-    fixed_variables: &HashMap<usize, usize>,
+    fixed_variables: &FixedVarMap,
 ) -> RoofDualityResult {
     let reduced_problem = build_reduced_roof_dual_problem(qubo, fixed_variables);
 
     if reduced_problem.num_variables == 0 {
         return RoofDualityResult {
-            fixed_variables: HashMap::new(),
+            fixed_variables: FixedVarMap::default(),
             lower_bound: Some(reduced_problem.constant),
             unlabeled_variables: Vec::new(),
         };
@@ -198,6 +199,47 @@ pub fn roof_duality_presolve(
 
     let reduced_result = solve_roof_dual_network(&reduced_problem);
     map_reduced_result(reduced_result, &reduced_problem.original_to_reduced)
+}
+
+/// Repeatedly apply roof duality until no additional persistencies are found.
+///
+/// The returned `fixed_variables` contains only newly discovered fixings and
+/// excludes the incoming fixed variables.
+pub fn iterative_roof_duality_presolve(
+    qubo: &Qubo,
+    fixed_variables: &FixedVarMap,
+    iter_limit: usize,
+) -> RoofDualityResult {
+    let mut all_fixed = fixed_variables.clone();
+    let mut last_lower_bound = None;
+    let mut last_unlabeled = Vec::new();
+    let max_iters = iter_limit.max(1);
+
+    for _ in 0..max_iters {
+        let result = roof_duality_presolve(qubo, &all_fixed);
+        last_lower_bound = result.lower_bound;
+        last_unlabeled = result.unlabeled_variables;
+
+        let previous_len = all_fixed.len();
+        for (index, value) in result.fixed_variables {
+            all_fixed.insert(index, value);
+        }
+
+        if all_fixed.len() == previous_len {
+            break;
+        }
+    }
+
+    let new_fixed = all_fixed
+        .into_iter()
+        .filter(|(index, _)| !fixed_variables.contains_key(index))
+        .collect();
+
+    RoofDualityResult {
+        fixed_variables: new_fixed,
+        lower_bound: last_lower_bound,
+        unlabeled_variables: last_unlabeled,
+    }
 }
 
 fn solve_roof_dual_network(problem: &ReducedRoofDualProblem) -> RoofDualityResult {
@@ -240,7 +282,7 @@ fn solve_roof_dual_network(problem: &ReducedRoofDualProblem) -> RoofDualityResul
     let residual = ResidualNetwork::from_graph_and_flow(&graph, &flows);
     let source_side = residual.reachable_from(source);
 
-    let mut fixed_variables = HashMap::new();
+    let mut fixed_variables = FixedVarMap::default();
     let mut unlabeled_variables = Vec::new();
 
     for reduced_var in 0..problem.num_variables {
@@ -372,7 +414,7 @@ mod tests {
     use ndarray::Array1;
     use smolprng::PRNG;
     use sprs::TriMat;
-    use std::collections::HashMap;
+    use crate::FixedVarMap as HashMap;
 
     fn make_small_qubo() -> Qubo {
         let mut q = TriMat::new((2, 2));
@@ -440,7 +482,7 @@ mod tests {
         value
     }
 
-    fn exact_value_with_fixings(qubo: &Qubo, fixed_variables: &HashMap<usize, usize>) -> f64 {
+    fn exact_value_with_fixings(qubo: &Qubo, fixed_variables: &HashMap) -> f64 {
         let (sub_qubo, mapping, _constant) =
             crate::preprocess::make_sub_problem(qubo, fixed_variables);
         let (sub_value, sub_solution) = enumerate_solve(&sub_qubo);
@@ -459,7 +501,7 @@ mod tests {
 
     fn assert_roof_dual_fixings_are_persistent(
         qubo: &Qubo,
-        fixed_variables: &HashMap<usize, usize>,
+        fixed_variables: &HashMap,
         check_lower_bound: bool,
     ) {
         let result = roof_duality_presolve(qubo, fixed_variables);
@@ -487,7 +529,7 @@ mod tests {
     #[test]
     fn test_build_reduced_roof_dual_problem_matches_original_energy() {
         let qubo = make_small_qubo();
-        let problem = build_reduced_roof_dual_problem(&qubo, &HashMap::new());
+        let problem = build_reduced_roof_dual_problem(&qubo, &HashMap::default());
 
         for mask in 0..(1usize << problem.num_variables) {
             let x = Array1::from_vec(vec![(mask & 1), ((mask >> 1) & 1)]);
@@ -502,7 +544,7 @@ mod tests {
         let q = TriMat::<f64>::new((1, 1)).to_csr();
         let qubo = Qubo::new_with_c(q, Array1::from_vec(vec![3.0]));
 
-        let result = roof_duality_presolve(&qubo, &HashMap::new());
+        let result = roof_duality_presolve(&qubo, &HashMap::default());
 
         assert_eq!(result.fixed_variables.get(&0), Some(&0));
         assert_eq!(result.lower_bound, Some(0.0));
@@ -513,7 +555,7 @@ mod tests {
         let q = TriMat::<f64>::new((1, 1)).to_csr();
         let qubo = Qubo::new_with_c(q, Array1::from_vec(vec![-2.0]));
 
-        let result = roof_duality_presolve(&qubo, &HashMap::new());
+        let result = roof_duality_presolve(&qubo, &HashMap::default());
 
         assert_eq!(result.fixed_variables.get(&0), Some(&1));
         assert_eq!(result.lower_bound, Some(-2.0));
@@ -522,7 +564,7 @@ mod tests {
     #[test]
     fn test_roof_dual_lower_bound_is_valid_on_small_instance() {
         let qubo = make_small_qubo();
-        let result = roof_duality_presolve(&qubo, &HashMap::new());
+        let result = roof_duality_presolve(&qubo, &HashMap::default());
 
         let mut best = f64::INFINITY;
         for mask in 0..4usize {
@@ -540,7 +582,7 @@ mod tests {
         // lower bounds for quadratic unconstrained binary optimization (QUBO)",
         // Discrete Optimization 5 (2008) 501-529.
         let qubo = make_paper_example_1_qubo();
-        let problem = build_reduced_roof_dual_problem(&qubo, &HashMap::new());
+        let problem = build_reduced_roof_dual_problem(&qubo, &HashMap::default());
 
         assert_eq!(problem.constant, -13.0);
         assert_eq!(problem.biterms.len(), 8);
@@ -597,7 +639,7 @@ mod tests {
     #[test]
     fn test_paper_example_2_matches_fixing_x1_to_one() {
         let qubo = make_paper_example_1_qubo();
-        let problem = build_reduced_roof_dual_problem(&qubo, &HashMap::new());
+        let problem = build_reduced_roof_dual_problem(&qubo, &HashMap::default());
 
         for mask in 0..(1usize << 5) {
             let x0 = (mask & 1) as usize;
@@ -630,7 +672,7 @@ mod tests {
             let num_x = 10;
             let sparsity = 0.35 + 0.1 * ((case_idx % 3) as f64);
             let qubo = Qubo::make_random_qubo(num_x, &mut prng, sparsity);
-            assert_roof_dual_fixings_are_persistent(&qubo, &HashMap::new(), true);
+            assert_roof_dual_fixings_are_persistent(&qubo, &HashMap::default(), true);
         }
     }
 
@@ -643,7 +685,7 @@ mod tests {
             let sparsity = 0.4 + 0.1 * ((case_idx % 2) as f64);
             let qubo = Qubo::make_random_qubo(num_x, &mut prng, sparsity);
 
-            let mut fixed_variables = HashMap::new();
+            let mut fixed_variables = HashMap::default();
             fixed_variables.insert(case_idx % num_x, case_idx % 2);
 
             assert_roof_dual_fixings_are_persistent(&qubo, &fixed_variables, false);
@@ -656,7 +698,7 @@ mod tests {
         let convex = qubo.convex_symmetric_form();
         let shifted = shift_qubo(&convex);
 
-        let result = roof_duality_presolve(&shifted, &HashMap::new());
+        let result = roof_duality_presolve(&shifted, &HashMap::default());
         let (exact_value, exact_solution) = enumerate_solve(&shifted);
 
         assert!(
