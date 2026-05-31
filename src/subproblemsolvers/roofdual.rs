@@ -201,6 +201,47 @@ pub fn roof_duality_presolve(
     map_reduced_result(reduced_result, &reduced_problem.original_to_reduced)
 }
 
+/// Repeatedly apply roof duality until no additional persistencies are found.
+///
+/// The returned `fixed_variables` contains only newly discovered fixings and
+/// excludes the incoming fixed variables.
+pub fn iterative_roof_duality_presolve(
+    qubo: &Qubo,
+    fixed_variables: &FixedVarMap,
+    iter_limit: usize,
+) -> RoofDualityResult {
+    let mut all_fixed = fixed_variables.clone();
+    let mut last_lower_bound = None;
+    let mut last_unlabeled = Vec::new();
+    let max_iters = iter_limit.max(1);
+
+    for _ in 0..max_iters {
+        let result = roof_duality_presolve(qubo, &all_fixed);
+        last_lower_bound = result.lower_bound;
+        last_unlabeled = result.unlabeled_variables;
+
+        let previous_len = all_fixed.len();
+        for (index, value) in result.fixed_variables {
+            all_fixed.insert(index, value);
+        }
+
+        if all_fixed.len() == previous_len {
+            break;
+        }
+    }
+
+    let new_fixed = all_fixed
+        .into_iter()
+        .filter(|(index, _)| !fixed_variables.contains_key(index))
+        .collect();
+
+    RoofDualityResult {
+        fixed_variables: new_fixed,
+        lower_bound: last_lower_bound,
+        unlabeled_variables: last_unlabeled,
+    }
+}
+
 fn solve_roof_dual_network(problem: &ReducedRoofDualProblem) -> RoofDualityResult {
     let num_biform_variables = problem.num_variables + 1;
     let num_literal_nodes = 2 * num_biform_variables;

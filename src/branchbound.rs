@@ -13,7 +13,7 @@ use crate::lower_bound::li_lower_bound;
 use crate::preprocess;
 use crate::preprocess::{prepare_preprocess, preprocess_with_prepared, PreparedPreprocess};
 use crate::solver_options::{NodeLowerBoundSelection, SolverOptions};
-use crate::subproblemsolvers::roofdual::roof_duality_presolve;
+use crate::subproblemsolvers::roofdual::iterative_roof_duality_presolve;
 use crate::variable_reduction::probe_limited;
 use std::collections::BinaryHeap;
 
@@ -102,8 +102,20 @@ impl BBSolver {
     /// The main solve function of the B&B algorithm
     pub fn solve(&mut self) -> (Array1<usize>, f64) {
         // preprocess the problem
-        let fixed_variables =
+        let mut fixed_variables =
             preprocess_with_prepared(&self.prepared_preprocess, &self.options.fixed_variables);
+
+        if matches!(self.options.node_lower_bound, NodeLowerBoundSelection::RoofDual) {
+            let roof_result = iterative_roof_duality_presolve(
+                &self.qubo_pp_form,
+                &fixed_variables,
+                self.qubo.num_x(),
+            );
+            for (index, value) in roof_result.fixed_variables {
+                fixed_variables.insert(index, value);
+            }
+        }
+
         let (probe_constraints, _) =
             probe_limited(&self.qubo_pp_form, &fixed_variables, true, ROOT_PROBE_LIMIT);
         self.root_constraints = probe_constraints.constraints;
@@ -235,7 +247,11 @@ impl BBSolver {
         let node_bound = match self.options.node_lower_bound {
             NodeLowerBoundSelection::Li => li_lower_bound(&self.qubo, &node.fixed_variables),
             NodeLowerBoundSelection::RoofDual => {
-                let roof_result = roof_duality_presolve(&self.qubo_pp_form, &node.fixed_variables);
+                let roof_result = iterative_roof_duality_presolve(
+                    &self.qubo_pp_form,
+                    &node.fixed_variables,
+                    self.qubo.num_x(),
+                );
                 for (index, value) in roof_result.fixed_variables {
                     node.fixed_variables.insert(index, value);
                 }
