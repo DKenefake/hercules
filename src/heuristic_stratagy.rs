@@ -10,7 +10,7 @@ pub enum HeuristicSelection {
 }
 
 impl HeuristicSelection {
-    pub fn make_heuristic(&self, solver: &BBSolver, node: &QuboBBNode) -> (Array1<usize>, f64) {
+    pub fn make_heuristic(self, solver: &BBSolver, node: &QuboBBNode) -> (Array1<usize>, f64) {
         match self {
             Self::SimpleRounding => Self::simple_rounding(solver, node),
             Self::LocalSearch => Self::local_search(solver, node),
@@ -28,22 +28,7 @@ impl HeuristicSelection {
     pub fn local_search(solver: &BBSolver, node: &QuboBBNode) -> (Array1<usize>, f64) {
         // round the solution to the nearest integer
         let rounded_solution = utils::rounded_vector(&node.solution);
-
-        let mut x = rounded_solution;
-
-        let mut x_1 = local_search_utils::two_step_local_search_improved(&solver.qubo, &x);
-
-        let mut steps = 0;
-
-        while x_1 != x && steps < 100 {
-            x.clone_from(&x_1);
-            x_1 = local_search_utils::two_step_local_search_improved(&solver.qubo, &x);
-            steps += 1;
-        }
-
-        let objective = solver.qubo.eval_usize(&x_1);
-
-        (x_1, objective)
+        local_search_utils::two_step_local_search_descent_all(&solver.qubo, &rounded_solution, 100)
     }
 }
 
@@ -83,6 +68,7 @@ mod tests {
                 lower_bound: f64::NEG_INFINITY,
                 solution: x_0.clone(),
                 fixed_variables: FixedVarMap::default(),
+                run_heuristic: false,
             };
 
             // compute the next step
@@ -115,6 +101,7 @@ mod tests {
                 lower_bound: f64::NEG_INFINITY,
                 solution: x_0.clone(),
                 fixed_variables: FixedVarMap::default(),
+                run_heuristic: false,
             };
 
             let rounded_sol = utils::rounded_vector(&x_0);
@@ -130,4 +117,5 @@ mod tests {
             assert!(obj_1 <= obj_0);
         }
     }
+
 }

@@ -1,5 +1,5 @@
 use crate::FixedVarMap;
-use crate::preprocess::solve_small_components;
+use crate::preprocess::solve_small_components_in_place_with_extra;
 use crate::qubo::Qubo;
 use std::cmp::min;
 use std::collections::VecDeque;
@@ -14,47 +14,54 @@ pub fn compute_iterative_persistence(
     iter_lim: usize,
 ) -> FixedVarMap {
     let adjacency = build_gradient_adjacency(qubo);
-    compute_iterative_persistence_with_adjacency(qubo, persistent, iter_lim, &adjacency)
+    compute_iterative_persistence_with_adjacency(
+        qubo,
+        persistent.clone(),
+        &FixedVarMap::default(),
+        iter_lim,
+        &adjacency,
+    )
 }
 
 pub(crate) fn compute_iterative_persistence_with_adjacency(
     qubo: &Qubo,
-    persistent: &FixedVarMap,
+    mut persistent: FixedVarMap,
+    extra_fixed: &FixedVarMap,
     iter_lim: usize,
     adjacency: &GradientAdjacency,
 ) -> FixedVarMap {
-    let mut new_persistent = persistent.clone();
     let iters = min(iter_lim, qubo.num_x());
 
     for _ in 0..iters {
-        let previous_len = new_persistent.len();
-        let incoming_persistent = propagate_persistent(qubo, &new_persistent, adjacency);
+        let previous_len = persistent.len();
+        propagate_persistent_in_place(qubo, &mut persistent, extra_fixed, adjacency);
 
-        if incoming_persistent.len() == previous_len {
+        if persistent.len() == previous_len {
             break;
         }
 
-        let incoming_persistent = solve_small_components(qubo, &incoming_persistent, 10);
-        if incoming_persistent.len() == previous_len {
+        solve_small_components_in_place_with_extra(qubo, &mut persistent, Some(extra_fixed), 10);
+        if persistent.len() == previous_len {
             break;
         }
-
-        new_persistent = incoming_persistent;
     }
 
-    new_persistent
+    persistent
 }
 
-fn propagate_persistent(
+fn propagate_persistent_in_place(
     qubo: &Qubo,
-    persistent: &FixedVarMap,
+    persistent: &mut FixedVarMap,
+    extra_fixed: &FixedVarMap,
     adjacency: &[Vec<(usize, f64)>],
-) -> FixedVarMap {
+) {
     let num_x = qubo.num_x();
-    let mut new_persistent = persistent.clone();
     let mut fixed_values = vec![None; num_x];
 
-    for (&index, &value) in persistent {
+    for (&index, &value) in persistent.iter() {
+        fixed_values[index] = Some(value as u8);
+    }
+    for (&index, &value) in extra_fixed {
         fixed_values[index] = Some(value as u8);
     }
 
@@ -80,11 +87,11 @@ fn propagate_persistent(
 
         if lower[i] > 0.0 {
             fixed_values[i] = Some(0);
-            new_persistent.insert(i, 0);
+            persistent.insert(i, 0);
             queue.push_back((i, 0u8));
         } else if upper[i] < 0.0 {
             fixed_values[i] = Some(1);
-            new_persistent.insert(i, 1);
+            persistent.insert(i, 1);
             queue.push_back((i, 1u8));
         }
     }
@@ -100,17 +107,15 @@ fn propagate_persistent(
 
             if lower[target] > 0.0 {
                 fixed_values[target] = Some(0);
-                new_persistent.insert(target, 0);
+                persistent.insert(target, 0);
                 queue.push_back((target, 0u8));
             } else if upper[target] < 0.0 {
                 fixed_values[target] = Some(1);
-                new_persistent.insert(target, 1);
+                persistent.insert(target, 1);
                 queue.push_back((target, 1u8));
             }
         }
     }
-
-    new_persistent
 }
 
 fn apply_free_term(lower: &mut f64, upper: &mut f64, coeff: f64) {

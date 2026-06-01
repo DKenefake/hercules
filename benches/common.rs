@@ -72,6 +72,7 @@ pub fn make_bench_data() -> BenchData {
         lower_bound: f64::NEG_INFINITY,
         solution: 0.5 * Array1::ones(process_solver.qubo.num_x()),
         fixed_variables: process_solver.options.fixed_variables.clone(),
+        run_heuristic: false,
     };
 
     BenchData {
