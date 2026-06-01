@@ -376,7 +376,7 @@ impl BBSolver {
 
             // we increment the number of nodes we have visited
             self.apply_logging_action(NodeLoggingAction::Visited);
-            node.run_heuristic |= self.nodes_visited % 31 == 0;
+            node.run_heuristic |= self.nodes_visited.is_multiple_of(31);
 
             // if we can't prune it, then we return it
             let (prune, best_update) = self.can_prune_action(&node);
@@ -643,28 +643,28 @@ mod tests {
 
         for branch in &branch_options {
             for sup_problem_solver in &sub_problem_solvers {
-                setup_and_solve_problem(branch, &sup_problem_solver, qubo, sol_val);
+                setup_and_solve_problem(*branch, *sup_problem_solver, qubo, sol_val);
             }
         }
     }
 
     pub fn setup_and_solve_problem(
-        branch: &BranchStrategy,
-        sup_problem_solver: &SubProblemSelection,
+        branch: BranchStrategy,
+        sup_problem_solver: SubProblemSelection,
         qubo: &Qubo,
         true_sol: &Array1<usize>,
     ) {
         let mut prng = make_test_prng();
 
-        let fixed_variables = preprocess_qubo(&qubo, &HashMap::default(), false);
+        let fixed_variables = preprocess_qubo(qubo, &HashMap::default(), false);
 
-        let guess = local_search::particle_swarm_search(&qubo, 10, 100, &mut prng);
+        let guess = local_search::particle_swarm_search(qubo, 10, 100, &mut prng);
 
         let mut options = get_default_solver_options();
 
-        options.branch_strategy = *branch;
-        options.fixed_variables = fixed_variables.clone();
-        options.sub_problem_solver = *sup_problem_solver;
+        options.branch_strategy = branch;
+        options.fixed_variables = fixed_variables;
+        options.sub_problem_solver = sup_problem_solver;
         options.verbose = 0;
 
         let mut solver = branchbound::BBSolver::new(qubo.clone(), options);
@@ -673,7 +673,7 @@ mod tests {
 
         let (_, sol_value) = solver.solve();
 
-        let actual_obj = solver.qubo.eval_usize(&true_sol);
+        let actual_obj = solver.qubo.eval_usize(true_sol);
 
         // the solution should be within 1E-5 of the actual solution
         // we don't check against the solution as there can be multiple optimal solutions

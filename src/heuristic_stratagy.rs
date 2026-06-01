@@ -10,7 +10,7 @@ pub enum HeuristicSelection {
 }
 
 impl HeuristicSelection {
-    pub fn make_heuristic(&self, solver: &BBSolver, node: &QuboBBNode) -> (Array1<usize>, f64) {
+    pub fn make_heuristic(self, solver: &BBSolver, node: &QuboBBNode) -> (Array1<usize>, f64) {
         match self {
             Self::SimpleRounding => Self::simple_rounding(solver, node),
             Self::LocalSearch => Self::local_search(solver, node),

@@ -61,7 +61,7 @@ fn propagate_persistent_in_place(
     for (&index, &value) in persistent.iter() {
         fixed_values[index] = Some(value as u8);
     }
-    for (&index, &value) in extra_fixed.iter() {
+    for (&index, &value) in extra_fixed {
         fixed_values[index] = Some(value as u8);
     }
 

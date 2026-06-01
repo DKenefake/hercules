@@ -181,9 +181,9 @@ pub fn two_step_local_search_descent_all(
         let mut best_obj_1d = f64::INFINITY;
         let mut best_1d_neighbor = 0usize;
 
-        for i in 0..n {
+        for (i, delta_slot) in one_flip_delta.iter_mut().enumerate().take(n) {
             let delta = one_flip_delta_from_gradient(qubo, &x, &grad, i);
-            one_flip_delta[i] = delta;
+            *delta_slot = delta;
 
             if delta < best_obj_1d {
                 best_obj_1d = delta;

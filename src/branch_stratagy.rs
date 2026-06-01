@@ -651,6 +651,29 @@ pub fn moving_edges(solver: &BBSolver, node: &QuboBBNode) -> BranchResult {
     }
 }
 
+/// A fun branching strategy that pseudo randomly picks one of the cheaper branching strategies
+/// to use at each node at (pesudo) random
+/// # Panics
+/// if the node does not have an unfixed variable
+pub fn round_robin(solver: &BBSolver, node: &QuboBBNode) -> BranchResult {
+    // fun branching strat based on pseudo randomly picking a decent (and cheap branching strat)
+
+    // make a random seed that is unique to each node
+    let node_seed = node.fixed_variables.keys().sum::<usize>() as u64;
+    let solver_seed = solver.options.seed as u64 + solver.nodes_solved as u64;
+
+    let mut prng = PRNG {
+        generator: JsfLarge::from(node_seed + solver_seed),
+    };
+
+    match prng.gen_u64() % 3 {
+        0 => largest_edges(solver, node),
+        1 => most_edges(solver, node),
+        2 => worst_approximation(solver, node),
+        _ => panic!("Random branch selection failed"),
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::{connected_components, worst_approximation_second_order};
@@ -702,28 +725,5 @@ mod tests {
 
         let result = worst_approximation_second_order(&solver, &node);
         assert_eq!(result.branch_variable, 1);
-    }
-}
-
-/// A fun branching strategy that pseudo randomly picks one of the cheaper branching strategies
-/// to use at each node at (pesudo) random
-/// # Panics
-/// if the node does not have an unfixed variable
-pub fn round_robin(solver: &BBSolver, node: &QuboBBNode) -> BranchResult {
-    // fun branching strat based on pseudo randomly picking a decent (and cheap branching strat)
-
-    // make a random seed that is unique to each node
-    let node_seed = node.fixed_variables.keys().sum::<usize>() as u64;
-    let solver_seed = solver.options.seed as u64 + solver.nodes_solved as u64;
-
-    let mut prng = PRNG {
-        generator: JsfLarge::from(node_seed + solver_seed),
-    };
-
-    match prng.gen_u64() % 3 {
-        0 => largest_edges(solver, node),
-        1 => most_edges(solver, node),
-        2 => worst_approximation(solver, node),
-        _ => panic!("Random branch selection failed"),
     }
 }
