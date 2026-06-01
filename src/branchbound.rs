@@ -62,6 +62,12 @@ pub enum SolverResult {
 const ROOT_PROBE_LIMIT: usize = 25;
 
 impl BBSolver {
+    fn lower_bound_prunes(&self, lower_bound: f64) -> bool {
+        let scale = self.best_solution_value.abs().max(1.0);
+        let tol = 1e-10 * scale;
+        lower_bound >= self.best_solution_value - tol
+    }
+
     /// Creates a new B&B solver
     pub fn new(qubo: Qubo, options: SolverOptions) -> Self {
         let qubo = qubo.convex_symmetric_form();
@@ -105,16 +111,7 @@ impl BBSolver {
         let mut fixed_variables =
             preprocess_with_prepared(&self.prepared_preprocess, &self.options.fixed_variables);
 
-        if matches!(self.options.node_lower_bound, NodeLowerBoundSelection::RoofDual) {
-            let roof_result = iterative_roof_duality_presolve(
-                &self.qubo_pp_form,
-                &fixed_variables,
-                self.qubo.num_x(),
-            );
-            for (index, value) in roof_result.fixed_variables {
-                fixed_variables.insert(index, value);
-            }
-        }
+        let root_bound = self.apply_node_lower_bound(&mut fixed_variables);
 
         let (probe_constraints, _) =
             probe_limited(&self.qubo_pp_form, &fixed_variables, true, ROOT_PROBE_LIMIT);
@@ -123,14 +120,15 @@ impl BBSolver {
 
         // create the root node
         let mut root_node = QuboBBNode {
-            lower_bound: f64::NEG_INFINITY,
+            lower_bound: root_bound,
             solution: 0.5 * Array1::ones(self.qubo.num_x()), // initial guess is 0.5 for all variables
             fixed_variables,
+            run_heuristic: true,
         };
 
         // solve the root node subproblem
         let (root_lower_bound, root_solution) = self.solve_node(&root_node);
-        root_node.lower_bound = root_lower_bound;
+        root_node.lower_bound = root_node.lower_bound.max(root_lower_bound);
         root_node.solution = root_solution;
 
         // add the root node to the list of nodes
@@ -184,7 +182,7 @@ impl BBSolver {
         }
 
         // if our parent solution is above our current feasible soltion then prune
-        if node.lower_bound > self.best_solution_value {
+        if self.lower_bound_prunes(node.lower_bound) {
             return (PruneAction::Prune, None);
         }
 
@@ -244,20 +242,7 @@ impl BBSolver {
         // pass to the presolver to see if there are any variables we can fix
         node.fixed_variables = self.preprocess_fixed_variables(&node.fixed_variables);
 
-        let node_bound = match self.options.node_lower_bound {
-            NodeLowerBoundSelection::Li => li_lower_bound(&self.qubo, &node.fixed_variables),
-            NodeLowerBoundSelection::RoofDual => {
-                let roof_result = iterative_roof_duality_presolve(
-                    &self.qubo_pp_form,
-                    &node.fixed_variables,
-                    self.qubo.num_x(),
-                );
-                for (index, value) in roof_result.fixed_variables {
-                    node.fixed_variables.insert(index, value);
-                }
-                roof_result.lower_bound.unwrap_or(f64::NEG_INFINITY)
-            }
-        };
+        let node_bound = self.apply_node_lower_bound(&mut node.fixed_variables);
         node.lower_bound = node.lower_bound.max(node_bound);
 
         // with this expanded set, can we prune the node?
@@ -291,6 +276,7 @@ impl BBSolver {
 
         // We now need to solve the node to generate the lower bound and solution
         let (lower_bound, solution) = self.solve_node(&node);
+        let lower_bound = lower_bound.max(node.lower_bound);
 
         // inject the solution back into the node
         node.solution.clone_from(&solution);
@@ -321,8 +307,8 @@ impl BBSolver {
             };
         }
 
-        let best_update = self
-            .should_run_heuristic(&node)
+        let best_update = node
+            .run_heuristic
             .then(|| self.options.heuristic.make_heuristic(self, &node));
 
         // generate the branches
@@ -343,10 +329,10 @@ impl BBSolver {
 
         if let Some((zero_branch, one_branch)) = state.branches {
             // only add the branches if their lower bound is better than the current best solution
-            if zero_branch.lower_bound <= self.best_solution_value {
+            if !self.lower_bound_prunes(zero_branch.lower_bound) {
                 self.nodes.push(zero_branch);
             }
-            if one_branch.lower_bound <= self.best_solution_value {
+            if !self.lower_bound_prunes(one_branch.lower_bound) {
                 self.nodes.push(one_branch);
             }
         }
@@ -359,6 +345,8 @@ impl BBSolver {
         if solution_value < self.best_solution_value {
             self.best_solution.clone_from(solution);
             self.best_solution_value = solution_value;
+            let best_solution_value = self.best_solution_value;
+            let tol = 1e-10 * best_solution_value.abs().max(1.0);
 
             // if we have an early stopping condition, then we can check if we have a solution
             // let beck_proof = beck_proof(&self.qubo, &self.best_solution);
@@ -372,7 +360,7 @@ impl BBSolver {
             // We can remove all nodes that are worse than the current best solution
             self.nodes.retain(|node| {
                 // if the node's lower bound is worse than the best solution, we can prune it
-                node.lower_bound <= self.best_solution_value
+                node.lower_bound < best_solution_value - tol
             });
         }
     }
@@ -384,10 +372,11 @@ impl BBSolver {
             let optional_node = self.nodes.pop();
 
             // check and unwrap the node if it is safe
-            let node = optional_node?;
+            let mut node = optional_node?;
 
             // we increment the number of nodes we have visited
             self.apply_logging_action(NodeLoggingAction::Visited);
+            node.run_heuristic |= self.nodes_visited % 31 == 0;
 
             // if we can't prune it, then we return it
             let (prune, best_update) = self.can_prune_action(&node);
@@ -452,12 +441,6 @@ impl BBSolver {
         self.branch_strategy.make_branch(self, node)
     }
 
-    fn should_run_heuristic(&self, node: &QuboBBNode) -> bool {
-        // Heuristics are most useful earlier in the tree when they can improve the incumbent
-        // before a lot of nodes have been generated.
-        node.fixed_variables.len() * 2 <= self.qubo.num_x()
-    }
-
     /// Actually branches the node into two new nodes
     pub fn branch(
         node: QuboBBNode,
@@ -473,6 +456,8 @@ impl BBSolver {
         // add fixed variables
         zero_branch.fixed_variables.insert(branch_id, 0);
         one_branch.fixed_variables.insert(branch_id, 1);
+        zero_branch.run_heuristic = false;
+        one_branch.run_heuristic = false;
 
         // update the solution and lower bound for the new nodes
         zero_branch.solution.clone_from(&solution);
@@ -494,6 +479,23 @@ impl BBSolver {
         fixed_variables: &FixedVarMap,
     ) -> FixedVarMap {
         preprocess_with_prepared(&self.prepared_preprocess, fixed_variables)
+    }
+
+    fn apply_node_lower_bound(&self, fixed_variables: &mut FixedVarMap) -> f64 {
+        match self.options.node_lower_bound {
+            NodeLowerBoundSelection::Li => li_lower_bound(&self.qubo, fixed_variables),
+            NodeLowerBoundSelection::RoofDual => {
+                let roof_result = iterative_roof_duality_presolve(
+                    &self.qubo_pp_form,
+                    fixed_variables,
+                    self.qubo.num_x(),
+                );
+                for (index, value) in roof_result.fixed_variables {
+                    fixed_variables.insert(index, value);
+                }
+                roof_result.lower_bound.unwrap_or(f64::NEG_INFINITY)
+            }
+        }
     }
 }
 
@@ -531,6 +533,22 @@ mod tests {
         solver.solve();
 
         assert_eq!(solver.best_solution, Array1::from_vec(vec![1, 1, 1]));
+    }
+
+    #[test]
+    fn root_node_preserves_heuristic_flag_on_first_pop() {
+        let p = Qubo::new(CsMat::eye(2));
+        let mut solver = branchbound::BBSolver::new(p, SolverOptions::new());
+
+        solver.nodes.push(crate::branch_node::QuboBBNode {
+            lower_bound: f64::NEG_INFINITY,
+            solution: 0.5 * Array1::ones(2),
+            fixed_variables: HashMap::default(),
+            run_heuristic: true,
+        });
+
+        let node = solver.get_next_node().expect("expected root node");
+        assert!(node.run_heuristic);
     }
 
     #[test]

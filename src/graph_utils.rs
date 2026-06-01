@@ -8,9 +8,22 @@ pub fn get_all_disconnected_graphs(
     qubo: &Qubo,
     fixed_vars: &FixedVarMap,
 ) -> Vec<Vec<usize>> {
+    get_all_disconnected_graphs_with_extra(qubo, fixed_vars, None)
+}
+
+pub fn get_all_disconnected_graphs_with_extra(
+    qubo: &Qubo,
+    fixed_vars: &FixedVarMap,
+    extra_fixed_vars: Option<&FixedVarMap>,
+) -> Vec<Vec<usize>> {
     let mut visited = vec![false; qubo.num_x()];
     for &fixed in fixed_vars.keys() {
         visited[fixed] = true;
+    }
+    if let Some(extra_fixed_vars) = extra_fixed_vars {
+        for &fixed in extra_fixed_vars.keys() {
+            visited[fixed] = true;
+        }
     }
 
     let mut output = Vec::new();

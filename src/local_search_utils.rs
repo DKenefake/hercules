@@ -9,6 +9,25 @@
 use crate::qubo::Qubo;
 use ndarray::Array1;
 
+fn one_flip_delta_from_gradient(qubo: &Qubo, x: &Array1<usize>, grad: &Array1<f64>, i: usize) -> f64 {
+    let q_ii = *qubo.q.get(i, i).unwrap_or(&0.0);
+    (1.0 - 2.0 * x[i] as f64) * grad[i] + 0.5 * q_ii
+}
+
+fn update_gradient_for_flip(qubo: &Qubo, grad: &mut Array1<f64>, index: usize, alpha: f64) {
+    if let Some(row) = qubo.q.outer_view(index) {
+        for (j, value) in row.iter() {
+            grad[j] += 0.5 * alpha * value;
+        }
+    }
+
+    if let Some(col) = qubo.q.transpose_view().outer_view(index) {
+        for (j, value) in col.iter() {
+            grad[j] += 0.5 * alpha * value;
+        }
+    }
+}
+
 /// Performs a single step of local search, which is to say that it will flip a single bit and return the best solution out of all
 /// of the possible bit flips.
 /// This takes O(|Q|) + O(n) time, where |Q| is the number of non-zero elements in the QUBO matrix.
@@ -71,53 +90,144 @@ pub fn one_step_local_search_improved(
     }
 }
 
-/// Performs a two-step local search, which is to say that it will flip either one or two bits and
-/// return the best solution out of all the possible bit flips.
-/// This takes O(|Q|) + O(n) time, where |Q| is the number of non-zero elements in the QUBO matrix.
-/// # Panics
-/// Will panic if the QUBO has no variables.
-pub fn two_step_local_search_improved(qubo: &Qubo, x_0: &Array1<usize>) -> Array1<usize> {
-    // Do a neighborhood search of up to two bit flips and returns the best solution
-    let (_, obj_1d) = one_flip_objective(qubo, x_0);
+/// Performs repeated one- and two-bit local search moves while maintaining the gradient
+/// incrementally after accepted flips.
+///
+/// This is intended for the heuristic path where we want to avoid rebuilding the full
+/// one-flip objective state from scratch after every move.
+pub fn two_step_local_search_descent(
+    qubo: &Qubo,
+    x_0: &Array1<usize>,
+    selected_vars: &[usize],
+    max_steps: usize,
+) -> (Array1<usize>, f64) {
+    let mut x = x_0.clone();
+    let mut grad = qubo.eval_grad_usize(&x);
 
-    let best_1d_neighbor = obj_1d
-        .iter()
-        .enumerate()
-        .min_by(|(_, a), (_, b)| a.partial_cmp(b).unwrap())
-        .unwrap()
-        .0;
+    let mut selected = vec![false; qubo.num_x()];
+    for &i in selected_vars {
+        selected[i] = true;
+    }
 
-    let best_obj_1d = obj_1d[best_1d_neighbor];
+    for _ in 0..max_steps {
+        let mut best_obj_1d = f64::INFINITY;
+        let mut best_1d_neighbor = None;
+        let mut one_flip_delta = Array1::<f64>::from_elem(qubo.num_x(), f64::INFINITY);
 
-    let mut best_obj_2d = f64::INFINITY;
-    let mut best_2d_neighbor = (0, 1);
+        for &i in selected_vars {
+            let delta = one_flip_delta_from_gradient(qubo, &x, &grad, i);
+            one_flip_delta[i] = delta;
 
-    for (q_ij, (i, j)) in &qubo.q {
-        if i > j {
-            let current_obj_2d = obj_1d[i]
-                + obj_1d[j]
-                + q_ij * (1.0 - 2.0 * (x_0[i] as f64)) * (1.0 - 2.0 * (x_0[j] as f64));
+            if delta < best_obj_1d {
+                best_obj_1d = delta;
+                best_1d_neighbor = Some(i);
+            }
+        }
+
+        let mut best_obj_2d = f64::INFINITY;
+        let mut best_2d_neighbor = None;
+
+        for (&q_ij, (i, j)) in &qubo.q {
+            if i <= j || !selected[i] || !selected[j] {
+                continue;
+            }
+
+            let current_obj_2d = one_flip_delta[i]
+                + one_flip_delta[j]
+                + q_ij * (1.0 - 2.0 * x[i] as f64) * (1.0 - 2.0 * x[j] as f64);
+
+            if current_obj_2d < best_obj_2d {
+                best_obj_2d = current_obj_2d;
+                best_2d_neighbor = Some((i, j));
+            }
+        }
+
+        if best_obj_2d < best_obj_1d && best_obj_2d < 0.0 {
+            let (i, j) = best_2d_neighbor.expect("best two-flip move should exist");
+            let alpha_i = 1.0 - 2.0 * x[i] as f64;
+            let alpha_j = 1.0 - 2.0 * x[j] as f64;
+            update_gradient_for_flip(qubo, &mut grad, i, alpha_i);
+            update_gradient_for_flip(qubo, &mut grad, j, alpha_j);
+            x[i] = 1 - x[i];
+            x[j] = 1 - x[j];
+        } else if best_obj_1d < 0.0 {
+            let i = best_1d_neighbor.expect("best one-flip move should exist");
+            let alpha = 1.0 - 2.0 * x[i] as f64;
+            update_gradient_for_flip(qubo, &mut grad, i, alpha);
+            x[i] = 1 - x[i];
+        } else {
+            break;
+        }
+    }
+
+    let objective = qubo.eval_usize(&x);
+    (x, objective)
+}
+
+/// Specialized version of `two_step_local_search_descent` for the common case where all
+/// variables are eligible. This avoids building the selected-variable bitmap and the temporary
+/// dense delta array used by the subset variant.
+pub fn two_step_local_search_descent_all(
+    qubo: &Qubo,
+    x_0: &Array1<usize>,
+    max_steps: usize,
+) -> (Array1<usize>, f64) {
+    let mut x = x_0.clone();
+    let mut grad = qubo.eval_grad_usize(&x);
+    let n = qubo.num_x();
+    let mut one_flip_delta = vec![0.0; n];
+
+    for _ in 0..max_steps {
+        let mut best_obj_1d = f64::INFINITY;
+        let mut best_1d_neighbor = 0usize;
+
+        for i in 0..n {
+            let delta = one_flip_delta_from_gradient(qubo, &x, &grad, i);
+            one_flip_delta[i] = delta;
+
+            if delta < best_obj_1d {
+                best_obj_1d = delta;
+                best_1d_neighbor = i;
+            }
+        }
+
+        let mut best_obj_2d = f64::INFINITY;
+        let mut best_2d_neighbor = (0usize, 0usize);
+
+        for (&q_ij, (i, j)) in &qubo.q {
+            if i <= j {
+                continue;
+            }
+
+            let current_obj_2d = one_flip_delta[i]
+                + one_flip_delta[j]
+                + q_ij * (1.0 - 2.0 * x[i] as f64) * (1.0 - 2.0 * x[j] as f64);
 
             if current_obj_2d < best_obj_2d {
                 best_obj_2d = current_obj_2d;
                 best_2d_neighbor = (i, j);
             }
         }
+
+        if best_obj_2d < best_obj_1d && best_obj_2d < 0.0 {
+            let (i, j) = best_2d_neighbor;
+            let alpha_i = 1.0 - 2.0 * x[i] as f64;
+            let alpha_j = 1.0 - 2.0 * x[j] as f64;
+            update_gradient_for_flip(qubo, &mut grad, i, alpha_i);
+            update_gradient_for_flip(qubo, &mut grad, j, alpha_j);
+            x[i] = 1 - x[i];
+            x[j] = 1 - x[j];
+        } else if best_obj_1d < 0.0 {
+            let alpha = 1.0 - 2.0 * x[best_1d_neighbor] as f64;
+            update_gradient_for_flip(qubo, &mut grad, best_1d_neighbor, alpha);
+            x[best_1d_neighbor] = 1 - x[best_1d_neighbor];
+        } else {
+            break;
+        }
     }
 
-    // see if the best 2d neighbor is better than the best 1d neighbor
-    if best_obj_2d < best_obj_1d && best_obj_2d < 0.0f64 {
-        let mut x_1 = x_0.clone();
-        x_1[best_2d_neighbor.0] = 1 - x_1[best_2d_neighbor.0];
-        x_1[best_2d_neighbor.1] = 1 - x_1[best_2d_neighbor.1];
-        x_1
-    } else if best_obj_1d < 0.0f64 {
-        let mut x_1 = x_0.clone();
-        x_1[best_1d_neighbor] = 1 - x_1[best_1d_neighbor];
-        x_1
-    } else {
-        x_0.clone()
-    }
+    let objective = qubo.eval_usize(&x);
+    (x, objective)
 }
 
 /// Auxiliary function to calculate the gains from flipping each variable
@@ -247,7 +357,8 @@ pub fn contract_point(
 mod tests {
 
     use crate::local_search_utils::{
-        one_step_local_search_improved, two_step_local_search_improved,
+        one_step_local_search_improved, two_step_local_search_descent,
+        two_step_local_search_descent_all,
     };
     use crate::qubo::Qubo;
     use smolprng::{JsfLarge, PRNG};
@@ -280,8 +391,7 @@ mod tests {
     }
 
     #[test]
-    fn test_two_step_local_search_improved() {
-        // generate a random QUBO
+    fn test_two_step_local_search_descent() {
         let mut prng = PRNG {
             generator: JsfLarge::default(),
         };
@@ -290,24 +400,36 @@ mod tests {
         let selected_vars: Vec<usize> = (0..p.num_x()).collect();
 
         for _ in 0..100 {
-            // generate a random point inside with x in {0, 1}^10 with
             let x_0 =
                 crate::initial_points::generate_random_binary_point(p.num_x(), &mut prng, 0.5);
 
-            // compute the next step
-            let x_1 = one_step_local_search_improved(&p, &x_0, &selected_vars);
-            let x_2 = two_step_local_search_improved(&p, &x_0);
-
-            // compute the objective function values
             let obj_0 = p.eval_usize(&x_0);
-            let obj_1 = p.eval_usize(&x_1);
-            let obj_2 = p.eval_usize(&x_2);
+            let (x_1, obj_1) = two_step_local_search_descent(&p, &x_0, &selected_vars, 100);
+            let obj_eval = p.eval_usize(&x_1);
 
-            // ensure that two step local search is at least as good as one step local search
-            assert!(obj_2 <= obj_1);
-
-            // ensure that the objective has not increased
             assert!(obj_1 <= obj_0);
+            assert!((obj_1 - obj_eval).abs() < 1e-8);
+        }
+    }
+
+    #[test]
+    fn test_two_step_local_search_descent_all() {
+        let mut prng = PRNG {
+            generator: JsfLarge::default(),
+        };
+
+        let p = Qubo::make_random_qubo(50, &mut prng, 0.2);
+
+        for _ in 0..100 {
+            let x_0 =
+                crate::initial_points::generate_random_binary_point(p.num_x(), &mut prng, 0.5);
+
+            let obj_0 = p.eval_usize(&x_0);
+            let (x_1, obj_1) = two_step_local_search_descent_all(&p, &x_0, 100);
+            let obj_eval = p.eval_usize(&x_1);
+
+            assert!(obj_1 <= obj_0);
+            assert!((obj_1 - obj_eval).abs() < 1e-8);
         }
     }
 }

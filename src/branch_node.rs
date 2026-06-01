@@ -8,6 +8,7 @@ pub struct QuboBBNode {
     pub lower_bound: f64,
     pub solution: Array1<f64>,
     pub fixed_variables: FixedVarMap,
+    pub run_heuristic: bool,
 }
 
 impl Eq for QuboBBNode {}

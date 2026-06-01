@@ -35,18 +35,20 @@ pub(crate) fn preprocess_with_prepared(
     prepared: &PreparedPreprocess,
     fixed_variables: &FixedVarMap,
 ) -> FixedVarMap {
-    let mut initial_fixed = fixed_variables.clone();
-
-    for (&key, &value) in &prepared.no_effect_vars {
-        initial_fixed.insert(key, value);
-    }
-
-    compute_iterative_persistence_with_adjacency(
+    let mut persistent = compute_iterative_persistence_with_adjacency(
         &prepared.qubo_pp,
-        &initial_fixed,
+        fixed_variables.clone(),
+        &prepared.no_effect_vars,
         prepared.qubo_pp.num_x(),
         &prepared.adjacency,
-    )
+    );
+
+    persistent.reserve(prepared.no_effect_vars.len());
+    for (&index, &value) in &prepared.no_effect_vars {
+        persistent.entry(index).or_insert(value);
+    }
+
+    persistent
 }
 
 /// This is the main entry point for preprocessing
@@ -134,11 +136,28 @@ pub fn solve_small_components(
     fixed_vars: &FixedVarMap,
     max_size: usize,
 ) -> FixedVarMap {
-    // copy the fixed variables
     let mut new_fixed_variables = fixed_vars.clone();
+    solve_small_components_in_place_with_extra(qubo, &mut new_fixed_variables, None, max_size);
+    new_fixed_variables
+}
 
+pub(crate) fn solve_small_components_in_place(
+    qubo: &Qubo,
+    fixed_vars: &mut FixedVarMap,
+    max_size: usize,
+) {
+    solve_small_components_in_place_with_extra(qubo, fixed_vars, None, max_size);
+}
+
+pub(crate) fn solve_small_components_in_place_with_extra(
+    qubo: &Qubo,
+    fixed_vars: &mut FixedVarMap,
+    extra_fixed_vars: Option<&FixedVarMap>,
+    max_size: usize,
+) {
     // get all the disconnected graphs
-    let components = crate::graph_utils::get_all_disconnected_graphs(qubo, &new_fixed_variables);
+    let components =
+        crate::graph_utils::get_all_disconnected_graphs_with_extra(qubo, fixed_vars, extra_fixed_vars);
 
     for component in components {
         // if the component is too large, skip it same with it being empty
@@ -147,24 +166,36 @@ pub fn solve_small_components(
         }
 
         // remove the fixed variables from the component
-        let (sub_qubo, mapping) = make_component_qubo(qubo, &component, &new_fixed_variables);
+        let (sub_qubo, mapping) = make_component_qubo_with_extra(
+            qubo,
+            &component,
+            fixed_vars,
+            extra_fixed_vars,
+        );
 
         // solve the subproblem via enumeration
         let (_, solution) = crate::subproblemsolvers::enumerate_qubo::enumerate_solve(&sub_qubo);
 
         // map the solution back to the original variables
         for (key, &value) in &mapping {
-            new_fixed_variables.insert(*key, solution[value]);
+            fixed_vars.insert(*key, solution[value]);
         }
     }
-
-    new_fixed_variables
 }
 
 pub fn make_component_qubo(
     qubo: &Qubo,
     component: &[usize],
     fixed_vars: &FixedVarMap,
+) -> (Qubo, VarMap) {
+    make_component_qubo_with_extra(qubo, component, fixed_vars, None)
+}
+
+pub fn make_component_qubo_with_extra(
+    qubo: &Qubo,
+    component: &[usize],
+    fixed_vars: &FixedVarMap,
+    extra_fixed_vars: Option<&FixedVarMap>,
 ) -> (Qubo, VarMap) {
     let mut Q_tri = TriMat::new((component.len(), component.len()));
     let mut c_new = Array1::<f64>::zeros(component.len());
@@ -178,19 +209,28 @@ pub fn make_component_qubo(
     }
 
     for (&value, (i, j)) in &qubo.q {
+        let fixed_i = fixed_vars
+            .get(&i)
+            .copied()
+            .or_else(|| extra_fixed_vars.and_then(|extra| extra.get(&i).copied()));
+        let fixed_j = fixed_vars
+            .get(&j)
+            .copied()
+            .or_else(|| extra_fixed_vars.and_then(|extra| extra.get(&j).copied()));
+
         match (
             index_map.get(&i),
             index_map.get(&j),
-            fixed_vars.get(&i),
-            fixed_vars.get(&j),
+            fixed_i,
+            fixed_j,
         ) {
             (Some(&i_new), Some(&j_new), _, _) => {
                 Q_tri.add_triplet(i_new, j_new, value);
             }
-            (Some(&i_new), None, _, Some(&fixed_j)) => {
+            (Some(&i_new), None, _, Some(fixed_j)) => {
                 c_new[i_new] += 0.5 * value * fixed_j as f64;
             }
-            (None, Some(&j_new), Some(&fixed_i), _) => {
+            (None, Some(&j_new), Some(fixed_i), _) => {
                 c_new[j_new] += 0.5 * value * fixed_i as f64;
             }
             _ => {}
@@ -303,6 +343,17 @@ mod tests {
         let fixed_variables = HashMap::default();
         let fixed_variables = preprocess_qubo(&p, &fixed_variables, false);
         assert_eq!(fixed_variables.len(), 3);
+    }
+
+    #[test]
+    fn test_preprocess_qubo_materializes_no_effect_variables() {
+        let p = Qubo::new_with_c(CsMat::zero((3, 3)), Array1::zeros(3));
+        let fixed_variables = preprocess_qubo(&p, &HashMap::default(), false);
+
+        assert_eq!(fixed_variables.len(), 3);
+        assert_eq!(fixed_variables.get(&0), Some(&0));
+        assert_eq!(fixed_variables.get(&1), Some(&0));
+        assert_eq!(fixed_variables.get(&2), Some(&0));
     }
 
     #[test]

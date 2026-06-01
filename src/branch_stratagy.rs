@@ -28,6 +28,12 @@ pub struct BranchResult {
     pub found_fixed_vars: FixedVarMap,
 }
 
+fn first_unfixed_variable(solver: &BBSolver, node: &QuboBBNode) -> usize {
+    (0..solver.qubo.num_x())
+        .find(|i| !node.fixed_variables.contains_key(i))
+        .expect("No variable to branch on")
+}
+
 impl BranchStrategy {
     /// # Panics
     /// if the node does not have an unfixed variable or if the branching strategy fails
@@ -63,7 +69,7 @@ impl BranchStrategy {
 }
 
 fn connected_components(solver: &BBSolver, node: &QuboBBNode) -> BranchResult {
-    let mut selected_variable = 0;
+    let mut selected_variable = first_unfixed_variable(solver, node);
     let mut max_components = 0;
     // scan through the variables and find the variable that breaks the graph into the most components
     for i in 0..solver.qubo.num_x() {
@@ -109,7 +115,7 @@ fn most_edges(solver: &BBSolver, node: &QuboBBNode) -> BranchResult {
 
     // find the variable with the most edges (fixed variables in the node are not counted)
     let mut max_edges = 0;
-    let mut index_max_edges = 0;
+    let mut index_max_edges = first_unfixed_variable(solver, node);
 
     for i in 0..solver.qubo.num_x() {
         if !node.fixed_variables.contains_key(&i) && edge_count[i] > max_edges {
@@ -148,7 +154,7 @@ fn largest_edges(solver: &BBSolver, node: &QuboBBNode) -> BranchResult {
 
     // find the variable with the most edges (fixed variables in the node are not counted)
     let mut min_edge_value = 0.0;
-    let mut index_max_edges = 0;
+    let mut index_max_edges = first_unfixed_variable(solver, node);
 
     for i in 0..solver.qubo.num_x() {
         if !node.fixed_variables.contains_key(&i) && edge_count[i] > min_edge_value {
@@ -166,7 +172,7 @@ fn largest_edges(solver: &BBSolver, node: &QuboBBNode) -> BranchResult {
 /// Computes what branch will generate the most fixed variables via the preprocesser
 pub fn most_fixed(solver: &BBSolver, node: &QuboBBNode) -> BranchResult {
     let mut most_fixed = 0;
-    let mut branch_variable = 0;
+    let mut branch_variable = first_unfixed_variable(solver, node);
 
     let mut found_fixed_vars = FixedVarMap::default();
 
@@ -232,7 +238,7 @@ pub fn first_not_fixed(solver: &BBSolver, node: &QuboBBNode) -> BranchResult {
 pub fn largest_diag(solver: &BBSolver, node: &QuboBBNode) -> BranchResult {
     // find the variable with the largest diagonal value in the Q matrix
     let mut max_diag = f64::NEG_INFINITY;
-    let mut index_max_diag = 0;
+    let mut index_max_diag = first_unfixed_variable(solver, node);
 
     for i in 0..solver.qubo.num_x() {
         if !node.fixed_variables.contains_key(&i) {
@@ -253,7 +259,7 @@ pub fn largest_diag(solver: &BBSolver, node: &QuboBBNode) -> BranchResult {
 
 pub fn most_violated(solver: &BBSolver, node: &QuboBBNode) -> BranchResult {
     let mut most_violated = 1.0;
-    let mut index_most_violated = 0;
+    let mut index_most_violated = first_unfixed_variable(solver, node);
 
     for i in 0..solver.qubo.num_x() {
         if !node.fixed_variables.contains_key(&i) {
@@ -277,7 +283,7 @@ pub fn worst_approximation_second_order(solver: &BBSolver, node: &QuboBBNode) ->
 
     // tracking variables for the worst approximation
     let mut worst_approximation = f64::NEG_INFINITY;
-    let mut index_worst_approximation = 0;
+    let mut index_worst_approximation = first_unfixed_variable(solver, node);
 
     // scan through the edges of the Q matrix and find the worst gain
 
@@ -359,12 +365,14 @@ pub fn full_strong_branching(solver: &BBSolver, node: &QuboBBNode) -> BranchResu
             lower_bound: 0.0,
             fixed_variables: list_0,
             solution: node.solution.clone(),
+            run_heuristic: false,
         };
 
         let node_1 = QuboBBNode {
             lower_bound: 0.0,
             fixed_variables: list_1,
             solution: node.solution.clone(),
+            run_heuristic: false,
         };
 
         // solve for the
@@ -466,12 +474,14 @@ pub fn partial_strong_branching(solver: &BBSolver, node: &QuboBBNode) -> BranchR
             lower_bound: 0.0,
             fixed_variables: list_0,
             solution: node.solution.clone(),
+            run_heuristic: false,
         };
 
         let node_1 = QuboBBNode {
             lower_bound: 0.0,
             fixed_variables: list_1,
             solution: node.solution.clone(),
+            run_heuristic: false,
         };
 
         let bound_0 = solver
@@ -559,7 +569,7 @@ pub fn worst_approximation(solver: &BBSolver, node: &QuboBBNode) -> BranchResult
 
     // tracking variables for the worst approximation
     let mut worst_approximation = f64::NEG_INFINITY;
-    let mut index_worst_approximation = 0;
+    let mut index_worst_approximation = first_unfixed_variable(solver, node);
 
     // scan through the variables and find the worst gain
     for i in 0..solver.qubo.num_x() {
@@ -623,7 +633,7 @@ pub fn moving_edges(solver: &BBSolver, node: &QuboBBNode) -> BranchResult {
 
     // find the variable with the most edges (fixed variables in the node are not counted)
     let mut min_edge_value = -10.0;
-    let mut index_max_edges = 0;
+    let mut index_max_edges = first_unfixed_variable(solver, node);
 
     for i in 0..solver.qubo.num_x() {
         if !node.fixed_variables.contains_key(&i) {
@@ -638,6 +648,60 @@ pub fn moving_edges(solver: &BBSolver, node: &QuboBBNode) -> BranchResult {
     BranchResult {
         branch_variable: index_max_edges,
         found_fixed_vars: FixedVarMap::default(),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{connected_components, worst_approximation_second_order};
+    use crate::branch_node::QuboBBNode;
+    use crate::branchbound::BBSolver;
+    use crate::qubo::Qubo;
+    use crate::solver_options::SolverOptions;
+    use crate::FixedVarMap;
+    use ndarray::Array1;
+    use sprs::CsMat;
+
+    fn make_solver(qubo: Qubo) -> BBSolver {
+        let mut options = SolverOptions::new();
+        options.verbose = 0;
+        options.threads = 1;
+        BBSolver::new(qubo, options)
+    }
+
+    #[test]
+    fn connected_components_falls_back_to_first_unfixed() {
+        let qubo = Qubo::new(CsMat::<f64>::zero((3, 3)));
+        let solver = make_solver(qubo);
+        let mut fixed_variables = FixedVarMap::default();
+        fixed_variables.insert(0, 0);
+        fixed_variables.insert(1, 1);
+        let node = QuboBBNode {
+            lower_bound: 0.0,
+            solution: 0.5 * Array1::ones(3),
+            fixed_variables,
+            run_heuristic: false,
+        };
+
+        let result = connected_components(&solver, &node);
+        assert_eq!(result.branch_variable, 2);
+    }
+
+    #[test]
+    fn worst_approximation_second_order_falls_back_to_first_unfixed_without_edges() {
+        let qubo = Qubo::new(CsMat::<f64>::zero((3, 3)));
+        let solver = make_solver(qubo);
+        let mut fixed_variables = FixedVarMap::default();
+        fixed_variables.insert(0, 1);
+        let node = QuboBBNode {
+            lower_bound: 0.0,
+            solution: 0.5 * Array1::ones(3),
+            fixed_variables,
+            run_heuristic: false,
+        };
+
+        let result = worst_approximation_second_order(&solver, &node);
+        assert_eq!(result.branch_variable, 1);
     }
 }
 

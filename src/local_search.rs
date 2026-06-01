@@ -39,19 +39,7 @@ use smolprng::{Algorithm, PRNG};
 /// let x_sol = local_search::simple_local_search(&p, &x_0, 1000);
 /// ```
 pub fn simple_local_search(qubo: &Qubo, x_0: &Array1<usize>, max_steps: usize) -> Array1<usize> {
-    let mut x = x_0.clone();
-    let variables: Vec<usize> = (0..qubo.num_x()).collect();
-    let mut x_1 = local_search_utils::one_step_local_search_improved(qubo, &x, &variables);
-    let mut steps = 0;
-
-    while x_1 != x && steps <= max_steps {
-        x.clone_from(&x_1);
-        // apply the local search to the selected variables
-        x_1 = local_search_utils::one_step_local_search_improved(qubo, &x, &variables);
-        steps += 1;
-    }
-
-    x_1
+    local_search_utils::two_step_local_search_descent_all(qubo, x_0, max_steps).0
 }
 
 /// Given a QUBO and a vector of initial points, run local searches on each initial point and return all of the solutions.
