@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1780201724805,
+  "lastUpdate": 1780288290903,
   "repoUrl": "https://github.com/DKenefake/hercules",
   "entries": {
     "hercules-criterion": [
@@ -1019,6 +1019,162 @@ window.BENCHMARK_DATA = {
             "name": "solver/branch_bound_solve/bqp50",
             "value": 250258404,
             "range": "± 463301",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "Dustin.Kenefake@gmail.com",
+            "name": "Dustin Kenefake",
+            "username": "DKenefake"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "03c87ce66a0389f46bc42134f113686ed995c1ac",
+          "message": "Merge pull request #17 from DKenefake/perfbranch\n\nthe union of a log of different improvements",
+          "timestamp": "2026-06-01T00:25:51-04:00",
+          "tree_id": "875b123506c3b9b9573e71adcddb6c800b3937bd",
+          "url": "https://github.com/DKenefake/hercules/commit/03c87ce66a0389f46bc42134f113686ed995c1ac"
+        },
+        "date": 1780288290613,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "helpers/eval_usize/128",
+            "value": 1458,
+            "range": "± 32",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "helpers/eval_grad_usize/128",
+            "value": 1866,
+            "range": "± 2",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "helpers/one_flip_objective/64",
+            "value": 875,
+            "range": "± 6",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "helpers/one_step_local_search/64",
+            "value": 946,
+            "range": "± 5",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "preprocess/iterative_persistence/64",
+            "value": 23426,
+            "range": "± 270",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "preprocess/disconnected_graphs/64",
+            "value": 973,
+            "range": "± 34",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "preprocess/solve_small_components/64",
+            "value": 24798,
+            "range": "± 87",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "preprocess/enumerate_solve/10",
+            "value": 22843,
+            "range": "± 164",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "preprocess/preprocess_qubo/64",
+            "value": 11562,
+            "range": "± 30",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "preprocess/probe_limited/test_large/25",
+            "value": 414330818,
+            "range": "± 313283",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "preprocess/probe_limited/test_large/50",
+            "value": 832790262,
+            "range": "± 6334385",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "preprocess/probe_limited/test_large/100",
+            "value": 1649451883,
+            "range": "± 8176743",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "preprocess/preprocess_qubo_heavy/test_large",
+            "value": 68391786,
+            "range": "± 81239",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "solver/process_node/64",
+            "value": 71181,
+            "range": "± 235",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "solver/convex_symmetric_form/random64",
+            "value": 1143345,
+            "range": "± 5560",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "solver/convex_symmetric_form/gka6a",
+            "value": 482201,
+            "range": "± 916",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "solver/branch_bound_solve/random96",
+            "value": 403431,
+            "range": "± 8117",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "solver/branch_bound_solve/gka1b",
+            "value": 6107509,
+            "range": "± 9693",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "solver/branch_bound_solve/gka2b",
+            "value": 29547777,
+            "range": "± 85128",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "solver/branch_bound_solve/gka6a",
+            "value": 15431763,
+            "range": "± 54136",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "solver/branch_bound_solve/gka7a",
+            "value": 12186721,
+            "range": "± 67482",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "solver/branch_bound_solve/bqp50",
+            "value": 247151942,
+            "range": "± 227747",
             "unit": "ns/iter"
           }
         ]
