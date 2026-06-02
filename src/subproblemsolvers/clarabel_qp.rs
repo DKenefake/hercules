@@ -1,6 +1,6 @@
 use crate::branch_node::QuboBBNode;
 use crate::branch_subproblem::SubProblemSolver;
-use crate::branch_subproblem::{SubProblemOptions, SubProblemResult};
+use crate::branch_subproblem::{BasicSubProblemResult, SubProblemOptions, SubProblemResult};
 use crate::branchbound::BBSolver;
 use crate::preprocess::make_sub_problem;
 use crate::qubo::Qubo;
@@ -18,7 +18,7 @@ impl SubProblemSolver for ClarabelQPSolver {
         bbsolver: &BBSolver,
         node: &QuboBBNode,
         _: Option<SubProblemOptions>,
-    ) -> SubProblemResult {
+    ) -> Box<dyn SubProblemResult> {
         // solve QP associated with the node
         // generate default settings
         let settings = DefaultSettings {
@@ -33,7 +33,10 @@ impl SubProblemSolver for ClarabelQPSolver {
                 sol[i] = val as f64;
             }
             let obj = bbsolver.qubo.eval(&sol);
-            return (obj, sol);
+            return Box::new(BasicSubProblemResult {
+                lower_bound: obj,
+                relaxed_solution: sol,
+            });
         }
 
         // find projected subproblem
@@ -88,7 +91,10 @@ impl SubProblemSolver for ClarabelQPSolver {
         }
 
         let obj = bbsolver.qubo.eval(&x);
-        (obj, x)
+        Box::new(BasicSubProblemResult {
+            lower_bound: obj,
+            relaxed_solution: x,
+        })
     }
 }
 

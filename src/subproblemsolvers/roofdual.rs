@@ -10,7 +10,9 @@
 //! - read strong persistencies from the source side of the residual graph.
 
 use crate::branch_node::QuboBBNode;
-use crate::branch_subproblem::{SubProblemOptions, SubProblemResult, SubProblemSolver};
+use crate::branch_subproblem::{
+    BasicSubProblemResult, SubProblemOptions, SubProblemResult, SubProblemSolver,
+};
 use crate::branchbound::BBSolver;
 use crate::preprocess::make_sub_problem;
 use crate::qubo::Qubo;
@@ -79,7 +81,7 @@ impl SubProblemSolver for RoofDualSolver {
         bbsolver: &BBSolver,
         node: &QuboBBNode,
         _: Option<SubProblemOptions>,
-    ) -> SubProblemResult {
+    ) -> Box<dyn SubProblemResult> {
         let result = roof_duality_presolve(&bbsolver.qubo_pp_form, &node.fixed_variables);
 
         let mut solution = Array1::from_elem(bbsolver.qubo.num_x(), 0.5);
@@ -90,7 +92,10 @@ impl SubProblemSolver for RoofDualSolver {
             solution[index] = value as f64;
         }
 
-        (result.lower_bound.unwrap_or(f64::NEG_INFINITY), solution)
+        Box::new(BasicSubProblemResult {
+            lower_bound: result.lower_bound.unwrap_or(f64::NEG_INFINITY),
+            relaxed_solution: solution,
+        })
     }
 }
 

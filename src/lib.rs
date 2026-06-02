@@ -59,6 +59,7 @@ pub mod subproblemsolvers {
 
     pub mod hercules_abqp;
     pub mod hercules_cd_qp;
+    pub mod mixingcut_sdp;
 
     pub mod enumerate_qubo;
     pub mod roofdual;

@@ -391,11 +391,6 @@ pub fn solve_branch_bound(
     // read in the QUBO
     let p_input = Qubo::from_vec(problem.0, problem.1, problem.2, problem.3, problem.4);
 
-    let symm_p = p_input.make_symmetric();
-
-    // run preprocessing on the symmetric QUBO
-    let fixed_variables = preprocess_qubo(&symm_p, &FixedVarMap::default(), false);
-
     let mut options = SolverOptions::new();
 
     options.seed = seed.unwrap_or(12_345_679usize);
@@ -414,9 +409,7 @@ pub fn solve_branch_bound(
 
     options.max_time = timeout;
 
-    options.fixed_variables = fixed_variables;
-
-    let mut solver = BBSolver::new(symm_p, options);
+    let mut solver = BBSolver::new(p_input, options);
 
     // if we have a warm start, use it
     if let Some(x) = warm_start {

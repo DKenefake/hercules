@@ -88,6 +88,9 @@ impl SolverOptions {
                 "roof_dual" => {
                     self.sub_problem_solver = SubProblemSelection::RoofDualQPBO;
                 }
+                "mixingcut_sdp" => {
+                    self.sub_problem_solver = SubProblemSelection::MixingCutSDP;
+                }
                 _ => self.sub_problem_solver = SubProblemSelection::HerculesABQP,
             }
         }
@@ -169,6 +172,16 @@ mod tests {
         assert!(matches!(
             options.sub_problem_solver,
             SubProblemSelection::RoofDualQPBO
+        ));
+    }
+
+    #[test]
+    fn test_solver_options_set_sub_problem_strat_mixingcut() {
+        let mut options = SolverOptions::new();
+        options.set_sub_problem_strategy(Some("mixingcut_sdp".to_string()));
+        assert!(matches!(
+            options.sub_problem_solver,
+            SubProblemSelection::MixingCutSDP
         ));
     }
 

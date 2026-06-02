@@ -1,6 +1,17 @@
 use crate::FixedVarMap;
-use ndarray::Array1;
+use ndarray::{Array1, Array2};
 use std::cmp::Ordering;
+
+#[derive(Clone)]
+pub struct MixingCutNodeState {
+    pub factor_matrix: Array2<f64>,
+    pub free_variables: Vec<usize>,
+}
+
+#[derive(Clone)]
+pub enum SubProblemNodeState {
+    MixingCut(MixingCutNodeState),
+}
 
 /// Struct the describes the branch and bound tree nodes
 #[derive(Clone)]
@@ -9,6 +20,7 @@ pub struct QuboBBNode {
     pub solution: Array1<f64>,
     pub fixed_variables: FixedVarMap,
     pub run_heuristic: bool,
+    pub subproblem_state: Option<SubProblemNodeState>,
 }
 
 impl Eq for QuboBBNode {}
