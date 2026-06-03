@@ -1,17 +1,18 @@
 use crate::FixedVarMap;
 use crate::constraint::Constraint;
+use crate::early_termination::beck_proof;
 use crate::qubo::Qubo;
 use ndarray::Array1;
 use rayon::prelude::*;
 
 use crate::branch_node::QuboBBNode;
 use crate::branch_stratagy::{BranchResult, BranchStrategy};
-use crate::branch_subproblem::{get_sub_problem_solver, SubProblemSolver};
+use crate::branch_subproblem::{get_sub_problem_solver, SubProblemResult, SubProblemSolver};
 use crate::branchbound_utils::{check_integer_feasibility, get_current_time};
 use crate::branchboundlogger::SolverOutputLogger;
 use crate::lower_bound::li_lower_bound;
 use crate::preprocess;
-use crate::preprocess::{prepare_preprocess, preprocess_with_prepared, PreparedPreprocess};
+use crate::preprocess::{make_sub_problem, prepare_preprocess, preprocess_with_prepared, PreparedPreprocess};
 use crate::solver_options::{NodeLowerBoundSelection, SolverOptions};
 use crate::subproblemsolvers::roofdual::iterative_roof_duality_presolve;
 use crate::variable_reduction::probe_limited;
@@ -124,12 +125,22 @@ impl BBSolver {
             solution: 0.5 * Array1::ones(self.qubo.num_x()), // initial guess is 0.5 for all variables
             fixed_variables,
             run_heuristic: true,
+            subproblem_state: None,
         };
 
         // solve the root node subproblem
-        let (root_lower_bound, root_solution) = self.solve_node(&root_node);
+        let root_result = self.solve_node(&root_node);
+        let (root_lower_bound, root_relaxed_solution, root_primal_solution, root_subproblem_state) =
+            root_result.into_parts();
         root_node.lower_bound = root_node.lower_bound.max(root_lower_bound);
-        root_node.solution = root_solution;
+        if let Some(solution) = root_relaxed_solution {
+            root_node.solution = solution;
+        }
+        root_node.subproblem_state = root_subproblem_state;
+        if let Some(solution) = root_primal_solution {
+            let value = self.qubo.eval_usize(&solution);
+            self.update_solution_if_better(&solution, value);
+        }
 
         // add the root node to the list of nodes
         self.nodes.push(root_node);
@@ -275,11 +286,21 @@ impl BBSolver {
         }
 
         // We now need to solve the node to generate the lower bound and solution
-        let (lower_bound, solution) = self.solve_node(&node);
-        let lower_bound = lower_bound.max(node.lower_bound);
+        let solve_result = self.solve_node(&node);
+        let (solve_lower_bound, solve_relaxed_solution, solve_primal_solution, solve_subproblem_state) =
+            solve_result.into_parts();
+        let lower_bound = solve_lower_bound.max(node.lower_bound);
 
-        // inject the solution back into the node
-        node.solution.clone_from(&solution);
+        // inject the relaxed solution back into the node when available
+        if let Some(solution) = solve_relaxed_solution {
+            node.solution = solution;
+        }
+        node.subproblem_state = solve_subproblem_state;
+
+        let primal_update = solve_primal_solution.map(|solution| {
+            let value = self.qubo.eval_usize(&solution);
+            (solution, value)
+        });
 
         // determine what variable we are branching on
         let branch_result = self.make_branch(&node);
@@ -311,9 +332,16 @@ impl BBSolver {
             .run_heuristic
             .then(|| self.options.heuristic.make_heuristic(self, &node));
 
+        let best_update = match (primal_update, best_update) {
+            (Some(primal), Some(heuristic)) => Some(if primal.1 <= heuristic.1 { primal } else { heuristic }),
+            (Some(primal), None) => Some(primal),
+            (None, heuristic) => heuristic,
+        };
+
         // generate the branches
+        let branch_solution = node.solution.clone();
         let (zero_branch, one_branch) =
-            Self::branch(node, branch_result.branch_variable, lower_bound, solution);
+            Self::branch(node, branch_result.branch_variable, lower_bound, branch_solution);
 
         ProcessNodeState {
             best_update,
@@ -470,7 +498,7 @@ impl BBSolver {
         (zero_branch, one_branch)
     }
 
-    pub fn solve_node(&self, node: &QuboBBNode) -> (f64, Array1<f64>) {
+    pub fn solve_node(&self, node: &QuboBBNode) -> Box<dyn SubProblemResult> {
         self.subproblem_solver.solve_lower_bound(self, node, None)
     }
 
@@ -479,6 +507,30 @@ impl BBSolver {
         fixed_variables: &FixedVarMap,
     ) -> FixedVarMap {
         preprocess_with_prepared(&self.prepared_preprocess, fixed_variables)
+    }
+
+    fn beck_proof_node_candidate(&self, node: &QuboBBNode) -> Option<(Array1<usize>, f64)> {
+        let (sub_qubo, mapping, _constant) = make_sub_problem(&self.qubo, &node.fixed_variables);
+        if sub_qubo.num_x() == 0 {
+            return None;
+        }
+
+        let mut reduced_candidate = Array1::zeros(sub_qubo.num_x());
+        let mut full_solution = self.best_solution.clone();
+        for (&index, &value) in &node.fixed_variables {
+            full_solution[index] = value;
+        }
+
+        for (&original_index, &reduced_index) in &mapping {
+            reduced_candidate[reduced_index] = full_solution[original_index];
+        }
+
+        if !beck_proof(&sub_qubo, &reduced_candidate) {
+            return None;
+        }
+
+        let value = self.qubo.eval_usize(&full_solution);
+        Some((full_solution, value))
     }
 
     fn apply_node_lower_bound(&self, fixed_variables: &mut FixedVarMap) -> f64 {
@@ -545,6 +597,7 @@ mod tests {
             solution: 0.5 * Array1::ones(2),
             fixed_variables: HashMap::default(),
             run_heuristic: true,
+            subproblem_state: None,
         });
 
         let node = solver.get_next_node().expect("expected root node");
@@ -571,7 +624,7 @@ mod tests {
 
     #[test]
     pub fn test_gka2b_solve() {
-        let file_path = "test_data/gka2b.qubo";
+        let file_path = "test_data/gka/gka2b.qubo";
         let p = Qubo::read_qubo(file_path);
 
         let sol_val = Array1::from_vec(vec![
@@ -584,7 +637,7 @@ mod tests {
 
     #[test]
     pub fn test_gka1b_solve() {
-        let file_path = "test_data/gka1b.qubo";
+        let file_path = "test_data/gka/gka1b.qubo";
         let p = Qubo::read_qubo(file_path);
 
         let sol_val = Array1::from_vec(vec![
@@ -595,7 +648,7 @@ mod tests {
 
     #[test]
     pub fn test_gka6a_solve() {
-        let file_path = "test_data/gka6a.qubo";
+        let file_path = "test_data/gka/gka6a.qubo";
         let p = Qubo::read_qubo(file_path);
 
         let sol_val = Array1::from_vec(vec![
@@ -607,7 +660,7 @@ mod tests {
 
     #[test]
     pub fn test_gka7a_solve() {
-        let file_path = "test_data/gka7a.qubo";
+        let file_path = "test_data/gka/gka7a.qubo";
         let p = Qubo::read_qubo(file_path);
 
         let sol_val = Array1::from_vec(vec![
@@ -678,5 +731,201 @@ mod tests {
         // the solution should be within 1E-5 of the actual solution
         // we don't check against the solution as there can be multiple optimal solutions
         assert!((sol_value - actual_obj).abs() <= 1E-5);
+    }
+
+    fn solve_public_bqp_instance_to_expected_objective_with_options(
+        file_path: &str,
+        expected_objective: f64,
+        branch_strategy: BranchStrategy,
+        sub_problem_solver: SubProblemSelection,
+        threads: usize,
+    ) {
+        let mut qubo = Qubo::read_qubo(file_path);
+        let mut tri_q = sprs::TriMat::<f64>::new((qubo.num_x(), qubo.num_x()));
+        for (&value, (i, j)) in &qubo.q {
+            let scale = if i == j { 2.0 } else { 4.0 };
+            tri_q.add_triplet(i, j, scale * value);
+        }
+        qubo.q = tri_q.to_csr();
+
+        let mut options = SolverOptions::new();
+        options.branch_strategy = branch_strategy;
+        options.sub_problem_solver = sub_problem_solver;
+        options.verbose = 0;
+        options.threads = threads;
+        options.max_time = f64::INFINITY;
+
+        let mut solver = branchbound::BBSolver::new(qubo, options);
+        let (_, sol_value) = solver.solve();
+
+        assert!(
+            (sol_value - expected_objective).abs() <= 1E-5,
+            "instance {file_path} solved to {sol_value}, expected {expected_objective}"
+        );
+    }
+
+    fn solve_public_bqp_instance_to_expected_objective(file_path: &str, expected_objective: f64) {
+        solve_public_bqp_instance_to_expected_objective_with_options(
+            file_path,
+            expected_objective,
+            BranchStrategy::LargestEdges,
+            SubProblemSelection::MixingCutSDP,
+            64,
+        );
+    }
+
+    fn solve_public_upper_triangle_instance_to_expected_objective_with_options(
+        file_path: &str,
+        expected_objective: f64,
+        branch_strategy: BranchStrategy,
+        sub_problem_solver: SubProblemSelection,
+        threads: usize,
+    ) {
+        let mut qubo = Qubo::read_qubo(file_path);
+        qubo.q = &qubo.q * 2.0;
+
+        let mut options = SolverOptions::new();
+        options.branch_strategy = branch_strategy;
+        options.sub_problem_solver = sub_problem_solver;
+        options.verbose = 0;
+        options.threads = threads;
+        options.max_time = f64::INFINITY;
+
+        let mut solver = branchbound::BBSolver::new(qubo, options);
+        let (_, sol_value) = solver.solve();
+
+        assert!(
+            (sol_value - expected_objective).abs() <= 1E-5,
+            "instance {file_path} solved to {sol_value}, expected {expected_objective}"
+        );
+    }
+
+    #[test]
+    fn test_bqp50_objectives() {
+        // Expected objectives taken from:
+        // http://bqp.cs.uni-bonn.de/library/html/instances.html
+        let cases = [
+            ("test_data/bqp/bqp50-1.qubo", -2098.0),
+            ("test_data/bqp/bqp50-2.qubo", -3702.0),
+            ("test_data/bqp/bqp50-3.qubo", -4626.0),
+            ("test_data/bqp/bqp50-4.qubo", -3544.0),
+            ("test_data/bqp/bqp50-5.qubo", -4012.0),
+            ("test_data/bqp/bqp50-6.qubo", -3693.0),
+            ("test_data/bqp/bqp50-7.qubo", -4520.0),
+            ("test_data/bqp/bqp50-8.qubo", -4216.0),
+            ("test_data/bqp/bqp50-9.qubo", -3780.0),
+            ("test_data/bqp/bqp50-10.qubo", -3507.0),
+        ];
+
+        for (file_path, expected_objective) in cases {
+            solve_public_bqp_instance_to_expected_objective(file_path, expected_objective);
+        }
+    }
+
+    #[test]
+    fn test_bqp100_objectives() {
+        // Expected objectives taken from:
+        // http://bqp.cs.uni-bonn.de/library/html/instances.html
+        let cases = [
+            ("test_data/bqp/bqp100-1.qubo", -7970.0),
+            ("test_data/bqp/bqp100-2.qubo", -11036.0),
+            ("test_data/bqp/bqp100-3.qubo", -12723.0),
+            ("test_data/bqp/bqp100-4.qubo", -10368.0),
+            ("test_data/bqp/bqp100-5.qubo", -9083.0),
+            ("test_data/bqp/bqp100-6.qubo", -10210.0),
+            ("test_data/bqp/bqp100-7.qubo", -10125.0),
+            ("test_data/bqp/bqp100-8.qubo", -11435.0),
+            ("test_data/bqp/bqp100-9.qubo", -11455.0),
+            ("test_data/bqp/bqp100-10.qubo", -12565.0),
+        ];
+
+        for (file_path, expected_objective) in cases {
+            solve_public_bqp_instance_to_expected_objective(file_path, expected_objective);
+        }
+    }
+
+    #[test]
+    #[ignore = "expensive BE regression with MixingCutSDP + LargestEdges"]
+    fn test_be100_objectives_mixingcut_largest_edges() {
+        // Expected objectives taken from:
+        // http://bqp.cs.uni-bonn.de/library/html/instances.html
+        let cases = [
+            ("test_data/be/be100.1.qubo", -19412.0),
+            ("test_data/be/be100.2.qubo", -17290.0),
+            ("test_data/be/be100.3.qubo", -17565.0),
+            ("test_data/be/be100.4.qubo", -19125.0),
+            ("test_data/be/be100.5.qubo", -15868.0),
+            ("test_data/be/be100.6.qubo", -17368.0),
+            ("test_data/be/be100.7.qubo", -18629.0),
+            ("test_data/be/be100.8.qubo", -18649.0),
+            ("test_data/be/be100.9.qubo", -13294.0),
+            ("test_data/be/be100.10.qubo", -15352.0),
+        ];
+
+        for (file_path, expected_objective) in cases {
+            solve_public_upper_triangle_instance_to_expected_objective_with_options(
+                file_path,
+                expected_objective,
+                BranchStrategy::LargestEdges,
+                SubProblemSelection::MixingCutSDP,
+                64,
+            );
+        }
+    }
+
+    #[test]
+    fn test_gka_small_objectives() {
+        // Expected objectives taken from:
+        // http://bqp.cs.uni-bonn.de/library/html/instances.html
+        let cases = [
+            ("test_data/gka/gka1a.qubo", -3414.0),
+            ("test_data/gka/gka1b.qubo", -133.0),
+            ("test_data/gka/gka1c.qubo", -5058.0),
+            ("test_data/gka/gka2a.qubo", -6063.0),
+            ("test_data/gka/gka2b.qubo", -121.0),
+            ("test_data/gka/gka2c.qubo", -6213.0),
+            ("test_data/gka/gka3a.qubo", -6037.0),
+            ("test_data/gka/gka3b.qubo", -118.0),
+            ("test_data/gka/gka3c.qubo", -6665.0),
+            ("test_data/gka/gka4a.qubo", -8598.0),
+            ("test_data/gka/gka4b.qubo", -129.0),
+            ("test_data/gka/gka5a.qubo", -5737.0),
+            ("test_data/gka/gka5b.qubo", -150.0),
+            ("test_data/gka/gka6b.qubo", -146.0),
+        ];
+
+        for (file_path, expected_objective) in cases {
+            solve_public_upper_triangle_instance_to_expected_objective_with_options(
+                file_path,
+                expected_objective,
+                BranchStrategy::LargestEdges,
+                SubProblemSelection::MixingCutSDP,
+                64,
+            );
+        }
+    }
+
+    #[test]
+    #[ignore = "expensive W regression with MixingCutSDP + LargestEdges"]
+    fn test_w_small_objectives() {
+        // Expected objectives taken from:
+        // http://bqp.cs.uni-bonn.de/library/html/instances.html
+        let cases = [
+            ("test_data/w/g05_60.0.qubo", -536.0),
+            ("test_data/w/pm1s_80.0.qubo", -79.0),
+            ("test_data/w/pm1d_80.0.qubo", -227.0),
+            ("test_data/w/w01_100.0.qubo", -651.0),
+            ("test_data/w/pw01_100.1.qubo", -2060.0),
+        ];
+
+        for (file_path, expected_objective) in cases {
+            solve_public_upper_triangle_instance_to_expected_objective_with_options(
+                file_path,
+                expected_objective,
+                BranchStrategy::LargestEdges,
+                SubProblemSelection::MixingCutSDP,
+                64,
+            );
+        }
     }
 }

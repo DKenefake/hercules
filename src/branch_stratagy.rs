@@ -366,6 +366,7 @@ pub fn full_strong_branching(solver: &BBSolver, node: &QuboBBNode) -> BranchResu
             fixed_variables: list_0,
             solution: node.solution.clone(),
             run_heuristic: false,
+            subproblem_state: node.subproblem_state.clone(),
         };
 
         let node_1 = QuboBBNode {
@@ -373,6 +374,7 @@ pub fn full_strong_branching(solver: &BBSolver, node: &QuboBBNode) -> BranchResu
             fixed_variables: list_1,
             solution: node.solution.clone(),
             run_heuristic: false,
+            subproblem_state: node.subproblem_state.clone(),
         };
 
         // solve for the
@@ -384,12 +386,12 @@ pub fn full_strong_branching(solver: &BBSolver, node: &QuboBBNode) -> BranchResu
             .solve_lower_bound(solver, &node_1, None);
 
         // find the minimum of the two objectives
-        let score = bound_0.0.min(bound_1.0);
+        let score = bound_0.lower_bound().min(bound_1.lower_bound());
 
-        if bound_0.0 >= solver.best_solution_value {
+        if bound_0.lower_bound() >= solver.best_solution_value {
             found_fixes.insert(*i, 1);
             fixed_variables.insert(*i, 1);
-        } else if bound_1.0 >= solver.best_solution_value {
+        } else if bound_1.lower_bound() >= solver.best_solution_value {
             found_fixes.insert(*i, 0);
             fixed_variables.insert(*i, 0);
         }
@@ -475,6 +477,7 @@ pub fn partial_strong_branching(solver: &BBSolver, node: &QuboBBNode) -> BranchR
             fixed_variables: list_0,
             solution: node.solution.clone(),
             run_heuristic: false,
+            subproblem_state: node.subproblem_state.clone(),
         };
 
         let node_1 = QuboBBNode {
@@ -482,6 +485,7 @@ pub fn partial_strong_branching(solver: &BBSolver, node: &QuboBBNode) -> BranchR
             fixed_variables: list_1,
             solution: node.solution.clone(),
             run_heuristic: false,
+            subproblem_state: node.subproblem_state.clone(),
         };
 
         let bound_0 = solver
@@ -492,12 +496,12 @@ pub fn partial_strong_branching(solver: &BBSolver, node: &QuboBBNode) -> BranchR
             .subproblem_solver
             .solve_lower_bound(solver, &node_1, None);
 
-        let score_i = bound_0.0.min(bound_1.0);
+        let score_i = bound_0.lower_bound().min(bound_1.lower_bound());
 
-        if bound_0.0 >= solver.best_solution_value {
+        if bound_0.lower_bound() >= solver.best_solution_value {
             found_fixes.insert(j, 1);
             fixed_variables.insert(j, 1);
-        } else if bound_1.0 >= solver.best_solution_value {
+        } else if bound_1.lower_bound() >= solver.best_solution_value {
             found_fixes.insert(j, 0);
             fixed_variables.insert(j, 0);
         }
@@ -704,6 +708,7 @@ mod tests {
             solution: 0.5 * Array1::ones(3),
             fixed_variables,
             run_heuristic: false,
+            subproblem_state: None,
         };
 
         let result = connected_components(&solver, &node);
@@ -721,6 +726,7 @@ mod tests {
             solution: 0.5 * Array1::ones(3),
             fixed_variables,
             run_heuristic: false,
+            subproblem_state: None,
         };
 
         let result = worst_approximation_second_order(&solver, &node);

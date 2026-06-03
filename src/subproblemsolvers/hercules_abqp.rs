@@ -1,5 +1,7 @@
 use crate::branch_node::QuboBBNode;
-use crate::branch_subproblem::{SubProblemOptions, SubProblemResult, SubProblemSolver};
+use crate::branch_subproblem::{
+    BasicSubProblemResult, SubProblemOptions, SubProblemResult, SubProblemSolver,
+};
 use crate::branchbound::BBSolver;
 use crate::qubo::Qubo;
 use herculesabqp::matrix::QuadraticMatrix;
@@ -38,7 +40,7 @@ impl SubProblemSolver for HerculesABQPSolver {
         bbsolver: &BBSolver,
         node: &QuboBBNode,
         sub_problem_options: Option<SubProblemOptions>,
-    ) -> SubProblemResult {
+    ) -> Box<dyn SubProblemResult> {
         let n = bbsolver.qubo.num_x();
         let mut lb = vec![0.0; n];
         let mut ub = vec![1.0; n];
@@ -60,10 +62,10 @@ impl SubProblemSolver for HerculesABQPSolver {
             .solve(&lb, &ub, &options)
             .expect("HerculesABQP subproblem solve failed");
 
-        (
-            result.quality.certified_lower_bound,
-            Array1::from_vec(result.x),
-        )
+        Box::new(BasicSubProblemResult {
+            lower_bound: result.quality.certified_lower_bound,
+            relaxed_solution: Array1::from_vec(result.x),
+        })
     }
 }
 

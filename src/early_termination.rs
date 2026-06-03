@@ -23,6 +23,9 @@ use ndarray::Array1;
 /// let suff = early_termination::beck_proof(&p, &x);
 /// ```
 pub fn beck_proof(qubo: &Qubo, x: &Array1<usize>) -> bool {
+    // find the minimum eigenvalue of the hessian
+    let eigs = qubo.hess_eigenvalues();
+    let min_eig = eigs.iter().fold(f64::INFINITY, |acc, &x| x.min(acc));
     // 2(2X - I)(Qx + c) <= min(Eig(Q))e
     // Where X is diag(x), lets just get a naive implementation done first
 
@@ -30,10 +33,6 @@ pub fn beck_proof(qubo: &Qubo, x: &Array1<usize>) -> bool {
     let qx_b = (&qubo.q * &x_float) + &qubo.c; // Qx + c
 
     let lhs = 2.0 * (2.0 * &x_float - 1.0) * &qx_b; // 2(2X - I)(Qx + c)
-
-    // find the minimum eigenvalue of the hessian
-    let eigs = qubo.hess_eigenvalues();
-    let min_eig = eigs.iter().fold(f64::INFINITY, |acc, &x| x.min(acc));
 
     // check if the Sufficiency condition is met for each index
     for i in 0..qubo.num_x() {
@@ -68,4 +67,5 @@ mod tests {
         // the sufficiency condition should be met
         assert!(beck_proof(&p, &cand_sol));
     }
+
 }

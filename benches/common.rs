@@ -56,10 +56,10 @@ pub fn make_bench_data() -> BenchData {
     let qubo_medium = Qubo::make_random_qubo(128, &mut prng, 0.08);
     let qubo_enum = Qubo::make_random_qubo(10, &mut enum_prng, 0.25);
     let qubo_solve = Qubo::make_random_qubo(96, &mut solve_prng, 0.08);
-    let qubo_gka1b = Qubo::read_qubo("test_data/gka1b.qubo");
-    let qubo_gka2b = Qubo::read_qubo("test_data/gka2b.qubo");
-    let qubo_gka6a = Qubo::read_qubo("test_data/gka6a.qubo");
-    let qubo_gka7a = Qubo::read_qubo("test_data/gka7a.qubo");
+    let qubo_gka1b = Qubo::read_qubo("test_data/gka/gka1b.qubo");
+    let qubo_gka2b = Qubo::read_qubo("test_data/gka/gka2b.qubo");
+    let qubo_gka6a = Qubo::read_qubo("test_data/gka/gka6a.qubo");
+    let qubo_gka7a = Qubo::read_qubo("test_data/gka/gka7a.qubo");
     let qubo_bqp50 = Qubo::read_qubo("test_data/bqp50.qubo");
     let qubo_test_large = Qubo::read_qubo("test_data/test_large.qubo");
     let x_small = generate_random_binary_point(qubo_small.num_x(), &mut prng, 0.5);
@@ -73,6 +73,7 @@ pub fn make_bench_data() -> BenchData {
         solution: 0.5 * Array1::ones(process_solver.qubo.num_x()),
         fixed_variables: process_solver.options.fixed_variables.clone(),
         run_heuristic: false,
+        subproblem_state: None,
     };
 
     BenchData {

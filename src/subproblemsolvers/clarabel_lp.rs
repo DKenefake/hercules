@@ -1,6 +1,6 @@
 use crate::branch_node::QuboBBNode;
 use crate::branch_subproblem::SubProblemSolver;
-use crate::branch_subproblem::{SubProblemOptions, SubProblemResult};
+use crate::branch_subproblem::{BasicSubProblemResult, SubProblemOptions, SubProblemResult};
 use crate::branchbound::BBSolver;
 use crate::qubo::Qubo;
 use clarabel::algebra::CscMatrix;
@@ -30,7 +30,7 @@ impl SubProblemSolver for ClarabelLPSolver {
         bbsolver: &BBSolver,
         node: &QuboBBNode,
         _: Option<SubProblemOptions>,
-    ) -> SubProblemResult {
+    ) -> Box<dyn SubProblemResult> {
         // Uses the Glover Relaxation to solve the LP associated with the node
         let settings = DefaultSettings {
             verbose: false,
@@ -127,6 +127,9 @@ impl SubProblemSolver for ClarabelLPSolver {
         let lower_bound = solver.solution.obj_val;
 
         // output a dummy value for now
-        (lower_bound, x_sol)
+        Box::new(BasicSubProblemResult {
+            lower_bound,
+            relaxed_solution: x_sol,
+        })
     }
 }

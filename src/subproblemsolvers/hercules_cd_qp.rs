@@ -1,5 +1,7 @@
 use crate::branch_node::QuboBBNode;
-use crate::branch_subproblem::{SubProblemOptions, SubProblemResult, SubProblemSolver};
+use crate::branch_subproblem::{
+    BasicSubProblemResult, SubProblemOptions, SubProblemResult, SubProblemSolver,
+};
 use crate::branchbound::BBSolver;
 use crate::preprocess::make_sub_problem;
 use crate::qubo::Qubo;
@@ -21,7 +23,7 @@ impl SubProblemSolver for HerculesCDQPSolver {
         bbsolver: &BBSolver,
         node: &QuboBBNode,
         sub_problem_options: Option<SubProblemOptions>,
-    ) -> SubProblemResult {
+    ) -> Box<dyn SubProblemResult> {
         let max_iterations = sub_problem_options
             .and_then(|opts| opts.max_iterations)
             .unwrap_or(100_000);
@@ -34,7 +36,10 @@ impl SubProblemSolver for HerculesCDQPSolver {
         );
         let obj = bbsolver.qubo.eval(&x);
 
-        (obj, x)
+        Box::new(BasicSubProblemResult {
+            lower_bound: obj,
+            relaxed_solution: x,
+        })
     }
 }
 
