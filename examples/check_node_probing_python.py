@@ -1,4 +1,5 @@
-"""Smoke-test fresh Python bindings.
+"""
+Smoke-test fresh Python bindings.
 
 Usage: python3 examples/check_node_probing_python.py /target/debug/libhercules.so
 """
