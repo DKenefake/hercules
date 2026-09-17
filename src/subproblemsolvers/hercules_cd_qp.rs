@@ -18,6 +18,10 @@ impl HerculesCDQPSolver {
 }
 
 impl SubProblemSolver for HerculesCDQPSolver {
+    fn for_reduced_qubo(&self, qubo: &Qubo) -> Option<Box<dyn SubProblemSolver + Sync>> {
+        Some(Box::new(Self::new(qubo)))
+    }
+
     fn solve_lower_bound(
         &self,
         bbsolver: &BBSolver,

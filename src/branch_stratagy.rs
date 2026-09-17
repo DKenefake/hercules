@@ -378,12 +378,8 @@ pub fn full_strong_branching(solver: &BBSolver, node: &QuboBBNode) -> BranchResu
         };
 
         // solve for the
-        let bound_0 = solver
-            .subproblem_solver
-            .solve_lower_bound(solver, &node_0, None);
-        let bound_1 = solver
-            .subproblem_solver
-            .solve_lower_bound(solver, &node_1, None);
+        let bound_0 = solver.solve_node(&node_0);
+        let bound_1 = solver.solve_node(&node_1);
 
         // find the minimum of the two objectives
         let score = bound_0.lower_bound().min(bound_1.lower_bound());
@@ -488,13 +484,9 @@ pub fn partial_strong_branching(solver: &BBSolver, node: &QuboBBNode) -> BranchR
             subproblem_state: node.subproblem_state.clone(),
         };
 
-        let bound_0 = solver
-            .subproblem_solver
-            .solve_lower_bound(solver, &node_0, None);
+        let bound_0 = solver.solve_node(&node_0);
 
-        let bound_1 = solver
-            .subproblem_solver
-            .solve_lower_bound(solver, &node_1, None);
+        let bound_1 = solver.solve_node(&node_1);
 
         let score_i = bound_0.lower_bound().min(bound_1.lower_bound());
 

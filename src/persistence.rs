@@ -1,10 +1,196 @@
-use crate::FixedVarMap;
-use crate::preprocess::solve_small_components_in_place_with_extra;
+use crate::preprocess::solve_small_components_with_adjacency;
 use crate::qubo::Qubo;
-use std::cmp::min;
+use crate::FixedVarMap;
 use std::collections::VecDeque;
 
 pub(crate) type GradientAdjacency = Vec<Vec<(usize, f64)>>;
+
+#[derive(Clone)]
+pub(crate) struct GradientBounds {
+    fixed_values: Vec<Option<u8>>,
+    lower: Vec<f64>,
+    upper: Vec<f64>,
+}
+
+impl GradientBounds {
+    pub(crate) fn new(
+        qubo: &Qubo,
+        persistent: &FixedVarMap,
+        extra_fixed: &FixedVarMap,
+        adjacency: &GradientAdjacency,
+    ) -> Self {
+        let mut bounds = Self {
+            fixed_values: vec![None; qubo.num_x()],
+            lower: vec![0.0; qubo.num_x()],
+            upper: vec![0.0; qubo.num_x()],
+        };
+        bounds.reset(qubo, persistent, extra_fixed, adjacency);
+        bounds
+    }
+
+    fn reset(
+        &mut self,
+        qubo: &Qubo,
+        persistent: &FixedVarMap,
+        extra_fixed: &FixedVarMap,
+        adjacency: &GradientAdjacency,
+    ) {
+        self.fixed_values.fill(None);
+        for (&index, &value) in persistent.iter().chain(extra_fixed) {
+            self.fixed_values[index] = Some(value as u8);
+        }
+        for i in 0..qubo.num_x() {
+            if self.fixed_values[i].is_none() {
+                self.recompute_row(qubo, adjacency, i);
+            }
+        }
+    }
+
+    fn recompute_row(&mut self, qubo: &Qubo, adjacency: &GradientAdjacency, i: usize) {
+        let mut lower = qubo.c[i];
+        let mut upper = qubo.c[i];
+        for &(neighbor, coeff) in &adjacency[i] {
+            if let Some(value) = self.fixed_values[neighbor] {
+                apply_fixed_term(&mut lower, &mut upper, coeff, value);
+            } else {
+                apply_free_term(&mut lower, &mut upper, coeff);
+            }
+        }
+        self.lower[i] = lower;
+        self.upper[i] = upper;
+    }
+}
+
+pub(crate) struct PersistenceWorkspace {
+    bounds: GradientBounds,
+    queue: VecDeque<(usize, u8)>,
+}
+
+impl PersistenceWorkspace {
+    pub(crate) fn new(bounds: GradientBounds) -> Self {
+        Self {
+            bounds,
+            queue: VecDeque::new(),
+        }
+    }
+}
+
+/// Conditional strict deductions only. Component tie-breaking is deliberately
+/// excluded: a selected minimizer is not a fact about every conditional optimum.
+pub(crate) struct GradientProbe {
+    base: GradientBounds,
+    bounds: GradientBounds,
+    base_candidates: Vec<usize>,
+    dirty: Vec<usize>,
+    is_dirty: Vec<bool>,
+    scan: Vec<usize>,
+    queue: VecDeque<(usize, u8)>,
+}
+
+impl GradientProbe {
+    pub(crate) fn new(qubo: &Qubo, fixed: &FixedVarMap, adjacency: &GradientAdjacency) -> Self {
+        let base = GradientBounds::new(qubo, fixed, &FixedVarMap::default(), adjacency);
+        let base_candidates = (0..qubo.num_x())
+            .filter(|&i| {
+                base.fixed_values[i].is_none() && (base.lower[i] > 0.0 || base.upper[i] < 0.0)
+            })
+            .collect();
+        Self {
+            bounds: base.clone(),
+            base,
+            base_candidates,
+            dirty: Vec::new(),
+            is_dirty: vec![false; qubo.num_x()],
+            scan: Vec::new(),
+            queue: VecDeque::new(),
+        }
+    }
+
+    fn remember(&mut self, i: usize) {
+        if !self.is_dirty[i] {
+            self.is_dirty[i] = true;
+            self.dirty.push(i);
+        }
+    }
+
+    fn fix_if_strict(&mut self, i: usize, found: &mut FixedVarMap) {
+        if self.bounds.fixed_values[i].is_some() {
+            return;
+        }
+        let value = if self.bounds.lower[i] > 0.0 {
+            0
+        } else if self.bounds.upper[i] < 0.0 {
+            1
+        } else {
+            return;
+        };
+        self.remember(i);
+        self.bounds.fixed_values[i] = Some(value);
+        found.insert(i, usize::from(value));
+        self.queue.push_back((i, value));
+    }
+
+    /// Returns the assumption and new deductions, not a copy of the input map.
+    pub(crate) fn probe(
+        &mut self,
+        qubo: &Qubo,
+        adjacency: &GradientAdjacency,
+        variable: usize,
+        value: usize,
+    ) -> FixedVarMap {
+        for i in self.dirty.drain(..) {
+            self.bounds.fixed_values[i] = self.base.fixed_values[i];
+            self.bounds.lower[i] = self.base.lower[i];
+            self.bounds.upper[i] = self.base.upper[i];
+            self.is_dirty[i] = false;
+        }
+        self.queue.clear();
+        self.scan.clear();
+        debug_assert!(self.base.fixed_values[variable].is_none());
+        self.remember(variable);
+        self.bounds.fixed_values[variable] = Some(value as u8);
+        self.scan.extend_from_slice(&self.base_candidates);
+        for &(neighbor, _) in &adjacency[variable] {
+            if self.bounds.fixed_values[neighbor].is_some() {
+                continue;
+            }
+            if !self.is_dirty[neighbor] {
+                self.remember(neighbor);
+                // Preserve the cold probe's summation order near a zero bound.
+                self.bounds.recompute_row(qubo, adjacency, neighbor);
+            }
+            self.scan.push(neighbor);
+        }
+        self.scan.sort_unstable();
+        self.scan.dedup();
+        let mut found = FixedVarMap::default();
+        found.insert(variable, value);
+        for position in 0..self.scan.len() {
+            self.fix_if_strict(self.scan[position], &mut found);
+        }
+        while let Some((i, value)) = self.queue.pop_front() {
+            for &(target, coeff) in &adjacency[i] {
+                if self.bounds.fixed_values[target].is_some() {
+                    continue;
+                }
+                self.remember(target);
+                remove_free_term(
+                    &mut self.bounds.lower[target],
+                    &mut self.bounds.upper[target],
+                    coeff,
+                );
+                apply_fixed_term(
+                    &mut self.bounds.lower[target],
+                    &mut self.bounds.upper[target],
+                    coeff,
+                    value,
+                );
+                self.fix_if_strict(target, &mut found);
+            }
+        }
+        found
+    }
+}
 
 /// This function takes a QUBO and a set of persistent variables and returns a new set of persistent variables by repeatedly
 /// recomputing the persistent variables until.
@@ -30,55 +216,31 @@ pub(crate) fn compute_iterative_persistence_with_adjacency(
     iter_lim: usize,
     adjacency: &GradientAdjacency,
 ) -> FixedVarMap {
-    let iters = min(iter_lim, qubo.num_x());
-
-    for _ in 0..iters {
-        let previous_len = persistent.len();
-        propagate_persistent_in_place(qubo, &mut persistent, extra_fixed, adjacency);
-
-        if persistent.len() == previous_len {
-            break;
-        }
-
-        solve_small_components_in_place_with_extra(qubo, &mut persistent, Some(extra_fixed), 10);
-        if persistent.len() == previous_len {
-            break;
-        }
+    if iter_lim == 0 || qubo.num_x() == 0 {
+        return persistent;
     }
-
+    let bounds = GradientBounds::new(qubo, &persistent, extra_fixed, adjacency);
+    let mut workspace = PersistenceWorkspace::new(bounds);
+    propagate_persistent_in_place(&mut persistent, adjacency, &mut workspace);
+    // The queue reaches gradient closure. Solving entire disconnected components
+    // cannot change any remaining free variable's bounds or connectivity.
+    solve_small_components_with_adjacency(qubo, &mut persistent, Some(extra_fixed), 10, adjacency);
     persistent
 }
 
 fn propagate_persistent_in_place(
-    qubo: &Qubo,
     persistent: &mut FixedVarMap,
-    extra_fixed: &FixedVarMap,
     adjacency: &[Vec<(usize, f64)>],
+    workspace: &mut PersistenceWorkspace,
 ) {
-    let num_x = qubo.num_x();
-    let mut fixed_values = vec![None; num_x];
-
-    for (&index, &value) in persistent.iter() {
-        fixed_values[index] = Some(value as u8);
-    }
-    for (&index, &value) in extra_fixed {
-        fixed_values[index] = Some(value as u8);
-    }
-
-    let mut lower = qubo.c.to_vec();
-    let mut upper = qubo.c.to_vec();
-
-    for i in 0..num_x {
-        for &(neighbor, coeff) in &adjacency[i] {
-            if let Some(value) = fixed_values[neighbor] {
-                apply_fixed_term(&mut lower[i], &mut upper[i], coeff, value);
-            } else {
-                apply_free_term(&mut lower[i], &mut upper[i], coeff);
-            }
-        }
-    }
-
-    let mut queue = VecDeque::new();
+    let PersistenceWorkspace { bounds, queue } = workspace;
+    let GradientBounds {
+        fixed_values,
+        lower,
+        upper,
+    } = bounds;
+    let num_x = fixed_values.len();
+    queue.clear();
 
     for i in 0..num_x {
         if fixed_values[i].is_some() {
@@ -116,6 +278,19 @@ fn propagate_persistent_in_place(
             }
         }
     }
+}
+
+#[cfg(test)]
+pub(crate) fn cold_gradient_probe(
+    qubo: &Qubo,
+    fixed: FixedVarMap,
+    adjacency: &GradientAdjacency,
+) -> FixedVarMap {
+    let bounds = GradientBounds::new(qubo, &fixed, &FixedVarMap::default(), adjacency);
+    let mut workspace = PersistenceWorkspace::new(bounds);
+    let mut result = fixed;
+    propagate_persistent_in_place(&mut result, adjacency, &mut workspace);
+    result
 }
 
 fn apply_free_term(lower: &mut f64, upper: &mut f64, coeff: f64) {
@@ -168,10 +343,7 @@ pub(crate) fn build_gradient_adjacency(qubo: &Qubo) -> GradientAdjacency {
 
 /// This function takes a QUBO and a set of persistent variables and returns a new set of persistent variables by computing the
 /// persistent variables once.
-pub fn compute_persistent(
-    qubo: &Qubo,
-    persistent: &FixedVarMap,
-) -> FixedVarMap {
+pub fn compute_persistent(qubo: &Qubo, persistent: &FixedVarMap) -> FixedVarMap {
     // create a new hashmap to store the new persistent variables
     let mut new_persistent = persistent.clone();
 
@@ -260,9 +432,9 @@ fn accumulate_grad_terms<'a, I>(
 mod tests {
     use super::*;
     use crate::qubo::Qubo;
+    use crate::FixedVarMap as HashMap;
     use ndarray::Array1;
     use sprs::CsMat;
-    use crate::FixedVarMap as HashMap;
 
     #[test]
     fn test_persistence() {

@@ -3,7 +3,7 @@ use std::fmt::{Display, Formatter};
 
 /// Enum for the type of constraint that is being used in the Constraint struct
 /// This is used to define the type of constraint that is being used in the Constraint struct
-#[derive(Clone, Debug, Copy)]
+#[derive(Clone, Debug, Copy, PartialEq, Eq, PartialOrd, Ord)]
 pub enum ConstraintType {
     AtLeastOne,
     ExactlyOne,
@@ -15,14 +15,139 @@ pub enum ConstraintType {
 
 /// The Constraint Struct is used to represent a constraint between two variables in a QUBO problem
 /// It contains the indices of the two variables and the type of constraint that is being used
-#[derive(Clone, Debug, Copy)]
+#[derive(Clone, Debug, Copy, PartialEq, Eq, PartialOrd, Ord)]
 pub struct Constraint {
     pub(crate) x_i: usize,
     pub(crate) x_j: usize,
     constr_type: ConstraintType,
 }
 
+/// Literal-indexed implications for the root's proven optimality relations.
+/// Literal 2*i+v denotes x_i=v. Only newly fixed literals trigger more work.
+#[derive(Default)]
+pub(crate) struct ImplicationGraph {
+    edges: Vec<Vec<usize>>,
+}
+
+impl ImplicationGraph {
+    pub(crate) fn new(num_variables: usize, constraints: &[Constraint]) -> Self {
+        if constraints.is_empty() {
+            return Self::default();
+        }
+        let mut edges = vec![Vec::new(); 2 * num_variables];
+        for constraint in constraints {
+            for (a, b) in constraint.forbidden_assignments() {
+                edges[2 * constraint.x_i + a].push(2 * constraint.x_j + (1 - b));
+                edges[2 * constraint.x_j + b].push(2 * constraint.x_i + (1 - a));
+            }
+        }
+        for targets in &mut edges {
+            targets.sort_unstable();
+            targets.dedup();
+        }
+        Self { edges }
+    }
+
+    /// False denotes a contradiction. The caller must discard this node's map.
+    pub(crate) fn propagate(&self, fixed: &mut FixedVarMap) -> bool {
+        if self.edges.is_empty() {
+            return true;
+        }
+        let mut queue: Vec<_> = fixed.iter().map(|(&i, &v)| 2 * i + v).collect();
+        let mut cursor = 0;
+        while cursor < queue.len() {
+            for &literal in &self.edges[queue[cursor]] {
+                let variable = literal / 2;
+                let value = literal % 2;
+                if let Some(&existing) = fixed.get(&variable) {
+                    if existing != value {
+                        return false;
+                    }
+                } else {
+                    fixed.insert(variable, value);
+                    queue.push(literal);
+                }
+            }
+            cursor += 1;
+        }
+        true
+    }
+}
+
+#[cfg(test)]
+mod implication_tests {
+    use super::{Constraint, ConstraintType, ImplicationGraph};
+    use crate::FixedVarMap;
+
+    #[test]
+    fn implications_chain_and_detect_contradictions() {
+        let constraints = [
+            Constraint::new(0, 1, ConstraintType::LessThan),
+            Constraint::new(1, 2, ConstraintType::Equal),
+            Constraint::new(2, 3, ConstraintType::ExactlyOne),
+        ];
+        let graph = ImplicationGraph::new(4, &constraints);
+        let mut fixed = [(0, 1)].into_iter().collect();
+        assert!(graph.propagate(&mut fixed));
+        assert_eq!(
+            fixed,
+            [(0, 1), (1, 1), (2, 1), (3, 0)].into_iter().collect()
+        );
+        let mut incompatible = [(0, 1), (3, 1)].into_iter().collect();
+        assert!(!graph.propagate(&mut incompatible));
+    }
+
+    #[test]
+    fn every_relation_propagates_exactly_its_truth_table() {
+        for kind in [
+            ConstraintType::LessThan,
+            ConstraintType::GreaterThan,
+            ConstraintType::Equal,
+            ConstraintType::ExactlyOne,
+            ConstraintType::AtLeastOne,
+            ConstraintType::NoMoreThanOne,
+        ] {
+            let relation = Constraint::new(0, 1, kind);
+            let graph = ImplicationGraph::new(2, &[relation, relation]);
+            for pattern in 0..9 {
+                let fixed: FixedVarMap = [(0, pattern % 3), (1, pattern / 3)]
+                    .into_iter()
+                    .filter(|(_, v)| *v != 2)
+                    .collect();
+                let possible: Vec<FixedVarMap> = (0..4)
+                    .map(|mask| [(0, mask & 1), (1, (mask >> 1) & 1)].into_iter().collect())
+                    .filter(|full: &FixedVarMap| {
+                        fixed.iter().all(|(i, v)| full.get(i) == Some(v)) && relation.check(full)
+                    })
+                    .collect();
+                let mut actual = fixed;
+                assert_eq!(graph.propagate(&mut actual), !possible.is_empty());
+                for full in &possible {
+                    assert!(actual.iter().all(|(i, v)| full.get(i) == Some(v)));
+                }
+                for i in 0..2 {
+                    for v in 0..2 {
+                        if !possible.is_empty()
+                            && possible.iter().all(|full| full.get(&i) == Some(&v))
+                        {
+                            assert_eq!(actual.get(&i), Some(&v));
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
 impl Constraint {
+    /// Binary patterns excluded by this relation, shared by propagation and
+    /// roof-dual penalties. A variable cannot take two different values at once.
+    pub(crate) fn forbidden_assignments(&self) -> impl Iterator<Item = (usize, usize)> + '_ {
+        [(0, 0), (0, 1), (1, 0), (1, 1)]
+            .into_iter()
+            .filter(|&(a, b)| (self.x_i != self.x_j || a == b) && !self.check_values(a, b))
+    }
+
     /// Creates a new constraint with the given indices and type
     pub const fn new(x_i: usize, x_j: usize, constraint_type: ConstraintType) -> Self {
         Self {
@@ -34,13 +159,6 @@ impl Constraint {
 
     /// Checks if the persistent variables are consistent with the constraint
     pub fn check(&self, persistent: &FixedVarMap) -> bool {
-        // can only be computed if both variables are fixed
-        if self.how_many_fixed(persistent) != 2 {
-            return true;
-        }
-
-        // this unwrapping is safe, as we have already checked that both variables are fixed,
-        // but we use get to avoid an explicit unwrap :(
         let x_i_option = persistent.get(&self.x_i);
         let x_j_option = persistent.get(&self.x_j);
 
@@ -103,7 +221,7 @@ impl Constraint {
         match self.constr_type {
             ConstraintType::NoMoreThanOne | ConstraintType::ExactlyOne => (1.0, 1.0, 1.0), // x_i + x_j <= 1 / = 1
             ConstraintType::AtLeastOne => (-1.0, -1.0, -1.0), // x_i + x_j >= 1 -> -x_i - x_j <= -1
-            ConstraintType::GreaterThan => (-1.0, 1.0, 0.0), // x_i - x_j >= 0 -> -x_i + x_j <= 0
+            ConstraintType::GreaterThan => (-1.0, 1.0, 0.0),  // x_i - x_j >= 0 -> -x_i + x_j <= 0
             ConstraintType::LessThan | ConstraintType::Equal => (1.0, -1.0, 0.0), // x_i - x_j <= 0 / = 0
         }
     }
@@ -146,10 +264,7 @@ impl Constraint {
     /// Given a set of persistent variables, returns the standard form of the constraint
     /// If both or none of the variables are fixed, returns None
     /// If one variable is fixed, returns (fixed_variable_index, free_variable_index, fixed_value)
-    pub fn get_standard_form(
-        &self,
-        persistent: &FixedVarMap,
-    ) -> Option<(usize, usize, usize)> {
+    pub fn get_standard_form(&self, persistent: &FixedVarMap) -> Option<(usize, usize, usize)> {
         if self.how_many_fixed(persistent) != 1 {
             return None;
         }
@@ -213,10 +328,7 @@ impl Constraint {
 
     /// Given a constraint of the type x_i >= x_j, solves if we can make an inference on it. If so,
     /// returns the index and value of the fixed variable, otherwise returns None
-    pub fn greater_than_inference(
-        &self,
-        persistent: &FixedVarMap,
-    ) -> Option<(usize, usize)> {
+    pub fn greater_than_inference(&self, persistent: &FixedVarMap) -> Option<(usize, usize)> {
         // examines the constraint x_i >= x_j, to see if we can make a logical implication
 
         if let Some(x_i_value) = persistent.get(&self.x_i) {
@@ -238,10 +350,7 @@ impl Constraint {
     }
 
     /// Given a constraint of the type x_i <= x_j, solves if we can make an inference on it
-    pub fn less_than_inference(
-        &self,
-        persistent: &FixedVarMap,
-    ) -> Option<(usize, usize)> {
+    pub fn less_than_inference(&self, persistent: &FixedVarMap) -> Option<(usize, usize)> {
         // examines the constraint x_i <= x_j, to see if we can make a logical implication
 
         if let Some(x_i_value) = persistent.get(&self.x_i) {

@@ -1,13 +1,55 @@
-use crate::FixedVarMap;
 use crate::qubo::Qubo;
+use crate::FixedVarMap;
+
+/// Find only small residual components, reusing the presolver's undirected
+/// adjacency. Large components are traversed but not materialized in full.
+pub(crate) fn small_components_with_adjacency(
+    adjacency: &[Vec<(usize, f64)>],
+    fixed: &FixedVarMap,
+    extra: Option<&FixedVarMap>,
+    max_size: usize,
+) -> Vec<Vec<usize>> {
+    let mut visited = vec![false; adjacency.len()];
+    for &i in fixed
+        .keys()
+        .chain(extra.into_iter().flat_map(|map| map.keys()))
+    {
+        visited[i] = true;
+    }
+    let mut components = Vec::new();
+    let mut stack = Vec::new();
+    for start in 0..adjacency.len() {
+        if visited[start] {
+            continue;
+        }
+        let mut component = Vec::new();
+        let mut oversized = false;
+        stack.push(start);
+        visited[start] = true;
+        while let Some(i) = stack.pop() {
+            if component.len() < max_size {
+                component.push(i);
+            } else {
+                oversized = true;
+            }
+            for &(j, _) in &adjacency[i] {
+                if !visited[j] {
+                    visited[j] = true;
+                    stack.push(j);
+                }
+            }
+        }
+        if !oversized && !component.is_empty() {
+            components.push(component);
+        }
+    }
+    components
+}
 
 /// Given a QUBO and a set of fixed variables, find all disconnected subgraphs in the QUBO graph
 /// that do not include any fixed variables. Each subgraph is represented as a vector of variable
 /// indices.
-pub fn get_all_disconnected_graphs(
-    qubo: &Qubo,
-    fixed_vars: &FixedVarMap,
-) -> Vec<Vec<usize>> {
+pub fn get_all_disconnected_graphs(qubo: &Qubo, fixed_vars: &FixedVarMap) -> Vec<Vec<usize>> {
     get_all_disconnected_graphs_with_extra(qubo, fixed_vars, None)
 }
 
@@ -60,8 +102,8 @@ pub fn get_all_disconnected_graphs_with_extra(
 mod tests {
     use crate::graph_utils::get_all_disconnected_graphs;
     use crate::qubo::Qubo;
-    use sprs::TriMat;
     use crate::FixedVarMap as HashMap;
+    use sprs::TriMat;
 
     #[test]
     fn test_disconnected_graphs_1() {
