@@ -35,6 +35,10 @@ impl HerculesABQPSolver {
 }
 
 impl SubProblemSolver for HerculesABQPSolver {
+    fn for_reduced_qubo(&self, qubo: &Qubo) -> Option<Box<dyn SubProblemSolver + Sync>> {
+        Some(Box::new(Self::new(qubo)))
+    }
+
     fn solve_lower_bound(
         &self,
         bbsolver: &BBSolver,
@@ -68,4 +72,3 @@ impl SubProblemSolver for HerculesABQPSolver {
         })
     }
 }
-

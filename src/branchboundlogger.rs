@@ -58,11 +58,11 @@ impl SolverOutputLogger {
         }
 
         let num_nodes = solver_instance.nodes_solved;
-        let upper_bound = solver_instance.best_solution_value;
+        let upper_bound = solver_instance.best_solution_value + solver_instance.objective_offset;
         let lower_bound = solver_instance
             .nodes
             .iter()
-            .map(|x| x.lower_bound)
+            .map(|x| x.lower_bound + solver_instance.objective_offset)
             .fold(f64::INFINITY, f64::min);
         let gap = 100.0 * (upper_bound - lower_bound) / (upper_bound + 1E-5).abs();
         let gap = gap.max(0.0);
@@ -84,7 +84,7 @@ impl SolverOutputLogger {
         }
 
         let solution = solver_instance.best_solution.clone();
-        let solution_value = solver_instance.best_solution_value;
+        let solution_value = solver_instance.best_solution_value + solver_instance.objective_offset;
 
         let nodes_solved = solver_instance.nodes_solved;
         let nodes_processed = solver_instance.nodes_processed;
@@ -93,26 +93,46 @@ impl SolverOutputLogger {
         let current_time = get_current_time();
         let time_passed = current_time - solver_instance.time_start;
 
-        let upper_bound = solver_instance.best_solution_value;
+        let upper_bound = solver_instance.best_solution_value + solver_instance.objective_offset;
         let lower_bound = solver_instance
             .nodes
             .iter()
-            .map(|x| x.lower_bound)
+            .map(|x| x.lower_bound + solver_instance.objective_offset)
             .fold(f64::INFINITY, f64::min);
-        let gap = 100.0 * (upper_bound - lower_bound) / (upper_bound + 1E-5).abs();
-        let gap = gap.max(0.0);
-
-        let status = if gap < 1E-5 { "Optimal" } else { "Suboptimal" };
+        let status = if solver_instance.nodes.is_empty() {
+            "Optimal"
+        } else {
+            "Suboptimal"
+        };
 
         println!("----------------------------------------------------------------------------");
         println!("Branch and Bound Solver Finished");
         println!("Best Solution: {solution}");
         println!("Best Solution Value: {solution_value}");
+        println!("Lower Bound: {}", lower_bound.min(upper_bound));
         println!("Nodes Solved: {nodes_solved}");
         println!("Nodes Processed: {nodes_processed}");
         println!("Nodes Visited: {nodes_visited}");
         println!("Time to Solve: {time_passed}");
         println!("Solver Status: {status}");
+        if solver_instance.options.component_decomposition {
+            println!("Components: {:?}", solver_instance.component_statistics());
+        }
+        if solver_instance.options.node_structural_reductions {
+            println!(
+                "Node reductions: {:?}",
+                solver_instance.node_reduction_statistics()
+            );
+        }
+        if solver_instance.options.component_cutoff_propagation {
+            println!(
+                "Cutoff propagation: {:?}",
+                solver_instance.cutoff_statistics()
+            );
+        }
+        if solver_instance.options.sdp_dual_fixing {
+            println!("SDP fixing: {:?}", solver_instance.sdp_fixing_statistics());
+        }
         println!("----------------------------------------------------------------------------");
     }
 
@@ -121,7 +141,7 @@ impl SolverOutputLogger {
             return;
         }
 
-        let solution_value = solver_instance.best_solution_value;
+        let solution_value = solver_instance.best_solution_value + solver_instance.objective_offset;
         println!("----------------------------------------------------------------------------");
         println!("Warm Start Information");
         println!("Warm started objective: {solution_value}");

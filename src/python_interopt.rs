@@ -356,6 +356,15 @@ pub fn get_qubo_components(
 }
 
 /// Solves the QUBO using branch and bound, returns the best solution found.
+/// Node probing is controlled by the keyword-only node_probe_candidates,
+/// node_probe_max_free and node_probe_max_seconds options. Zero candidates disables it.
+/// roof_dual_weak_persistencies enables optional, joint SCC-based roof reductions.
+/// roof_dual_relation_penalties reuses strict root relations in the roof-dual bound.
+/// root_pair_dominance adds a time-capped root-only joint two-variable test.
+/// root_roof_probe_candidates and root_roof_probe_max_seconds control root
+/// roof probing, using compatible weak choices to preserve one global optimum.
+/// root_complement_symmetry chooses one orientation per symmetric component;
+/// it defaults to true and is verified on the original input coefficients.
 ///
 /// Example
 /// ``` python
@@ -368,14 +377,14 @@ pub fn get_qubo_components(
 /// x_0, _ = hercules.pso(problem, 0, 10, 100)
 ///
 /// # solve the QUBO using branch and bound
-/// x, obj, time, nodes_visited, nodes_processed = hercules.solve_branch_bound(problem, timeout = 10.0, warm_start = x_0, seed = 12345, branch_strategy = "MostViolated", sub_problem_solver="Clarabel", cheap_lower_bound_problem="roof_dual", threads=32, verbose=1)
+/// x, obj, time, nodes_visited, nodes_processed = hercules.solve_branch_bound(problem, timeout = 10.0, warm_start = x_0, seed = 12345, branch_strategy = "LargestEdges", sub_problem_solver="Clarabel", cheap_lower_bound_problem="roof_dual", threads=32, verbose=1)
 /// ```
 ///
 /// # Errors
 ///
 /// This shouldn't error, but if it does, it will abort.
 #[pyfunction]
-#[pyo3(signature = (problem, timeout, warm_start=None, seed=None, branch_strategy=None, sub_problem_solver=None, cheap_lower_bound_problem=None, heuristic_selection = None, threads=None, verbose=None))]
+#[pyo3(signature = (problem, timeout, warm_start=None, seed=None, branch_strategy=None, sub_problem_solver=None, cheap_lower_bound_problem=None, heuristic_selection = None, threads=None, verbose=None, *, node_probe_candidates=None, node_probe_max_free=None, node_probe_max_seconds=None, roof_dual_weak_persistencies=None, roof_dual_relation_penalties=None, root_pair_dominance=None, root_roof_probe_candidates=None, root_roof_probe_max_seconds=None, root_complement_symmetry=None, root_low_degree_elimination=None, root_dominant_edge_contraction=None, root_degree_three_elimination=None, component_decomposition=None, node_structural_reductions=None, small_block_elimination=None, component_cutoff_propagation=None, root_cut_dominance=None, sdp_dual_fixing=None))]
 pub fn solve_branch_bound(
     problem: QuboData,
     timeout: f64,
@@ -387,6 +396,24 @@ pub fn solve_branch_bound(
     heuristic_selection: Option<String>,
     threads: Option<usize>,
     verbose: Option<usize>,
+    node_probe_candidates: Option<usize>,
+    node_probe_max_free: Option<usize>,
+    node_probe_max_seconds: Option<f64>,
+    roof_dual_weak_persistencies: Option<bool>,
+    roof_dual_relation_penalties: Option<bool>,
+    root_pair_dominance: Option<bool>,
+    root_roof_probe_candidates: Option<usize>,
+    root_roof_probe_max_seconds: Option<f64>,
+    root_complement_symmetry: Option<bool>,
+    root_low_degree_elimination: Option<bool>,
+    root_dominant_edge_contraction: Option<bool>,
+    root_degree_three_elimination: Option<bool>,
+    component_decomposition: Option<bool>,
+    node_structural_reductions: Option<bool>,
+    small_block_elimination: Option<bool>,
+    component_cutoff_propagation: Option<bool>,
+    root_cut_dominance: Option<bool>,
+    sdp_dual_fixing: Option<bool>,
 ) -> PyResult<(Vec<usize>, f64, f64, usize, usize)> {
     // read in the QUBO
     let p_input = Qubo::from_vec(problem.0, problem.1, problem.2, problem.3, problem.4);
@@ -408,6 +435,50 @@ pub fn solve_branch_bound(
     options.verbose = verbose.unwrap_or(1);
 
     options.max_time = timeout;
+
+    options.node_probe_candidates = node_probe_candidates.unwrap_or(options.node_probe_candidates);
+    options.node_probe_max_free = node_probe_max_free.unwrap_or(options.node_probe_max_free);
+    options.roof_dual_weak_persistencies =
+        roof_dual_weak_persistencies.unwrap_or(options.roof_dual_weak_persistencies);
+    options.roof_dual_relation_penalties =
+        roof_dual_relation_penalties.unwrap_or(options.roof_dual_relation_penalties);
+    options.root_pair_dominance = root_pair_dominance.unwrap_or(options.root_pair_dominance);
+    options.root_roof_probe_candidates =
+        root_roof_probe_candidates.unwrap_or(options.root_roof_probe_candidates);
+    options.root_complement_symmetry =
+        root_complement_symmetry.unwrap_or(options.root_complement_symmetry);
+    options.root_low_degree_elimination =
+        root_low_degree_elimination.unwrap_or(options.root_low_degree_elimination);
+    options.root_dominant_edge_contraction =
+        root_dominant_edge_contraction.unwrap_or(options.root_dominant_edge_contraction);
+    options.root_degree_three_elimination =
+        root_degree_three_elimination.unwrap_or(options.root_degree_three_elimination);
+    options.component_decomposition =
+        component_decomposition.unwrap_or(options.component_decomposition);
+    options.node_structural_reductions =
+        node_structural_reductions.unwrap_or(options.node_structural_reductions);
+    options.small_block_elimination =
+        small_block_elimination.unwrap_or(options.small_block_elimination);
+    options.component_cutoff_propagation =
+        component_cutoff_propagation.unwrap_or(options.component_cutoff_propagation);
+    options.root_cut_dominance = root_cut_dominance.unwrap_or(options.root_cut_dominance);
+    options.sdp_dual_fixing = sdp_dual_fixing.unwrap_or(options.sdp_dual_fixing);
+    if let Some(seconds) = root_roof_probe_max_seconds {
+        if !seconds.is_finite() || seconds < 0.0 {
+            return Err(pyo3::exceptions::PyValueError::new_err(
+                "root_roof_probe_max_seconds must be finite and nonnegative",
+            ));
+        }
+        options.root_roof_probe_max_seconds = seconds;
+    }
+    if let Some(seconds) = node_probe_max_seconds {
+        if !seconds.is_finite() || seconds < 0.0 {
+            return Err(pyo3::exceptions::PyValueError::new_err(
+                "node_probe_max_seconds must be finite and nonnegative",
+            ));
+        }
+        options.node_probe_max_seconds = seconds;
+    }
 
     let mut solver = BBSolver::new(p_input, options);
 

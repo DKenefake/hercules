@@ -25,6 +25,10 @@ impl ClarabelLPSolver {
 /// Implements the Glover Relaxation to solve the LP associated with a QUBO node based on glover1974converting
 /// from the cited papers list
 impl SubProblemSolver for ClarabelLPSolver {
+    fn for_reduced_qubo(&self, qubo: &Qubo) -> Option<Box<dyn SubProblemSolver + Sync>> {
+        Some(Box::new(Self::new(qubo)))
+    }
+
     fn solve_lower_bound(
         &self,
         bbsolver: &BBSolver,
@@ -46,10 +50,11 @@ impl SubProblemSolver for ClarabelLPSolver {
         }
 
         // set up the constraint matrix A = |E| + |V| by 4|E| + 2|V| + |F|
-        let num_constraints = 2 * bbsolver.qubo.num_x() + 4 * reduced_edges.len() + node.fixed_variables.len();
+        let num_constraints =
+            2 * bbsolver.qubo.num_x() + 4 * reduced_edges.len() + node.fixed_variables.len();
         let num_variables = bbsolver.qubo.num_x() + reduced_edges.len();
 
-        let mut A = TriMat::new((num_constraints,num_variables));
+        let mut A = TriMat::new((num_constraints, num_variables));
         let mut b = Array1::<f64>::zeros(num_constraints);
 
         let x_start = reduced_edges.len();
@@ -98,14 +103,17 @@ impl SubProblemSolver for ClarabelLPSolver {
         }
 
         for i in 0..bbsolver.qubo.num_x() {
-            c[x_start + i] = 0.5 * bbsolver.qubo.q[[i,i]] + bbsolver.qubo.c[i];
+            c[x_start + i] = 0.5 * bbsolver.qubo.q[[i, i]] + bbsolver.qubo.c[i];
         }
 
         // convert the matrix to CSC format and then Clarabel format
         let A_csc = A.to_csc();
         let A_clara = Self::make_cb_form(&A_csc);
 
-        let cones = [NonnegativeConeT(2 * bbsolver.qubo.num_x() + 4 * reduced_edges.len()), ZeroConeT(node.fixed_variables.len())];
+        let cones = [
+            NonnegativeConeT(2 * bbsolver.qubo.num_x() + 4 * reduced_edges.len()),
+            ZeroConeT(node.fixed_variables.len()),
+        ];
 
         // set up the solver with the matrices
         let mut solver = DefaultSolver::new(

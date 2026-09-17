@@ -10,6 +10,10 @@ use crate::subproblemsolvers::roofdual::RoofDualSolver;
 use ndarray::Array1;
 
 pub trait SubProblemResult {
+    /// Certified bounds for each assignment, in the solver's full objective units.
+    fn take_conditional_bounds(&mut self) -> Vec<ConditionalLowerBound> {
+        Vec::new()
+    }
     fn lower_bound(&self) -> f64;
     fn relaxed_solution(&self) -> Option<&Array1<f64>>;
     fn candidate_primal_solution(&self) -> Option<&Array1<usize>>;
@@ -22,6 +26,13 @@ pub trait SubProblemResult {
         Option<Array1<usize>>,
         Option<SubProblemNodeState>,
     );
+}
+
+#[derive(Clone, Copy, Debug)]
+pub struct ConditionalLowerBound {
+    pub variable: usize,
+    pub zero: f64,
+    pub one: f64,
 }
 
 pub struct BasicSubProblemResult {
@@ -75,7 +86,13 @@ impl SubProblemOptions {
 /// Trait for solving sub-problems in branch and bound
 /// The sub-problem solver takes in a branch and bound solver, a node, and options
 /// and returns a lower bound and a solution
-pub trait SubProblemSolver {
+pub trait SubProblemSolver: Send + Sync {
+    /// Rebuild matrix-dependent state for a compact root or independent component.
+    /// Custom backends opt in explicitly; otherwise these reductions are skipped.
+    fn for_reduced_qubo(&self, _qubo: &Qubo) -> Option<Box<dyn SubProblemSolver + Sync>> {
+        None
+    }
+
     fn solve_lower_bound(
         &self,
         bbsolver: &BBSolver,
@@ -91,6 +108,7 @@ pub enum SubProblemSelection {
     HerculesABQP,
     HerculesCDQP,
     MixingCutSDP,
+    MixingCutSDPMomentum,
     RoofDualQPBO,
 }
 
@@ -104,6 +122,9 @@ pub fn get_sub_problem_solver(
         SubProblemSelection::HerculesABQP => Box::new(HerculesABQPSolver::new(qubo)),
         SubProblemSelection::HerculesCDQP => Box::new(HerculesCDQPSolver::new(qubo)),
         SubProblemSelection::MixingCutSDP => Box::new(MixingCutSDPSolver::new(qubo)),
+        SubProblemSelection::MixingCutSDPMomentum => {
+            Box::new(MixingCutSDPSolver::with_momentum(0.8))
+        }
         SubProblemSelection::RoofDualQPBO => Box::new(RoofDualSolver::new(qubo)),
     }
 }

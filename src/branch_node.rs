@@ -11,6 +11,8 @@ pub struct MixingCutNodeState {
 #[derive(Clone)]
 pub enum SubProblemNodeState {
     MixingCut(MixingCutNodeState),
+    /// An AND node: component frontiers are retained between scheduler batches.
+    Components(std::sync::Arc<std::sync::Mutex<crate::branchbound::ComponentSearch>>),
 }
 
 /// Struct the describes the branch and bound tree nodes
