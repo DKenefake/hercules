@@ -11,7 +11,7 @@ spec.loader.exec_module(hercules)
 
 def check(problem, expected, low_degree, contraction, momentum=False, verbose=0):
     started = time.perf_counter()
-    x, objective, seconds, visited, processed = hercules.solve_branch_bound(
+    x, objective, _seconds, visited, _processed = hercules.solve_branch_bound(
         problem, timeout=30.0, seed=0, verbose=verbose, threads=64,
         branch_strategy="LargestEdges",
         sub_problem_solver="mixingcut_sdp_momentum" if momentum else "mixingcut_sdp",
@@ -19,11 +19,14 @@ def check(problem, expected, low_degree, contraction, momentum=False, verbose=0)
         root_low_degree_elimination=low_degree,
         root_dominant_edge_contraction=contraction,
     )
-    assert len(x) == problem[-1] and all(v in (0, 1) for v in x)
+    if len(x) != problem[-1] or any(v not in (0, 1) for v in x):
+        raise RuntimeError("Solver returned an invalid binary solution")
     actual = sum(0.5*q*x[i]*x[j] for i, j, q in zip(*problem[:3]))
     actual += sum(c*v for c, v in zip(problem[3], x))
-    assert abs(actual-objective) < 1e-5, (actual, objective)
-    assert abs(objective-expected) < 1e-5, (objective, expected)
+    if not abs(actual-objective) < 1e-5:
+        raise RuntimeError(f"Objective mismatch: evaluated={actual}, reported={objective}")
+    if not abs(objective-expected) < 1e-5:
+        raise RuntimeError(f"Known objective mismatch: expected={expected}, reported={objective}")
     return (f"low_degree={low_degree} contraction={contraction} momentum={momentum} "
             f"objective={objective:.8f} visited={visited} seconds={time.perf_counter()-started:.6f}")
 

@@ -21,11 +21,14 @@ def check(name, problem, expected, enabled, momentum=False):
         root_low_degree_elimination=True, root_dominant_edge_contraction=True,
         root_degree_three_elimination=enabled,
     )
-    assert len(x) == problem[-1] and all(v in (0, 1) for v in x)
+    if len(x) != problem[-1] or any(v not in (0, 1) for v in x):
+        raise RuntimeError(f"{name}: solver returned an invalid binary solution")
     actual = sum(0.5*q*x[i]*x[j] for i, j, q in zip(*problem[:3]))
     actual += sum(c*v for c, v in zip(problem[3], x))
-    assert abs(actual-objective) < 1e-5, (name, actual, objective)
-    assert abs(expected-objective) < 1e-5, (name, expected, objective)
+    if not abs(actual-objective) < 1e-5:
+        raise RuntimeError(f"{name}: objective mismatch: evaluated={actual}, reported={objective}")
+    if not abs(expected-objective) < 1e-5:
+        raise RuntimeError(f"{name}: known objective mismatch: expected={expected}, reported={objective}")
     print(f"{name} degree_three={enabled} momentum={momentum} "
           f"objective={objective:.8f} seconds={seconds:.6f} visited={visited}", flush=True)
 

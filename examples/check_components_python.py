@@ -29,11 +29,14 @@ for count in (2, 4):
                 sub_problem_solver=backend, cheap_lower_bound_problem="roof_dual",
                 node_probe_candidates=0, component_decomposition=enabled,
             )
-            assert len(x) == n and all(v in (0, 1) for v in x)
+            if len(x) != n or any(v not in (0, 1) for v in x):
+                raise RuntimeError("Solver returned an invalid binary solution")
             actual = sum(0.5*q*x[i]*x[j] for i, j, q in zip(rows, columns, values))
             actual += sum(c*v for c, v in zip(linear, x))
-            assert abs(actual-objective) < 1e-7
-            assert abs(objective-expected) < 1e-7
+            if not abs(actual-objective) < 1e-7:
+                raise RuntimeError(f"Objective mismatch: evaluated={actual}, reported={objective}")
+            if not abs(objective-expected) < 1e-7:
+                raise RuntimeError(f"Known objective mismatch: expected={expected}, reported={objective}")
             print(f"PY_COMPONENTS count={count} enabled={enabled} backend={backend} "
                   f"objective={objective:.8f} visited={visited} seconds={seconds:.6f}", flush=True)
 print("8 Python component solves matched analytical optima and original-polynomial objectives.")

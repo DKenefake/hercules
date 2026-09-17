@@ -55,3 +55,7 @@ jobs:
           python-version: "3.11"
       - name: Check Python-enabled build
         run: cargo check --verbose --features python
+      - name: Check standalone Python validation in normal and optimized modes
+        run: |
+          python -m unittest discover -s tests -p test_python_check_scripts.py -v
+          python -O -m unittest discover -s tests -p test_python_check_scripts.py -v
