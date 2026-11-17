@@ -416,6 +416,12 @@ fn solve_roof_dual_network(
     problem: &ReducedRoofDualProblem,
     weak_persistencies: bool,
 ) -> RoofDualityResult {
+    let mut graph = build_roof_dual_network(problem);
+    let flow_value = graph.max_flow(0, 1);
+    read_roof_dual_network(&mut graph, problem, flow_value, weak_persistencies)
+}
+
+fn build_roof_dual_network(problem: &ReducedRoofDualProblem) -> FlowNetwork {
     let num_biform_variables = problem.num_variables + 1;
     let num_literal_nodes = 2 * num_biform_variables;
 
@@ -435,9 +441,16 @@ fn solve_roof_dual_network(
         graph.add_literal_edge(u, v, capacity);
     }
 
+    graph
+}
+
+fn read_roof_dual_network(
+    graph: &mut FlowNetwork,
+    problem: &ReducedRoofDualProblem,
+    flow_value: f64,
+    weak_persistencies: bool,
+) -> RoofDualityResult {
     let source = literal_node(0, false);
-    let sink = literal_node(0, true);
-    let flow_value = graph.max_flow(source, sink);
     let source_side = graph.reachable_from(source);
 
     let mut fixed_variables = FixedVarMap::default();
@@ -544,6 +557,30 @@ mod tests {
         q.add_triplet(1, 1, 1.0);
         let c = Array1::from_vec(vec![1.0, -2.0]);
         Qubo::new_with_c(q.to_csr(), c)
+    }
+
+    #[test]
+    fn prepared_matches_cold_solver_after_opposite_and_repeated_fixings() {
+        let mut rng = make_test_prng();
+        for _ in 0..16 {
+            let qubo = Qubo::make_random_qubo(7, &mut rng, 0.5);
+            let prepared = PreparedRoofDual::new(&qubo);
+            for pattern in [0usize, 1, 2, 17, 31, 95, 2186, 2, 1, 0] {
+                let mut code = pattern;
+                let mut fixed = FixedVarMap::default();
+                for i in 0..7 {
+                    if code % 3 != 0 {
+                        fixed.insert(i, code % 3 - 1);
+                    }
+                    code /= 3;
+                }
+                let cold = roof_duality_presolve(&qubo, &fixed);
+                let reused = prepared.solve(&fixed);
+                assert!((cold.lower_bound.unwrap() - reused.lower_bound.unwrap()).abs() < 1e-8);
+                assert_eq!(cold.fixed_variables, reused.fixed_variables);
+                assert_eq!(cold.unlabeled_variables, reused.unlabeled_variables);
+            }
+        }
     }
 
     fn assert_weak_reduction_preserves_optimum(qubo: &Qubo, fixed: &FixedVarMap) {

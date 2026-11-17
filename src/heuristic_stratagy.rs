@@ -63,8 +63,8 @@ mod tests {
     use crate::heuristic_stratagy::HeuristicSelection;
     use crate::qubo::Qubo;
     use crate::solver_options::SolverOptions;
-    use crate::FixedVarMap;
     use crate::utils;
+    use crate::FixedVarMap;
     use ndarray::Array1;
     use smolprng::{JsfLarge, PRNG};
 
@@ -94,6 +94,9 @@ mod tests {
                 fixed_variables: FixedVarMap::default(),
                 run_heuristic: false,
                 subproblem_state: None,
+                branch_origin: None,
+                probe_bounds: None,
+                probe_presolved: None,
             };
 
             // compute the next step
@@ -128,6 +131,9 @@ mod tests {
                 fixed_variables: FixedVarMap::default(),
                 run_heuristic: false,
                 subproblem_state: None,
+                branch_origin: None,
+                probe_bounds: None,
+                probe_presolved: None,
             };
 
             let rounded_sol = utils::rounded_vector(&x_0);
@@ -157,6 +163,9 @@ mod tests {
             fixed_variables,
             run_heuristic: false,
             subproblem_state: None,
+            branch_origin: None,
+            probe_bounds: None,
+            probe_presolved: None,
         };
 
         let (rounded, _) = HeuristicSelection::SimpleRounding.make_heuristic(&solver, &node);

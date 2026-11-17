@@ -5,7 +5,7 @@ use crate::FixedVarMap;
 use ndarray::Array1;
 use rayon::prelude::*;
 
-use crate::branch_node::QuboBBNode;
+use crate::branch_node::{BranchOrigin, QuboBBNode};
 use crate::branch_stratagy::{BranchResult, BranchStrategy};
 use crate::branch_subproblem::{get_sub_problem_solver, SubProblemResult, SubProblemSolver};
 use crate::branchbound_utils::{check_integer_feasibility, get_current_time};
@@ -22,12 +22,20 @@ use crate::variable_reduction::{find_pair_dominance, probe_limited_with_prepared
 use std::borrow::Cow;
 use std::collections::BinaryHeap;
 
+mod branch_history;
 mod components;
+mod conflicts;
 mod cutoff;
 mod node_probing;
 mod node_reduction;
+mod objective_lattice;
+mod relation_history;
 mod root_reduction;
-mod sdp_fixing;
+mod conditional_bound;
+mod width_elimination;
+mod work_sharing;
+pub use branch_history::BranchHistoryStatistics;
+use branch_history::{BranchHistory, HistoryCounters, HistoryFeedback};
 use components::ComponentCounters;
 pub use components::{ComponentSearch, ComponentStatistics};
 pub use cutoff::CutoffStatistics;
@@ -36,12 +44,15 @@ use node_probing::NodeProbingCounters;
 pub use node_probing::NodeProbingStatistics;
 use node_reduction::NodeReductionCounters;
 pub use node_reduction::NodeReductionStatistics;
-use sdp_fixing::SdpFixingCounters;
-pub use sdp_fixing::SdpFixingStatistics;
+use conditional_bound::ConditionalBoundCounters;
+pub use conditional_bound::ConditionalBoundStatistics;
+pub use work_sharing::SearchWorkStatistics;
+use work_sharing::{BatchIncumbent, WorkCounters};
 
 /// Struct for the B&B Solver
 pub struct BBSolver {
     input_qubo: Qubo,
+    objective_lattice: std::sync::OnceLock<Option<objective_lattice::ObjectiveLattice>>,
     pub qubo: Qubo,
     pub qubo_pp_form: Qubo,
     pub best_solution: Array1<usize>,
@@ -55,6 +66,8 @@ pub struct BBSolver {
     pub subproblem_solver: Box<dyn SubProblemSolver + Sync>,
     prepared_preprocess: PreparedPreprocess,
     prepared_roof_dual: PreparedRoofDual,
+    pub(crate) prepared_cycle_bound:
+        Option<crate::subproblemsolvers::cycle_bound::PreparedCycleBound>,
     root_symmetry_components: Vec<preprocess::ComplementComponent>,
     pub options: SolverOptions,
     pub early_stop: bool,
@@ -69,9 +82,19 @@ pub struct BBSolver {
     component_depth: usize,
     reduction_counters: std::sync::Arc<NodeReductionCounters>,
     structural_root_reduced: bool,
+    root_cycle_floor: f64,
+    root_cycle_stats: Option<crate::subproblemsolvers::cycle_bound::RootCycleStatistics>,
     cutoff: CutoffState,
+    conflicts: conflicts::ConflictPool,
+    relation_history: std::sync::Arc<std::sync::Mutex<relation_history::RelationHistory>>,
+    relation_ids: Vec<usize>,
     cutoff_counters: std::sync::Arc<CutoffCounters>,
-    sdp_fixing_counters: std::sync::Arc<SdpFixingCounters>,
+    conditional_bound_counters: std::sync::Arc<ConditionalBoundCounters>,
+    branch_history: BranchHistory,
+    history_counters: std::sync::Arc<HistoryCounters>,
+    batch_incumbent: BatchIncumbent,
+    work_counters: std::sync::Arc<WorkCounters>,
+    presolve_context: std::sync::Arc<()>,
 }
 
 pub enum NodeLoggingAction {
@@ -94,6 +117,32 @@ pub struct ProcessNodeState {
     pub component_work: (usize, usize, usize),
 }
 
+impl ProcessNodeState {
+    fn finished(best_update: Option<(Array1<usize>, f64)>, logging: NodeLoggingAction) -> Self {
+        Self {
+            best_update,
+            branches: None,
+            logging,
+            continuation: None,
+            component_work: (0, 0, 0),
+        }
+    }
+
+    /// New fixings must re-enter presolve without the old backend state.
+    fn after_fixings(
+        mut node: QuboBBNode,
+        best_update: Option<(Array1<usize>, f64)>,
+        logging: NodeLoggingAction,
+        closed: bool,
+    ) -> Self {
+        node.subproblem_state = None;
+        Self {
+            continuation: (!closed).then_some(node),
+            ..Self::finished(best_update, logging)
+        }
+    }
+}
+
 pub enum SolverResult {
     OptimalSolution(Array1<f64>, f64),
     SubOptimalSolution(Array1<f64>, f64),
@@ -102,6 +151,10 @@ pub enum SolverResult {
 const ROOT_PROBE_LIMIT: usize = 25;
 
 impl BBSolver {
+    /// Native node-context objective before continuous convexification.
+    pub fn input_qubo(&self) -> &Qubo {
+        &self.input_qubo
+    }
     fn lower_bound_prunes(&self, lower_bound: f64) -> bool {
         self.prunes_with_incumbent(lower_bound, self.best_solution_value)
     }
@@ -114,21 +167,48 @@ impl BBSolver {
 
     /// Creates a new B&B solver
     pub fn new(qubo: Qubo, options: SolverOptions) -> Self {
+        let convex = qubo.convex_symmetric_form();
+        let backend = get_sub_problem_solver(&convex, &options.sub_problem_solver);
+        Self::from_convex_qubo(qubo, convex, options, backend)
+    }
+
+    /// Internal constructor: `qubo` must be convex and binary-equivalent to
+    /// `input_qubo`, with the same variable order and objective constant.
+    fn from_convex_qubo(
+        input_qubo: Qubo,
+        qubo: Qubo,
+        options: SolverOptions,
+        subproblem_solver: Box<dyn SubProblemSolver + Sync>,
+    ) -> Self {
         // Check the input polynomial before floating-point convexification.
         // Smaller components are already solved outright by cheap presolve.
-        let root_symmetry_components = preprocess::complement_components(&qubo, 11);
-        let input_qubo = qubo.clone();
-        let qubo = qubo.convex_symmetric_form();
+        let root_symmetry_components = preprocess::complement_components(&input_qubo, 11);
         let num_x = qubo.num_x();
-        let subproblem_solver = get_sub_problem_solver(&qubo, &options.sub_problem_solver);
         let branch_strategy = options.branch_strategy;
         let start_time = get_current_time();
         let output_level = options.verbose;
         let pp_form = preprocess::shift_qubo(&qubo);
         let prepared_preprocess = prepare_preprocess(&pp_form, true);
-        let prepared_roof_dual = PreparedRoofDual::new(&pp_form);
+        // Roof duality operates on the native binary polynomial. Undoing a
+        // spectral diagonal shift can introduce spurious fractional residuals.
+        let prepared_roof_dual = PreparedRoofDual::new(&input_qubo);
+        // Dense models do not justify the graph work. Unsupported coefficients
+        // keep the ordinary SDP bound without rounding the native polynomial.
+        let prepared_cycle_bound = if options.sdp_cycle_bound
+            && matches!(
+                options.sub_problem_solver,
+                crate::branch_subproblem::SubProblemSelection::MixingCutSDP
+                    | crate::branch_subproblem::SubProblemSelection::MixingCutSDPMomentum
+            )
+            && input_qubo.q.nnz() <= input_qubo.num_x().saturating_mul(16)
+        {
+            crate::subproblemsolvers::cycle_bound::PreparedCycleBound::new(&input_qubo)
+        } else {
+            None
+        };
 
         Self {
+            objective_lattice: std::sync::OnceLock::new(),
             input_qubo,
             qubo,
             qubo_pp_form: pp_form,
@@ -143,6 +223,7 @@ impl BBSolver {
             subproblem_solver,
             prepared_preprocess,
             prepared_roof_dual,
+            prepared_cycle_bound,
             root_symmetry_components,
             options,
             early_stop: false,
@@ -158,8 +239,18 @@ impl BBSolver {
             reduction_counters: std::sync::Arc::default(),
             structural_root_reduced: false,
             cutoff: CutoffState::default(),
+            conflicts: conflicts::ConflictPool::default(),
+            relation_history: std::sync::Arc::default(),
+            relation_ids: (0..num_x).collect(),
             cutoff_counters: std::sync::Arc::default(),
-            sdp_fixing_counters: std::sync::Arc::default(),
+            conditional_bound_counters: std::sync::Arc::default(),
+            branch_history: BranchHistory::default(),
+            history_counters: std::sync::Arc::default(),
+            batch_incumbent: BatchIncumbent::default(),
+            work_counters: std::sync::Arc::default(),
+            presolve_context: std::sync::Arc::new(()),
+            root_cycle_floor: f64::NEG_INFINITY,
+            root_cycle_stats: None,
         }
     }
 
@@ -169,6 +260,13 @@ impl BBSolver {
         self.update_solution_if_better(&initial_solution, warm_start_value);
     }
 
+    /// Certificates and work from the most recent root cycle pass.
+    pub fn root_cycle_statistics(
+        &self,
+    ) -> Option<crate::subproblemsolvers::cycle_bound::RootCycleStatistics> {
+        self.root_cycle_stats
+    }
+
     /// The main solve function of the B&B algorithm
     pub fn solve(&mut self) -> (Array1<usize>, f64) {
         self.time_start = get_current_time();
@@ -176,10 +274,17 @@ impl BBSolver {
         self.nodes_processed = 0;
         self.nodes_solved = 0;
         self.early_stop = false;
+        self.relation_history = std::sync::Arc::default();
+        self.conflicts = conflicts::ConflictPool::default();
         self.component_counters = std::sync::Arc::default();
         self.reduction_counters = std::sync::Arc::default();
         self.cutoff_counters = std::sync::Arc::default();
-        self.sdp_fixing_counters = std::sync::Arc::default();
+        self.conditional_bound_counters = std::sync::Arc::default();
+        self.branch_history = BranchHistory::default();
+        self.history_counters = std::sync::Arc::default();
+        self.batch_incumbent = BatchIncumbent::default();
+        self.work_counters = std::sync::Arc::default();
+        self.presolve_context = std::sync::Arc::new(());
         if let Some(result) = self.initialize_search() {
             return result;
         }
@@ -201,6 +306,7 @@ impl BBSolver {
     fn initialize_search(&mut self) -> Option<(Array1<usize>, f64)> {
         self.nodes.clear();
         self.cutoff.reset_proof();
+        self.conflicts.clear();
         if self
             .options
             .fixed_variables
@@ -264,12 +370,43 @@ impl BBSolver {
             fixed_variables = closed;
             root_bound = root_bound.max(bound);
         }
+        if self.component_depth == 0 && !self.structural_root_reduced {
+            self.root_cycle_floor = f64::NEG_INFINITY;
+            self.root_cycle_stats = None;
+            let remaining = self.options.max_time - (get_current_time() - self.time_start);
+            if remaining > 0.0
+                && fixed_variables.len() < self.qubo.num_x()
+                && root_bound < self.pruning_upper_bound()
+            {
+                if let Some(prepared) = &self.prepared_cycle_bound {
+                    let budget = std::time::Duration::from_secs_f64((remaining / 4.0).min(6.0));
+                    let split_budget =
+                        std::time::Duration::from_secs_f64((remaining / 16.0).min(1.5));
+                    let lattice = self.verified_objective_lattice();
+                    if let Some(stats) = prepared.short_cycle_root_bound(
+                        budget,
+                        split_budget,
+                        |bound| lattice.and_then(|l| l.certified_grid_point(bound)),
+                    ) {
+                        self.root_cycle_floor = stats.lower_bound();
+                        self.root_cycle_stats = Some(stats);
+                    }
+                }
+            }
+        }
+        root_bound = self.lattice_lower_bound(root_bound.max(self.root_cycle_floor));
         if self.options.root_low_degree_elimination
+            || (self.options.subgraph_persistency
+                && self.component_depth == 0
+                && !self.structural_root_reduced)
             || self.options.root_dominant_edge_contraction
             || (self.options.root_cut_dominance
                 && self.component_depth == 0
                 && !self.structural_root_reduced)
-            || (self.options.small_block_elimination
+            || (self.options.root_region_persistency
+                && self.component_depth == 0
+                && !self.structural_root_reduced)
+            || (self.options.width_region_elimination
                 && self.component_depth == 0
                 && !self.structural_root_reduced)
         {
@@ -285,6 +422,9 @@ impl BBSolver {
             fixed_variables,
             run_heuristic: true,
             subproblem_state: None,
+            branch_origin: None,
+            probe_bounds: None,
+            probe_presolved: None,
         };
 
         let mut root_closed = self.probe_root(&mut root_node);
@@ -306,6 +446,7 @@ impl BBSolver {
                 Some(crate::branch_node::SubProblemNodeState::Components(_))
             )
         {
+            let incumbent_before_relaxation = self.best_solution_value;
             let mut root_result = self.solve_node(&root_node);
             let conditional_bounds = root_result.take_conditional_bounds();
             let (
@@ -324,12 +465,26 @@ impl BBSolver {
                 self.update_solution_if_better(&solution, value);
             }
             root_closed = self
-                .apply_sdp_bounds(
+                .apply_conditional_bounds(
                     &mut root_node,
                     &conditional_bounds,
                     self.best_solution_value,
                 )
                 .0;
+            if !root_closed
+                && self.options.root_probe_after_relaxation
+                && self.best_solution_value < incumbent_before_relaxation
+            {
+                let before = root_node.fixed_variables.len();
+                root_closed = self.probe_root(&mut root_node);
+                if root_node.fixed_variables.len() != before {
+                    root_node.subproblem_state = None;
+                    root_node.probe_presolved = None;
+                    self.options
+                        .fixed_variables
+                        .clone_from(&root_node.fixed_variables);
+                }
+            }
         }
 
         if root_closed {
@@ -347,13 +502,43 @@ impl BBSolver {
 
     fn search_batch(&mut self, limit: usize) {
         let nodes = self.get_next_nodes(limit);
+        self.batch_incumbent.begin(
+            self.best_solution_value,
+            self.options.live_batch_incumbent && nodes.len() > 1,
+        );
+        let adaptive = self.adaptive_probing();
+        if !adaptive {
+            let results = nodes
+                .into_par_iter()
+                .map(|node| {
+                    let state = self.process_node_inner(Cow::Owned(node));
+                    self.publish_batch_candidate(&state.best_update);
+                    state
+                })
+                .collect::<Vec<_>>();
+            self.finish_batch_incumbent();
+            for state in results {
+                self.apply_process_result(state);
+            }
+            return;
+        }
         let results = nodes
             .into_par_iter()
-            .map(|node| self.process_node_inner(Cow::Owned(node)))
+            .map(|node| {
+                let mut feedback = HistoryFeedback::default();
+                let state = self.process_node_recorded(Cow::Owned(node), &mut feedback);
+                self.publish_batch_candidate(&state.best_update);
+                (state, feedback)
+            })
             .collect::<Vec<_>>();
-        for state in results {
+        // Workers read a frozen history. Merge in input order, without worker locks.
+        self.finish_batch_incumbent();
+        for (state, feedback) in results {
+            self.branch_history
+                .merge(self.qubo.num_x(), feedback, &self.history_counters);
             self.apply_process_result(state);
         }
+        self.branch_history.finish_batch();
     }
 
     /// Checks if we can prune the node, based on the lower bound and best solution, returns an action
@@ -417,17 +602,71 @@ impl BBSolver {
     }
 
     fn process_node_inner(&self, node: Cow<'_, QuboBBNode>) -> ProcessNodeState {
+        self.process_node_recorded(node, &mut HistoryFeedback::default())
+    }
+
+    fn adaptive_probing(&self) -> bool {
+        matches!(
+            self.branch_strategy,
+            BranchStrategy::AdaptiveProbeLargestEdges
+        )
+    }
+
+    fn branch_origin(
+        &self,
+        node: &QuboBBNode,
+        variable: usize,
+        bound: f64,
+        incumbent: f64,
+    ) -> BranchOrigin {
+        let gap = incumbent - bound;
+        BranchOrigin {
+            variable,
+            value: 0,
+            parent_bound: bound,
+            parent_free: self.qubo.num_x() - node.fixed_variables.len(),
+            gap_scale: if gap.is_finite() { gap.max(1.0) } else { 1.0 },
+            size: self.qubo.num_x(),
+        }
+    }
+
+    fn process_node_recorded(
+        &self,
+        mut node: Cow<'_, QuboBBNode>,
+        feedback: &mut HistoryFeedback,
+    ) -> ProcessNodeState {
+        let origin = if self.adaptive_probing() && node.branch_origin.is_some() {
+            node.to_mut().branch_origin.take()
+        } else {
+            None
+        };
+        feedback.bound = node.lower_bound;
+        feedback.fixed = node.fixed_variables.len();
+        let learn = self
+            .can_learn_conflict(&node.fixed_variables)
+            .then(|| node.fixed_variables.clone());
+        let state = self.process_node_impl(node, feedback);
+        if state.branches.is_none() {
+            if let Some(fixed) = learn {
+                self.learn_conflict(&fixed);
+            }
+        }
+        if let Some(origin) = origin {
+            feedback.record_child(origin, &state);
+        }
+        state
+    }
+
+    fn process_node_impl(
+        &self,
+        node: Cow<'_, QuboBBNode>,
+        feedback: &mut HistoryFeedback,
+    ) -> ProcessNodeState {
         let (prune_action, event) = self.can_prune_action(&node);
 
         // if we are pruning at this stage, then we can early return without cloning the node
         if matches!(prune_action, PruneAction::Prune) {
-            return ProcessNodeState {
-                best_update: event,
-                branches: None,
-                logging: NodeLoggingAction::Processed,
-                continuation: None,
-                component_work: (0, 0, 0),
-            };
+            return ProcessNodeState::finished(event, NodeLoggingAction::Processed);
         }
 
         // The solve loop transfers ownership; borrowed callers clone only if needed.
@@ -439,51 +678,75 @@ impl BBSolver {
             return self.advance_component_node(node, None);
         }
 
-        let Some((fixed, node_bound)) =
-            self.presolve_node(std::mem::take(&mut node.fixed_variables))
-        else {
-            return ProcessNodeState {
-                best_update: None,
-                branches: None,
-                logging: NodeLoggingAction::Processed,
-                continuation: None,
-                component_work: (0, 0, 0),
-            };
+        let (closed, changed) = self.apply_conflicts(&mut node);
+        if closed || changed {
+            return ProcessNodeState::after_fixings(
+                node,
+                None,
+                NodeLoggingAction::Processed,
+                closed,
+            );
+        }
+        let (closed, changed) = self.apply_probe_bounds(&mut node, self.best_solution_value);
+        if closed {
+            return ProcessNodeState::finished(None, NodeLoggingAction::Processed);
+        }
+        if changed {
+            node.subproblem_state = None;
+            node.probe_presolved = None;
+        }
+
+        let presolved = self.presolve_or_reuse_probe(&mut node);
+        let Some((fixed, node_bound)) = presolved else {
+            return ProcessNodeState::finished(None, NodeLoggingAction::Processed);
         };
         node.fixed_variables = fixed;
         node.lower_bound = node.lower_bound.max(node_bound);
+        feedback.bound = node.lower_bound;
+        feedback.fixed = node.fixed_variables.len();
 
         // with this expanded set, can we prune the node?
         let (prune_action, event) = self.can_prune_action(&node);
 
         // if we are pruning at this stage, then we can early return
         if matches!(prune_action, PruneAction::Prune) {
-            return ProcessNodeState {
-                best_update: event,
-                branches: None,
-                logging: NodeLoggingAction::Processed,
-                continuation: None,
-                component_work: (0, 0, 0),
-            };
+            return ProcessNodeState::finished(event, NodeLoggingAction::Processed);
         }
 
         let probe = self.probe_node(&mut node);
+        feedback.absorb(probe.history);
+        feedback.bound = node.lower_bound;
+        feedback.fixed = node.fixed_variables.len();
         let (prune_action, event) = self.can_prune_action(&node);
         let probe_update = Self::better_candidate(probe.candidate, event);
+        self.publish_batch_candidate(&probe_update);
         if probe.closed || matches!(prune_action, PruneAction::Prune) {
-            return ProcessNodeState {
-                best_update: probe_update,
-                branches: None,
-                logging: NodeLoggingAction::Processed,
-                continuation: None,
-                component_work: (0, 0, 0),
-            };
+            return ProcessNodeState::finished(probe_update, NodeLoggingAction::Processed);
         }
 
+        let incumbent = probe_update
+            .as_ref()
+            .map_or(self.best_solution_value, |(_, v)| {
+                self.best_solution_value.min(*v)
+            });
+        let (closed, changed) = self.apply_probe_bounds(&mut node, incumbent);
+        if closed || changed {
+            return ProcessNodeState::after_fixings(
+                node,
+                probe_update,
+                NodeLoggingAction::Processed,
+                closed,
+            );
+        }
+
+        if let Some(state) = self.try_width_elimination(&node, probe_update.as_ref()) {
+            return state;
+        }
         if let Some(state) = self.try_reduced_node(&node, probe_update.as_ref()) {
             return state;
         }
         if let Some(search) = self.make_component_search(&node) {
+            feedback.split = true;
             node.subproblem_state =
                 Some(crate::branch_node::SubProblemNodeState::Components(search));
             return self.advance_component_node(node, probe_update);
@@ -500,15 +763,13 @@ impl BBSolver {
             .as_ref()
             .is_some_and(|(_, value)| self.prunes_with_incumbent(node.lower_bound, *value))
         {
-            return ProcessNodeState {
-                best_update: Self::better_candidate(probe_update, integer_update),
-                branches: None,
-                logging: NodeLoggingAction::Solved,
-                continuation: None,
-                component_work: (0, 0, 0),
-            };
+            return ProcessNodeState::finished(
+                Self::better_candidate(probe_update, integer_update),
+                NodeLoggingAction::Solved,
+            );
         }
         let probe_update = Self::better_candidate(probe_update, integer_update);
+        self.publish_batch_candidate(&probe_update);
 
         // We now need to solve the node to generate the lower bound and solution
         let mut solve_result = self.solve_node(&node);
@@ -520,6 +781,7 @@ impl BBSolver {
             solve_subproblem_state,
         ) = solve_result.into_parts();
         let lower_bound = solve_lower_bound.max(node.lower_bound);
+        feedback.bound = lower_bound;
 
         // inject the relaxed solution back into the node when available
         if let Some(solution) = solve_relaxed_solution {
@@ -535,6 +797,7 @@ impl BBSolver {
             }),
         );
 
+        self.publish_batch_candidate(&primal_update);
         let incumbent = primal_update
             .as_ref()
             .map_or(self.best_solution_value, |(_, value)| {
@@ -543,41 +806,63 @@ impl BBSolver {
         // The new bound may already close this node. Keep its primal candidate,
         // but do not pay for branching, child copies or another local search.
         if self.prunes_with_incumbent(lower_bound, incumbent) {
-            return ProcessNodeState {
-                best_update: primal_update,
-                branches: None,
-                logging: NodeLoggingAction::Solved,
-                continuation: None,
-                component_work: (0, 0, 0),
-            };
+            return ProcessNodeState::finished(primal_update, NodeLoggingAction::Solved);
+        }
+
+        node.lower_bound = lower_bound;
+        let (closed, changed) = self.apply_probe_bounds(&mut node, incumbent);
+        if closed || changed {
+            return ProcessNodeState::after_fixings(
+                node,
+                primal_update,
+                NodeLoggingAction::Solved,
+                closed,
+            );
         }
 
         if !conditional_bounds.is_empty() {
             node.lower_bound = lower_bound;
             let (closed, changed) =
-                self.apply_sdp_bounds(&mut node, &conditional_bounds, incumbent);
+                self.apply_conditional_bounds(&mut node, &conditional_bounds, incumbent);
+            feedback.bound = node.lower_bound;
+            feedback.fixed = node.fixed_variables.len();
             if closed || changed {
                 // Re-enter cheap presolve/structural reduction before another SDP.
                 // Do not reuse pre-fixing probed children or stale backend state.
-                node.subproblem_state = None;
-                return ProcessNodeState {
-                    best_update: primal_update,
-                    branches: None,
-                    logging: NodeLoggingAction::Solved,
-                    continuation: (!closed).then_some(node),
-                    component_work: (0, 0, 0),
-                };
+                return ProcessNodeState::after_fixings(
+                    node,
+                    primal_update,
+                    NodeLoggingAction::Solved,
+                    closed,
+                );
             }
+        }
+        if let Some(state) = self.try_cycle_relation_reduction(&mut node, primal_update.as_ref()) {
+            return state;
         }
         let lower_bound = lower_bound.max(node.lower_bound);
 
         // determine what variable we are branching on
-        let branch_result = self.make_branch(&node);
+        let branch_result = if matches!(
+            self.branch_strategy,
+            BranchStrategy::ProbeLargestEdges | BranchStrategy::AdaptiveProbeLargestEdges
+        ) {
+            probe.children.as_ref().map_or_else(
+                || self.make_branch(&node),
+                |children| BranchResult {
+                    branch_variable: children.variable,
+                    found_fixed_vars: FixedVarMap::default(),
+                },
+            )
+        } else {
+            self.make_branch(&node)
+        };
 
         // we now apply the new fixed variables to the base node before we branch
         for (&index, &value) in &branch_result.found_fixed_vars {
             node.fixed_variables.insert(index, value);
         }
+        feedback.fixed = node.fixed_variables.len();
 
         // if we have now fixed all variables, we can check if we have a solution
         if node.fixed_variables.len() == self.qubo.num_x() {
@@ -590,30 +875,40 @@ impl BBSolver {
             let value = self.qubo.eval_usize(&solution);
             // evaluate the solution against the best solution we have so far
             // if we have a better solution update it
-            return ProcessNodeState {
-                best_update: Self::better_candidate(primal_update, Some((solution, value))),
-                branches: None,
-                logging: NodeLoggingAction::Solved,
-                continuation: None,
-                component_work: (0, 0, 0),
-            };
+            return ProcessNodeState::finished(
+                Self::better_candidate(primal_update, Some((solution, value))),
+                NodeLoggingAction::Solved,
+            );
         }
 
         let best_update = node
             .run_heuristic
             .then(|| self.options.heuristic.make_heuristic(self, &node));
 
-        let best_update = match (primal_update, best_update) {
-            (Some(primal), Some(heuristic)) => Some(if primal.1 <= heuristic.1 {
-                primal
-            } else {
-                heuristic
-            }),
-            (Some(primal), None) => Some(primal),
-            (None, heuristic) => heuristic,
-        };
+        let best_update = Self::better_candidate(primal_update, best_update);
+
+        self.publish_batch_candidate(&best_update);
+        let incumbent = best_update
+            .as_ref()
+            .map_or(incumbent, |(_, v)| incumbent.min(*v));
+        let (closed, changed) = self.apply_probe_bounds(&mut node, incumbent);
+        if closed || changed {
+            return ProcessNodeState::after_fixings(
+                node,
+                best_update,
+                NodeLoggingAction::Solved,
+                closed,
+            );
+        }
+        let lower_bound = lower_bound.max(node.lower_bound);
 
         // generate the branches
+        if let Some(state) = self.try_relation_branches(&node, best_update.as_ref()) {
+            return state;
+        }
+        let origin = self.adaptive_probing().then(|| {
+            self.branch_origin(&node, branch_result.branch_variable, lower_bound, incumbent)
+        });
         let branch_solution = std::mem::take(&mut node.solution);
         let (mut zero_branch, mut one_branch) = Self::branch(
             node,
@@ -621,6 +916,8 @@ impl BBSolver {
             lower_bound,
             branch_solution,
         );
+        zero_branch.branch_origin = origin;
+        one_branch.branch_origin = origin.map(|origin| BranchOrigin { value: 1, ..origin });
         if branch_result.found_fixed_vars.is_empty() {
             if let Some(children) = probe
                 .children
@@ -630,6 +927,8 @@ impl BBSolver {
                 zero_branch.lower_bound = zero_branch.lower_bound.max(children.zero.1);
                 one_branch.fixed_variables = children.one.0;
                 one_branch.lower_bound = one_branch.lower_bound.max(children.one.1);
+                self.cache_probe_presolve(&mut zero_branch);
+                self.cache_probe_presolve(&mut one_branch);
                 self.probing_counters.reuse_children();
             }
         }
@@ -793,6 +1092,8 @@ impl BBSolver {
         node.solution = solution;
         node.lower_bound = lower_bound;
         node.run_heuristic = false;
+        node.branch_origin = None;
+        node.probe_presolved = None;
         let mut zero_branch = node.clone();
         let mut one_branch = node;
 
@@ -830,7 +1131,69 @@ impl BBSolver {
         self.presolve_node_with_weak_roof(fixed, self.options.roof_dual_weak_persistencies)
     }
 
+    fn cache_probe_presolve(&self, node: &mut QuboBBNode) {
+        // Only called after installing a completed probe's fixings. Prepared
+        // matrices and root implications stay immutable for this solve context.
+        if self.options.reuse_probe_presolve || self.options.audit_probe_presolve {
+            node.probe_presolved = Some(std::sync::Arc::new(crate::branch_node::ProbePresolve {
+                context: self.presolve_context.clone(),
+                fixed: node.fixed_variables.clone(),
+                bound: node.lower_bound,
+                weak_roof: self.options.roof_dual_weak_persistencies,
+                weak_gradient: self.options.weak_gradient_fixings,
+                lower_bound: self.options.node_lower_bound,
+            }));
+        }
+    }
+
+    fn presolve_or_reuse_probe(&self, node: &mut QuboBBNode) -> Option<(FixedVarMap, f64)> {
+        let cached = node.probe_presolved.take();
+        let valid = cached.as_ref().is_some_and(|cached| {
+            std::sync::Arc::ptr_eq(&cached.context, &self.presolve_context)
+                && cached.fixed == node.fixed_variables
+                && cached.weak_roof == self.options.roof_dual_weak_persistencies
+                && cached.weak_gradient == self.options.weak_gradient_fixings
+                && std::mem::discriminant(&cached.lower_bound)
+                    == std::mem::discriminant(&self.options.node_lower_bound)
+        });
+        if self.options.reuse_probe_presolve && valid {
+            self.work_counters
+                .presolve_reuses
+                .fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+            return Some((
+                std::mem::take(&mut node.fixed_variables),
+                cached.unwrap().bound,
+            ));
+        }
+        let audit = (valid && self.options.audit_probe_presolve).then(std::time::Instant::now);
+        let before_count = node.fixed_variables.len();
+        let result = self.presolve_node(std::mem::take(&mut node.fixed_variables));
+        if let Some(start) = audit {
+            let changed = result.as_ref().is_none_or(|(fixed, bound)| {
+                fixed.len() != before_count || *bound > node.lower_bound
+            });
+            self.record_probe_presolve(start.elapsed(), changed);
+        }
+        result
+    }
+
     fn presolve_node_with_weak_roof(
+        &self,
+        fixed: FixedVarMap,
+        weak_roof: bool,
+    ) -> Option<(FixedVarMap, f64)> {
+        let start = self
+            .options
+            .audit_probe_presolve
+            .then(std::time::Instant::now);
+        let result = self.presolve_node_with_weak_roof_inner(fixed, weak_roof);
+        if let Some(start) = start {
+            self.record_presolve(start.elapsed());
+        }
+        result
+    }
+
+    fn presolve_node_with_weak_roof_inner(
         &self,
         mut fixed: FixedVarMap,
         weak_roof: bool,
@@ -846,6 +1209,15 @@ impl BBSolver {
                 }
                 let before_preprocess = fixed.len();
                 fixed = preprocess_owned_with_prepared(&self.prepared_preprocess, fixed);
+                if self.options.weak_gradient_fixings {
+                    let before_weak = fixed.len();
+                    self.prepared_preprocess.apply_weak_fixings(&mut fixed);
+                    if fixed.len() != before_weak {
+                        self.work_counters.weak_gradient_fixings.fetch_add(fixed.len() - before_weak, std::sync::atomic::Ordering::Relaxed);
+                        // Revisit strict gradients and implications affected by weak choices.
+                        continue;
+                    }
+                }
                 let count = fixed.len();
                 if count == before_preprocess {
                     break;
@@ -963,6 +1335,9 @@ mod tests {
             fixed_variables: [(0, 1)].into_iter().collect(),
             run_heuristic: true,
             subproblem_state: None,
+            branch_origin: None,
+            probe_bounds: None,
+            probe_presolved: None,
         };
         let point = ndarray::array![1.0, 0.75];
         let allocation = point.as_ptr();
@@ -1029,6 +1404,9 @@ mod tests {
             options.branch_strategy = BranchStrategy::FullStrongBranching;
             options.node_probe_candidates = 0;
             options.node_structural_reductions = false;
+            // Require the fresh backend-bound path rather than earlier exact closure.
+            options.bounded_width_elimination = false;
+            options.objective_lattice_pruning = false;
             let mut solver = branchbound::BBSolver::new(qubo, options);
             let candidate = Array1::from_iter((0..11).map(|i| i % 2));
             let optimum = solver.qubo.eval_usize(&candidate);
@@ -1050,6 +1428,9 @@ mod tests {
                 fixed_variables: HashMap::default(),
                 run_heuristic: true,
                 subproblem_state: None,
+                branch_origin: None,
+                probe_bounds: None,
+                probe_presolved: None,
             };
             let state = if with_candidate {
                 solver.process_node_inner(std::borrow::Cow::Owned(node))
@@ -1078,6 +1459,9 @@ mod tests {
             fixed_variables: HashMap::default(),
             run_heuristic: true,
             subproblem_state: None,
+            branch_origin: None,
+            probe_bounds: None,
+            probe_presolved: None,
         });
 
         let node = solver.get_next_node().expect("expected root node");
@@ -1134,6 +1518,38 @@ mod tests {
     }
 
     #[test]
+    #[ignore = "offline comparison of full presolve on saved nodes"]
+    fn weak_gradient_chain_overlap() {
+        for id in [3506, 5725, 3642, 3877] {
+            let dir = std::path::PathBuf::from(format!("target/fractional-cycle-screen/{id}"));
+            let csv = std::fs::read_to_string(dir.join("comparison.csv")).unwrap();
+            let q = Qubo::read_qubo(dir.join("node-0.qubo").to_str().unwrap());
+            let mut options = SolverOptions::new();
+            options.verbose = 0;
+            let mut solver = branchbound::BBSolver::new(q.clone(), options);
+            let (mut total, mut identical, mut gained) = (0, 0, 0);
+            for line in csv.lines().skip(1) {
+                let cols: Vec<_> = line.split(',').collect();
+                if cols[2] != "Greedy" { continue; }
+                let call = cols[0];
+                let snapshot = Qubo::read_qubo(dir.join(format!("node-{call}.qubo")).to_str().unwrap());
+                assert_eq!(q.q, snapshot.q);
+                assert_eq!(q.c, snapshot.c);
+                let fixed: crate::FixedVarMap = std::fs::read_to_string(dir.join(format!("node-{call}.fix"))).unwrap()
+                    .lines().map(|l| { let s: Vec<_> = l.split_whitespace().collect(); (s[0].parse().unwrap(), s[1].parse().unwrap()) }).collect();
+                solver.options.weak_gradient_fixings = false;
+                let old = solver.presolve_node(fixed.clone()).unwrap();
+                solver.options.weak_gradient_fixings = true;
+                let new = solver.presolve_node(fixed).unwrap();
+                total += 1;
+                identical += usize::from(old.0 == new.0);
+                gained += new.0.len().saturating_sub(old.0.len());
+            }
+            println!("OVERLAP {id} nodes={total} identical={identical} extra_fixings={gained}");
+        }
+    }
+
+    #[test]
     fn propagated_solver_matches_exhaustive_optima() {
         use smolprng::{JsfLarge, PRNG};
         let mut prng = PRNG {
@@ -1148,7 +1564,7 @@ mod tests {
                 .for_each(|v| *v = (*v * 32.0).round());
             qubo.c.mapv_inplace(|v| (v * 8.0).round());
             let (expected, _) = crate::subproblemsolvers::enumerate_qubo::enumerate_solve(&qubo);
-            for (relations, weak) in [(false, false), (true, false), (true, true)] {
+            for (relations, weak, gradient) in [(false, false, false), (true, false, false), (true, true, false), (false, false, true), (true, true, true)] {
                 let mut options = SolverOptions::new();
                 options.verbose = 0;
                 options.threads = 4;
@@ -1156,6 +1572,7 @@ mod tests {
                 options.roof_dual_relation_penalties = relations;
                 options.root_pair_dominance = relations;
                 options.roof_dual_weak_persistencies = weak;
+                options.weak_gradient_fixings = gradient;
                 options.root_roof_probe_candidates = if relations { 4 } else { 0 };
                 options.root_roof_probe_max_seconds = 10.0;
                 let mut solver = branchbound::BBSolver::new(qubo.clone(), options);

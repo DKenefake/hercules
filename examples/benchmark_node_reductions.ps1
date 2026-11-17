@@ -9,9 +9,8 @@ if (Test-Path (Join-Path $OutputDirectory 'results.json')) { throw 'Choose a new
 New-Item -ItemType Directory -Force -Path $OutputDirectory | Out-Null
 $results = [System.Collections.Generic.List[object]]::new()
 $modes = @(
-    @{name='baseline'; nodes='false'; blocks='false'},
-    @{name='nodes'; nodes='true'; blocks='false'},
-    @{name='nodes-blocks'; nodes='true'; blocks='true'}
+    @{name='baseline'; nodes='false'},
+    @{name='nodes'; nodes='true'}
 )
 foreach ($instance in @('mk487a', 'mk487b', 'mk487c')) {
     foreach ($mode in $modes) {
@@ -21,7 +20,7 @@ foreach ($instance in @('mk487a', 'mk487b', 'mk487c')) {
             timeout --signal=TERM --kill-after=5s "${HardSeconds}s" `
             /target/release/examples/profile_presolve --solve "test_data/$instance.qubo" `
             0 $Seconds 1 256 0.01 false false false 0 0.25 true true true true true LargestEdges `
-            $mode.nodes $mode.blocks 2>&1 | Tee-Object -FilePath $log | ForEach-Object {
+            $mode.nodes 2>&1 | Tee-Object -FilePath $log | ForEach-Object {
                 if ($_ -match '^(ROOT_REDUCTION_CONFIG |REDUCTION |NODE_REDUCTION |PROBING |END_TO_END |VALIDATION )') { Write-Output $_ }
             }
         $code = $LASTEXITCODE

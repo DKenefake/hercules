@@ -176,7 +176,7 @@ mod tests {
             for enabled in [false, true] {
                 let mut options = SolverOptions::new();
                 options.root_dominant_edge_contraction = false;
-                options.small_block_elimination = false;
+                options.width_region_elimination = false;
                 options.root_low_degree_elimination = low_degree;
                 options.root_degree_three_elimination = enabled;
                 let fixed = FixedVarMap::default();

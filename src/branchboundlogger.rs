@@ -59,11 +59,7 @@ impl SolverOutputLogger {
 
         let num_nodes = solver_instance.nodes_solved;
         let upper_bound = solver_instance.best_solution_value + solver_instance.objective_offset;
-        let lower_bound = solver_instance
-            .nodes
-            .iter()
-            .map(|x| x.lower_bound + solver_instance.objective_offset)
-            .fold(f64::INFINITY, f64::min);
+        let lower_bound = solver_instance.search_lower_bound() + solver_instance.objective_offset;
         let gap = 100.0 * (upper_bound - lower_bound) / (upper_bound + 1E-5).abs();
         let gap = gap.max(0.0);
         let lower_bound = lower_bound.min(upper_bound);
@@ -94,11 +90,7 @@ impl SolverOutputLogger {
         let time_passed = current_time - solver_instance.time_start;
 
         let upper_bound = solver_instance.best_solution_value + solver_instance.objective_offset;
-        let lower_bound = solver_instance
-            .nodes
-            .iter()
-            .map(|x| x.lower_bound + solver_instance.objective_offset)
-            .fold(f64::INFINITY, f64::min);
+        let lower_bound = solver_instance.search_lower_bound() + solver_instance.objective_offset;
         let status = if solver_instance.nodes.is_empty() {
             "Optimal"
         } else {
@@ -129,9 +121,6 @@ impl SolverOutputLogger {
                 "Cutoff propagation: {:?}",
                 solver_instance.cutoff_statistics()
             );
-        }
-        if solver_instance.options.sdp_dual_fixing {
-            println!("SDP fixing: {:?}", solver_instance.sdp_fixing_statistics());
         }
         println!("----------------------------------------------------------------------------");
     }

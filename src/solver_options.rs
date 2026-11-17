@@ -18,6 +18,10 @@ pub struct SolverOptions {
     pub node_lower_bound: NodeLowerBoundSelection,
     /// Use compatible weak SCC fixings in roof-dual node presolve.
     pub roof_dual_weak_persistencies: bool,
+    /// Sequential node-local weak gradient choices on exactly summable integer rows.
+    pub weak_gradient_fixings: bool,
+    /// Experimental sampled cycle relation probes within 0.5% of the cutoff.
+    pub selective_cycle_relations: bool,
     /// Strengthen roof duality with nonnegative penalties for strict root relations.
     pub roof_dual_relation_penalties: bool,
     /// Root-only joint pair dominance, with a 50 ms soft budget and 250,000-pair limit.
@@ -27,16 +31,49 @@ pub struct SolverOptions {
     pub seed: usize,
     pub verbose: usize,
     pub threads: usize,
+    /// Publish feasible incumbents to other workers in the same scheduler batch.
+    pub live_batch_incumbent: bool,
+    /// Experimental context-local, independently certified short cutoff conflicts.
+    pub conflict_learning: bool,
+    /// Round certified bounds when the native objective lattice can be verified exactly (on by default).
+    pub objective_lattice_pruning: bool,
+    /// Measure repeated presolve on unchanged, already-probed child nodes.
+    pub audit_probe_presolve: bool,
+    /// Reuse completed conditional presolve on unchanged probe children.
+    pub reuse_probe_presolve: bool,
+    /// Experimental fixed-budget outcome ranking for AdaptiveProbeLargestEdges.
+    pub outcome_probe_selection: bool,
+    /// Default-on exact node solve: at most 128 free variables, width 8 and 5 ms.
+    pub bounded_width_elimination: bool,
+    /// Default-on exact elimination of width-limited regions with at most two boundary variables.
+    pub width_region_elimination: bool,
+    /// Experimental original-root persistencies across 3-4 boundary variables, capped at 50 ms.
+    pub root_region_persistency: bool,
     /// Conditional presolve candidates per eligible node (default one); zero disables it.
     pub node_probe_candidates: usize,
+    /// Supplement conditional roof-dual probes with bounded native cycle packing.
+    pub node_cycle_probing: bool,
+    /// Retry productive node probe rounds within the original time budget.
+    pub node_probe_retries: bool,
     /// Limit lookahead to residual nodes with at most this many free variables.
     pub node_probe_max_free: usize,
     /// Per-node wall-time budget, checked between conditional presolve calls.
     pub node_probe_max_seconds: f64,
-    /// Roof-dual candidates per root pass; repeat after reductions. Zero disables it.
+    /// Roof-dual candidates per root pass (default eight); repeat after reductions. Zero disables it.
     pub root_roof_probe_candidates: usize,
     /// Soft budget for all root roof-probing passes together.
     pub root_roof_probe_max_seconds: f64,
+    /// Recheck root probes after the first SDP candidate improves the incumbent.
+    pub root_probe_after_relaxation: bool,
+    /// Experimental small-subgraph parity contractions during structural presolve.
+    pub subgraph_persistency: bool,
+    /// Experimental SDP-guided equality/complement disjunctions with exact substitution.
+    pub relation_branching: bool,
+    /// Maximum relation splits along a search path; ordinary branches do not consume it.
+    /// Zero falls back to the configured variable rule; usize::MAX is unlimited.
+    pub relation_branching_budget: usize,
+    /// Learn directional relation scores from normal child processing, without trial solves.
+    pub relation_pseudocosts: bool,
     /// Choose one orientation per exactly complement-symmetric root component.
     pub root_complement_symmetry: bool,
     /// Eliminate degree-zero, one and two variables once at the root, with postsolve.
@@ -50,14 +87,12 @@ pub struct SolverOptions {
     pub component_decomposition: bool,
     /// Compact reduced child nodes, with bounded work and persistent postsolve.
     pub node_structural_reductions: bool,
-    /// Opt-in elimination of blocks of at most eight variables with at most two boundary variables.
-    pub small_block_elimination: bool,
     /// Propagate the incumbent cutoff into reduced/component searches.
     pub component_cutoff_propagation: bool,
     /// Root-only whole-cut dominance: at most 64 flow trials and 50 ms.
     pub root_cut_dominance: bool,
-    /// Experimental SDP dual-slack fixing, capped at 128 free variables and 5 ms.
-    pub sdp_dual_fixing: bool,
+    /// Supplement the SDP with exact cycle packing on sparse supported QUBOs.
+    pub sdp_cycle_bound: bool,
 }
 
 impl SolverOptions {
@@ -65,9 +100,11 @@ impl SolverOptions {
         Self {
             fixed_variables: FixedVarMap::default(),
             branch_strategy: BranchStrategy::LargestEdges,
-            sub_problem_solver: SubProblemSelection::HerculesABQP,
+            sub_problem_solver: SubProblemSelection::MixingCutSDP,
             node_lower_bound: NodeLowerBoundSelection::RoofDual,
             roof_dual_weak_persistencies: false,
+            weak_gradient_fixings: false,
+            selective_cycle_relations: false,
             roof_dual_relation_penalties: false,
             root_pair_dominance: false,
             heuristic: HeuristicSelection::LocalSearch,
@@ -75,21 +112,36 @@ impl SolverOptions {
             seed: 0,
             verbose: 1,
             threads: 256,
+            live_batch_incumbent: true,
+            conflict_learning: false,
+            objective_lattice_pruning: true,
+            audit_probe_presolve: false,
+            reuse_probe_presolve: true,
+            outcome_probe_selection: false,
+            bounded_width_elimination: true,
+            width_region_elimination: true,
+            root_region_persistency: false,
             node_probe_candidates: 1,
+            node_cycle_probing: true,
+            node_probe_retries: true,
             node_probe_max_free: 256,
             node_probe_max_seconds: 0.01,
-            root_roof_probe_candidates: 0,
+            root_roof_probe_candidates: 8,
             root_roof_probe_max_seconds: 0.25,
+            root_probe_after_relaxation: false,
+            subgraph_persistency: false,
+            relation_branching: false,
+            relation_branching_budget: usize::MAX,
+            relation_pseudocosts: false,
             root_complement_symmetry: true,
             root_low_degree_elimination: true,
             root_degree_three_elimination: true,
             root_dominant_edge_contraction: true,
             component_decomposition: true,
             node_structural_reductions: true,
-            small_block_elimination: false,
             component_cutoff_propagation: true,
             root_cut_dominance: false,
-            sdp_dual_fixing: false,
+            sdp_cycle_bound: true,
         }
     }
 
@@ -107,6 +159,10 @@ impl SolverOptions {
                 }
                 "MostEdges" => self.branch_strategy = BranchStrategy::MostEdges,
                 "LargestEdges" => self.branch_strategy = BranchStrategy::LargestEdges,
+                "ProbeLargestEdges" => self.branch_strategy = BranchStrategy::ProbeLargestEdges,
+                "AdaptiveProbeLargestEdges" => {
+                    self.branch_strategy = BranchStrategy::AdaptiveProbeLargestEdges
+                }
                 "MostFixed" => self.branch_strategy = BranchStrategy::MostFixed,
                 "FullStrongBranching" => self.branch_strategy = BranchStrategy::FullStrongBranching,
                 "PartialStrongBranching" => {
@@ -128,7 +184,6 @@ impl SolverOptions {
     }
 
     pub fn set_sub_problem_strategy(&mut self, strategy: Option<String>) {
-        // currently only one strategy is implemented but the structure is left for extension
         #[allow(clippy::redundant_pattern_matching)]
         if let Some(s) = strategy {
             match s.as_str() {
@@ -150,7 +205,7 @@ impl SolverOptions {
                 "mixingcut_sdp_momentum" => {
                     self.sub_problem_solver = SubProblemSelection::MixingCutSDPMomentum;
                 }
-                _ => self.sub_problem_solver = SubProblemSelection::HerculesABQP,
+                _ => self.sub_problem_solver = SubProblemSelection::MixingCutSDP,
             }
         }
     }
@@ -188,6 +243,16 @@ mod tests {
     use crate::solver_options::{NodeLowerBoundSelection, SolverOptions};
 
     #[test]
+    fn default_presolve_enables_budgeted_roof_probes_and_regions() {
+        for options in [SolverOptions::new(), SolverOptions::default()] {
+            assert_eq!(options.root_roof_probe_candidates, 8);
+            assert_eq!(options.root_roof_probe_max_seconds, 0.25);
+            assert!(options.width_region_elimination);
+            assert!(options.bounded_width_elimination);
+        }
+    }
+
+    #[test]
     fn test_solver_options_default_branch_strategy() {
         for mut options in [SolverOptions::new(), SolverOptions::default()] {
             assert!(matches!(
@@ -213,6 +278,16 @@ mod tests {
         let mut options = SolverOptions::new();
         options.set_branch_strategy(Some("Random".to_string()));
         assert!(matches!(options.branch_strategy, BranchStrategy::Random));
+        options.set_branch_strategy(Some("ProbeLargestEdges".to_string()));
+        assert!(matches!(
+            options.branch_strategy,
+            BranchStrategy::ProbeLargestEdges
+        ));
+        options.set_branch_strategy(Some("AdaptiveProbeLargestEdges".to_string()));
+        assert!(matches!(
+            options.branch_strategy,
+            BranchStrategy::AdaptiveProbeLargestEdges
+        ));
     }
 
     #[test]
@@ -239,6 +314,26 @@ mod tests {
     fn test_solver_options_set_sub_problem_strat_3() {
         let mut options = SolverOptions::new();
         options.set_sub_problem_strategy(Some("qweqwe".to_string()));
+        assert!(matches!(
+            options.sub_problem_solver,
+            SubProblemSelection::MixingCutSDP
+        ));
+    }
+
+    #[test]
+    fn default_and_omitted_backend_use_standard_sdp() {
+        let mut options = SolverOptions::new();
+        assert!(matches!(
+            options.sub_problem_solver,
+            SubProblemSelection::MixingCutSDP
+        ));
+        options.set_sub_problem_strategy(None);
+        assert!(matches!(
+            options.sub_problem_solver,
+            SubProblemSelection::MixingCutSDP
+        ));
+        options.set_sub_problem_strategy(Some("hercules_abqp".to_string()));
+        options.set_sub_problem_strategy(None);
         assert!(matches!(
             options.sub_problem_solver,
             SubProblemSelection::HerculesABQP
@@ -282,6 +377,16 @@ mod tests {
             options.node_lower_bound,
             NodeLowerBoundSelection::RoofDual
         ));
+    }
+
+    #[test]
+    fn default_cycle_probing_is_bounded() {
+        let options = SolverOptions::new();
+        assert!(options.node_cycle_probing);
+        assert!(options.node_probe_retries);
+        assert_eq!(options.node_probe_max_free, 256);
+        assert_eq!(options.node_probe_candidates, 1);
+        assert_eq!(options.node_probe_max_seconds, 0.01);
     }
 
     #[test]

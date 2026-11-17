@@ -12,6 +12,7 @@ use std::collections::HashMap;
 mod symmetry;
 pub(crate) use symmetry::{complement_components, ComplementComponent};
 pub(crate) mod low_degree;
+pub(crate) mod width_elimination;
 pub use low_degree::{CutDominanceStatistics, RootReductionStatistics};
 
 /// This file is the main module that defines the preprocessing functions.
@@ -19,6 +20,7 @@ pub(crate) struct PreparedPreprocess {
     no_effect_vars: FixedVarMap,
     qubo_pp: Qubo,
     adjacency: GradientAdjacency,
+    weak_exact_rows: Vec<bool>,
 }
 
 pub(crate) struct ProbePreprocess<'a> {
@@ -53,6 +55,36 @@ impl PreparedPreprocess {
     pub(crate) fn adjacency(&self) -> &GradientAdjacency {
         &self.adjacency
     }
+
+    /// These choices preserve one optimum jointly, not strict implications.
+    pub(crate) fn apply_weak_fixings(&self, fixed: &mut FixedVarMap) {
+        use std::collections::VecDeque;
+        let mut queued = self.weak_exact_rows.clone();
+        let mut queue: VecDeque<_> = (0..queued.len()).filter(|&i| queued[i]).collect();
+        while let Some(i) = queue.pop_front() {
+            queued[i] = false;
+            if fixed.contains_key(&i) { continue; }
+            let mut lo = self.qubo_pp.c[i];
+            let mut hi = lo;
+            for &(j, w) in &self.adjacency[i] {
+                if let Some(&v) = fixed.get(&j) {
+                    lo += w * v as f64;
+                    hi += w * v as f64;
+                } else {
+                    lo += w.min(0.0);
+                    hi += w.max(0.0);
+                }
+            }
+            let value = if lo >= 0.0 { 0 } else if hi <= 0.0 { 1 } else { continue; };
+            fixed.insert(i, value);
+            for &(j, _) in &self.adjacency[i] {
+                if self.weak_exact_rows[j] && !queued[j] && !fixed.contains_key(&j) {
+                    queued[j] = true;
+                    queue.push_back(j);
+                }
+            }
+        }
+    }
 }
 
 pub(crate) fn prepare_preprocess(qubo: &Qubo, in_standard_form: bool) -> PreparedPreprocess {
@@ -63,11 +95,20 @@ pub(crate) fn prepare_preprocess(qubo: &Qubo, in_standard_form: bool) -> Prepare
         shift_qubo(qubo)
     };
     let adjacency = build_gradient_adjacency(&qubo_pp);
+    // All partial sums are exact integers below 2^53. Leave ample headroom,
+    // and skip fractional rows rather than treating numerical noise as a tie.
+    let weak_exact_rows = (0..qubo_pp.num_x()).map(|i| {
+        let c = qubo_pp.c[i];
+        c.is_finite() && c.fract() == 0.0
+            && adjacency[i].iter().all(|&(_, w)| w.is_finite() && w.fract() == 0.0)
+            && c.abs() + adjacency[i].iter().map(|&(_, w)| w.abs()).sum::<f64>() <= (1u64 << 50) as f64
+    }).collect();
 
     PreparedPreprocess {
         no_effect_vars,
         qubo_pp,
         adjacency,
+        weak_exact_rows,
     }
 }
 
@@ -414,19 +455,33 @@ pub fn make_sub_problem(
     qubo: &Qubo,
     fixed_vars: &FixedVarMap,
 ) -> (Qubo, HashMap<usize, usize>, f64) {
+    let (reduced, original, constant) = make_sub_problem_indexed(qubo, fixed_vars);
+    let mapping = original
+        .into_iter()
+        .enumerate()
+        .map(|(j, i)| (i, j))
+        .collect();
+    (reduced, mapping, constant)
+}
+
+/// Project a node, returning original indices in reduced-variable order.
+pub(crate) fn make_sub_problem_indexed(
+    qubo: &Qubo,
+    fixed_vars: &FixedVarMap,
+) -> (Qubo, Vec<usize>, f64) {
     let num_unfixed = qubo.num_x() - fixed_vars.len();
     let mut reduced_index = vec![usize::MAX; qubo.num_x()];
     let mut fixed_values = vec![0.0; qubo.num_x()];
     let mut c_new = Array1::<f64>::zeros(num_unfixed);
     let mut constant = 0.0;
-    let mut unfixed_map = HashMap::with_capacity(num_unfixed);
+    let mut original = Vec::with_capacity(num_unfixed);
 
     for (i, index) in reduced_index.iter_mut().enumerate() {
         if let Some(&value) = fixed_vars.get(&i) {
             fixed_values[i] = value as f64;
         } else {
-            *index = unfixed_map.len();
-            unfixed_map.insert(i, *index);
+            *index = original.len();
+            original.push(i);
         }
     }
 
@@ -481,7 +536,7 @@ pub fn make_sub_problem(
             CsMat::new_csc((num_unfixed, num_unfixed), indptr, indices, values),
             c_new,
         ),
-        unfixed_map,
+        original,
         constant,
     )
 }
@@ -734,6 +789,16 @@ mod tests {
                     code /= 3;
                 }
                 let (reduced, mapping, constant) = super::make_sub_problem(&qubo, &fixed);
+                let (indexed, original, indexed_constant) =
+                    super::make_sub_problem_indexed(&qubo, &fixed);
+                assert_eq!(indexed.q, reduced.q);
+                assert_eq!(indexed.c, reduced.c);
+                assert_eq!(indexed_constant, constant);
+                assert!(original.windows(2).all(|w| w[0] < w[1]));
+                for (j, &i) in original.iter().enumerate() {
+                    assert_eq!(mapping[&i], j);
+                    assert!(!fixed.contains_key(&i));
+                }
                 assert!(reduced.q.is_csc());
                 assert_eq!(reduced.num_x(), 5 - fixed.len());
                 for mask in 0..(1 << reduced.num_x()) {

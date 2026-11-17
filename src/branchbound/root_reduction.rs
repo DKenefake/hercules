@@ -13,20 +13,27 @@ impl BBSolver {
             return None;
         }
         let mut cut_stats = Default::default();
+        let mut region_stats = Default::default();
+        let mut root_options = self.options.clone();
+        root_options.root_region_persistency &=
+            self.component_depth == 0 && !self.structural_root_reduced;
         let reduction = reduce_root_with_statistics(
             &self.input_qubo,
             fixed,
-            &self.options,
+            &root_options,
             Duration::from_secs_f64(seconds.min(1.0)),
             &mut cut_stats,
+            &mut region_stats,
         );
         self.root_reduction_statistics.cut_dominance = cut_stats;
+        self.root_reduction_statistics.region_persistency = region_stats;
         let reduction = reduction?;
         let mut options = self.options.clone();
         options.fixed_variables.clear();
         options.root_low_degree_elimination = false;
         options.root_dominant_edge_contraction = false;
         options.root_cut_dominance = false;
+        options.root_region_persistency = false;
         options.branch_strategy = self.branch_strategy;
         options.max_time =
             (self.options.max_time - (get_current_time() - self.time_start)).max(0.0);
@@ -41,6 +48,7 @@ impl BBSolver {
             (solution, value)
         } else {
             let mut inner = BBSolver::new(reduction.qubo.clone(), options);
+            inner.inherit_relation_history(self, &reduction.remaining);
             // Do not substitute a default backend for a caller's custom solver,
             // or reuse an ABQP preparation containing the old matrix.
             inner.subproblem_solver = self.subproblem_solver.for_reduced_qubo(&inner.qubo)?;
@@ -50,6 +58,7 @@ impl BBSolver {
             inner.objective_offset = self.objective_offset + reduction.constant;
             inner.suppress_exit_log = true;
             inner.structural_root_reduced = true;
+            inner.root_cycle_floor = (self.root_cycle_floor - reduction.constant).next_down();
             inner.warm_start(reduction.project(&self.best_solution));
             inner.tighten_external_cutoff(
                 (self.pruning_upper_bound() - reduction.constant).next_up(),
@@ -76,7 +85,11 @@ impl BBSolver {
             self.component_counters = std::sync::Arc::clone(&inner.component_counters);
             self.reduction_counters = std::sync::Arc::clone(&inner.reduction_counters);
             self.cutoff_counters = std::sync::Arc::clone(&inner.cutoff_counters);
-            self.sdp_fixing_counters = std::sync::Arc::clone(&inner.sdp_fixing_counters);
+            self.conditional_bound_counters = std::sync::Arc::clone(&inner.conditional_bound_counters);
+            self.history_counters = std::sync::Arc::clone(&inner.history_counters);
+            self.work_counters = std::sync::Arc::clone(&inner.work_counters);
+            self.conflicts.share_statistics(&inner.conflicts);
+            self.relation_history = inner.relation_history.clone();
             self.early_stop = inner.early_stop;
             // Expose unfinished nodes in original coordinates and objective units.
             // Eliminated variables are not unconditional fixed values.
@@ -107,12 +120,16 @@ impl BBSolver {
                         relaxed[i] = value as f64;
                     }
                     QuboBBNode {
-                        lower_bound: root_bound
-                            .max((node.lower_bound + reduction.constant).next_down()),
+                        lower_bound: self.lattice_lower_bound(
+                            root_bound.max((node.lower_bound + reduction.constant).next_down()),
+                        ),
                         solution: relaxed,
                         fixed_variables,
                         run_heuristic: node.run_heuristic,
                         subproblem_state: component_state,
+                        branch_origin: None,
+                        probe_bounds: None,
+                        probe_presolved: None,
                     }
                 })
                 .collect();
@@ -387,7 +404,6 @@ mod tests {
                 .try_reduced_root(&FixedVarMap::default(), -30.0)
                 .unwrap();
             assert!(solver.root_reduction_statistics.cut_dominance.contracted > 0);
-            assert!(!solver.options.small_block_elimination);
             assert!(solver.nodes.is_empty());
             assert!((value + 19.5).abs() < 1e-7);
             assert_eq!(qubo.eval_usize(&x), -19.5);
