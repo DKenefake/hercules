@@ -78,6 +78,8 @@ impl Component {
 /// Persistent component frontiers. Cloned AND-node handles share this state;
 /// they must not be used as ordinary binary branches with different fixings.
 pub struct ComponentSearch {
+    pub(super) deferred: Option<super::node_reduction::DeferredComponent>,
+    pub(super) relation_origin: Option<super::relation_history::RelationOrigin>,
     pub(super) components: Vec<Component>,
     pub(super) fixed: FixedVarMap,
     pub(super) size: usize,
@@ -89,6 +91,12 @@ pub struct ComponentSearch {
 }
 
 impl ComponentSearch {
+    pub(super) fn materialize(&mut self, parent: &BBSolver) {
+        if let Some(deferred) = self.deferred.take() {
+            self.components.push(deferred.materialize(parent));
+        }
+    }
+
     pub(super) fn lift(&mut self, reduction: Arc<RootReduction>) {
         self.cutoff_certificate = (self.cutoff_certificate + reduction.constant).next_down();
         self.postsolve.push(reduction);
@@ -96,6 +104,9 @@ impl ComponentSearch {
 
     fn candidate(&self) -> Array1<usize> {
         let mut x = Array1::zeros(self.size);
+        if let Some(deferred) = &self.deferred {
+            x.assign(&deferred.candidate);
+        }
         for (&i, &v) in &self.fixed {
             x[i] = v;
         }
@@ -116,6 +127,9 @@ impl ComponentSearch {
 
     fn lower_bound(&self) -> f64 {
         let mut bound = self.constant;
+        if let Some(deferred) = &self.deferred {
+            bound = (bound + deferred.node.lower_bound).next_down();
+        }
         for component in &self.components {
             let lower = component.lower_bound();
             if lower == f64::NEG_INFINITY {
@@ -131,7 +145,7 @@ impl ComponentSearch {
     }
 
     fn solved(&self) -> bool {
-        self.components.iter().all(Component::solved)
+        self.deferred.is_none() && self.components.iter().all(Component::solved)
     }
 
     fn component_cutoff(&self, parent: &BBSolver, index: usize) -> f64 {
@@ -157,6 +171,7 @@ impl ComponentSearch {
         if get_current_time() >= parent.time_start + parent.options.max_time {
             return (0, 0, 0);
         }
+        self.materialize(parent);
         // Fair bounded slices: completed components are never scheduled again.
         let Some(index) = (0..self.components.len())
             .map(|offset| (self.next_component + offset) % self.components.len())
@@ -340,18 +355,28 @@ impl BBSolver {
             options.root_dominant_edge_contraction = false;
             options.root_cut_dominance = false;
             options.branch_strategy = self.branch_strategy;
-            let mut solver = BBSolver::new(qubo, options);
-            let Some(backend) = self.subproblem_solver.for_reduced_qubo(&solver.qubo) else {
+            // Fixing variables and extracting an independent component retains
+            // a convex principal submatrix. Keep the original polynomial
+            // separately for exact structural reductions and reconstruction.
+            let (mut convex, _) =
+                preprocess::make_component_qubo(&self.qubo, &variables, &node.fixed_variables);
+            // Match the normal convexification path's CSR layout (ABQP requires it).
+            convex.q = convex.q.to_csr();
+            let Some(backend) = self.subproblem_solver.for_reduced_qubo(&convex) else {
                 self.component_counters
                     .backend_skips
                     .fetch_add(1, Ordering::Relaxed);
                 return None;
             };
-            solver.subproblem_solver = backend;
+            let mut solver = BBSolver::from_convex_qubo(qubo, convex, options, backend);
+            solver.inherit_relation_history(self, &variables);
             solver.component_counters = Arc::clone(&self.component_counters);
             solver.reduction_counters = Arc::clone(&self.reduction_counters);
             solver.cutoff_counters = Arc::clone(&self.cutoff_counters);
-            solver.sdp_fixing_counters = Arc::clone(&self.sdp_fixing_counters);
+            solver.conditional_bound_counters = Arc::clone(&self.conditional_bound_counters);
+            solver.history_counters = Arc::clone(&self.history_counters);
+            solver.work_counters = Arc::clone(&self.work_counters);
+            solver.conflicts.share_statistics(&self.conflicts);
             solver.component_depth = self.component_depth + 1;
             solver.time_start = self.time_start;
             solver.warm_start(Array1::from_iter(
@@ -374,6 +399,8 @@ impl BBSolver {
             .max_depth
             .fetch_max(self.component_depth + 1, Ordering::Relaxed);
         Some(Arc::new(Mutex::new(ComponentSearch {
+            deferred: None,
+            relation_origin: None,
             components,
             fixed: node.fixed_variables.clone(),
             size: self.qubo.num_x(),
@@ -398,6 +425,14 @@ impl BBSolver {
         let solution = search.candidate();
         let value = self.qubo.eval_usize(&solution);
         node.lower_bound = node.lower_bound.max(search.lower_bound());
+        if component_work != (0, 0, 0) {
+            if let Some(origin) = search.relation_origin.take() {
+                self.relation_history
+                    .lock()
+                    .unwrap()
+                    .observe(origin, node.lower_bound);
+            }
+        }
         let solved = search.solved();
         drop(search);
         let best_update = Self::better_candidate(candidate, Some((solution, value)));
@@ -430,6 +465,10 @@ mod tests {
 
     fn options() -> SolverOptions {
         let mut o = SolverOptions::new();
+        // Exercise component frontiers rather than closing their small fixtures exactly.
+        o.bounded_width_elimination = false;
+        o.width_region_elimination = false;
+        o.root_roof_probe_candidates = 0;
         o.verbose = 0;
         o.threads = 1;
         o.root_low_degree_elimination = false;
@@ -437,7 +476,6 @@ mod tests {
         o.root_complement_symmetry = false;
         o.node_probe_candidates = 0;
         o.node_structural_reductions = false;
-        o.small_block_elimination = false;
         o.component_cutoff_propagation = false;
         o.branch_strategy = BranchStrategy::FirstNotFixed;
         o.sub_problem_solver = SubProblemSelection::RoofDualQPBO;
@@ -474,13 +512,76 @@ mod tests {
             fixed_variables,
             run_heuristic: false,
             subproblem_state: None,
+            branch_origin: None,
+            probe_bounds: None,
+            probe_presolved: None,
+        }
+    }
+
+    #[test]
+    fn components_inherit_convex_hessian_and_preserve_binary_objectives() {
+        for hub in [false, true] {
+            let parent = BBSolver::new(cycles(2, hub), options());
+            let fixed = if hub {
+                [(0, 1)].into_iter().collect()
+            } else {
+                FixedVarMap::default()
+            };
+            let handle = parent
+                .make_component_search(&node(parent.qubo.num_x(), fixed))
+                .unwrap();
+            let group = handle.lock().unwrap();
+            assert_eq!(group.components.len(), 2);
+            for component in &group.components {
+                let child = &component.solver;
+                for (i, &original_i) in component.variables.iter().enumerate() {
+                    for (j, &original_j) in component.variables.iter().enumerate() {
+                        assert_eq!(
+                            child.qubo.q.get(i, j).copied().unwrap_or(0.0),
+                            parent
+                                .qubo
+                                .q
+                                .get(original_i, original_j)
+                                .copied()
+                                .unwrap_or(0.0)
+                        );
+                    }
+                }
+                assert!(child.qubo.hess_eigenvalues().iter().all(|&v| v >= -1e-8));
+                for mask in 0..1usize << component.variables.len() {
+                    let x =
+                        Array1::from_iter((0..component.variables.len()).map(|i| (mask >> i) & 1));
+                    assert!(
+                        (child.qubo.eval_usize(&x) - child.input_qubo.eval_usize(&x)).abs() < 1e-8
+                    );
+                }
+            }
+            for mask in 0..128 {
+                let mut full = Array1::zeros(parent.qubo.num_x());
+                for (&i, &v) in &group.fixed {
+                    full[i] = v;
+                }
+                let mut value = group.constant;
+                for (k, component) in group.components.iter().enumerate() {
+                    let x = Array1::from_iter(
+                        (0..component.variables.len()).map(|i| ((mask + k * 13) >> (i % 7)) & 1),
+                    );
+                    value += component.solver.qubo.eval_usize(&x);
+                    for (j, &i) in component.variables.iter().enumerate() {
+                        full[i] = x[j];
+                    }
+                }
+                assert!((value - parent.input_qubo.eval_usize(&full)).abs() < 1e-8);
+            }
         }
     }
 
     #[test]
     fn external_cutoffs_use_other_lower_bounds_and_do_not_invent_component_optima() {
-        let mut parent = BBSolver::new(cycles(2, false), options());
-        parent.options.component_cutoff_propagation = true;
+        let mut opts = options();
+        opts.component_cutoff_propagation = true;
+        opts.objective_lattice_pruning = false;
+        let mut parent = BBSolver::new(cycles(2, false), opts);
         // Simulate a better incumbent from outside this AND node.
         parent.best_solution_value = -22.0;
         let mut n = node(22, FixedVarMap::default());
@@ -534,7 +635,9 @@ mod tests {
 
     #[test]
     fn inherited_bounds_survive_weaker_discarded_certificates() {
-        let parent = BBSolver::new(cycles(2, false), options());
+        let mut opts = options();
+        opts.objective_lattice_pruning = false;
+        let parent = BBSolver::new(cycles(2, false), opts);
         let handle = parent
             .make_component_search(&node(22, FixedVarMap::default()))
             .unwrap();
@@ -634,6 +737,16 @@ mod tests {
     }
 
     #[test]
+    fn subgraph_option_does_not_enter_blocking_component_root_reduction() {
+        let mut o = options();
+        o.subgraph_persistency = true;
+        let mut solver = BBSolver::new(cycles(1, false), o);
+        solver.component_depth = 1;
+        solver.time_start = get_current_time();
+        assert!(solver.initialize_search().is_none());
+    }
+
+    #[test]
     fn fixing_an_articulation_creates_a_node_level_split() {
         let mut solver = BBSolver::new(cycles(2, true), options());
         assert!(solver
@@ -648,6 +761,38 @@ mod tests {
         solver.apply_process_result(state);
         finish(&mut solver, 7.0);
         assert_eq!(solver.best_solution[0], 1);
+    }
+
+    #[test]
+    fn adaptive_child_history_is_not_repeated_on_component_continuations() {
+        use super::super::branch_history::HistoryFeedback;
+        let mut o = options();
+        o.branch_strategy = BranchStrategy::AdaptiveProbeLargestEdges;
+        let mut solver = BBSolver::new(cycles(2, true), o);
+        solver.best_solution[0] = 1;
+        solver.best_solution_value = solver.qubo.eval_usize(&solver.best_solution);
+        let mut n = node(23, [(0, 1)].into_iter().collect());
+        n.branch_origin = Some(crate::branch_node::BranchOrigin {
+            variable: 0,
+            value: 1,
+            parent_bound: -100.0,
+            gap_scale: 100.0,
+            parent_free: 23,
+            size: 23,
+        });
+        let mut feedback = HistoryFeedback::default();
+        let state = solver.process_node_recorded(std::borrow::Cow::Owned(n), &mut feedback);
+        assert!(feedback.split);
+        solver
+            .branch_history
+            .merge(23, feedback, &solver.history_counters);
+        assert_eq!(solver.branch_history_statistics().child_observations, 1);
+        let continuation = state.continuation.unwrap();
+        assert!(continuation.branch_origin.is_none());
+        let mut feedback = HistoryFeedback::default();
+        solver.process_node_recorded(std::borrow::Cow::Owned(continuation), &mut feedback);
+        // Component work may create its own observations, but not this parent's again.
+        assert!(feedback.observations.is_empty());
     }
 
     #[test]
@@ -679,7 +824,9 @@ mod tests {
 
     #[test]
     fn component_deadline_retains_frontiers_and_finished_components_are_not_restarted() {
-        let mut solver = BBSolver::new(cycles(2, false), options());
+        let mut opts = options();
+        opts.objective_lattice_pruning = false;
+        let mut solver = BBSolver::new(cycles(2, false), opts);
         let mut n = node(22, FixedVarMap::default());
         let handle = solver.make_component_search(&n).unwrap();
         n.subproblem_state = Some(SubProblemNodeState::Components(Arc::clone(&handle)));

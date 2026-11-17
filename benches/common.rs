@@ -74,6 +74,9 @@ pub fn make_bench_data() -> BenchData {
         fixed_variables: process_solver.options.fixed_variables.clone(),
         run_heuristic: false,
         subproblem_state: None,
+        branch_origin: None,
+        probe_bounds: None,
+        probe_presolved: None,
     };
 
     BenchData {

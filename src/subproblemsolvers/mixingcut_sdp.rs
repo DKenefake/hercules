@@ -2,18 +2,20 @@ use crate::branch_node::{QuboBBNode, SubProblemNodeState};
 use crate::branch_subproblem::ConditionalLowerBound;
 use crate::branch_subproblem::{SubProblemOptions, SubProblemResult, SubProblemSolver};
 use crate::branchbound::BBSolver;
-use crate::preprocess::make_sub_problem;
+use crate::preprocess::make_sub_problem_indexed;
 use crate::qubo::Qubo;
 use mixingcut::sdp_solver::{solve_qubo_sdp_subproblem, SolveOptions, WarmStart};
 use mixingcut::step_rules::StepRule;
 use ndarray::{Array1, Array2};
 use smolprng::{JsfLarge, PRNG};
 use std::time::{Duration, Instant};
-mod dual_fixing;
 
 #[derive(Clone, Debug, Default)]
 pub struct MixingCutSDPSolver {
     momentum: f64,
+    cycle_packing: crate::subproblemsolvers::cycle_bound::PackingStrategy,
+    cycle_memory: bool,
+    cycle_probing: bool,
 }
 
 pub struct MixingCutSubProblemResult {
@@ -64,6 +66,7 @@ impl SubProblemResult for MixingCutSubProblemResult {
 impl MixingCutSDPSolver {
     const NUM_HYPERPLANES: usize = 8;
 
+
     pub fn new(qubo: &Qubo) -> Self {
         let _ = qubo;
         Self::default()
@@ -75,7 +78,26 @@ impl MixingCutSDPSolver {
             momentum.is_finite() && (0.0..1.0).contains(&momentum),
             "SDP momentum must be finite and in [0, 1)"
         );
-        Self { momentum }
+        Self {
+            momentum,
+            ..Self::default()
+        }
+    }
+
+    /// Select a bounded cycle-packing experiment without changing SDP iterations.
+    pub fn with_cycle_packing(
+        mut self,
+        strategy: crate::subproblemsolvers::cycle_bound::PackingStrategy,
+    ) -> Self {
+        self.cycle_packing = strategy;
+        self
+    }
+
+    /// Experiment with shared, conditioned cycle certificates; disabled by default.
+    pub fn with_cycle_memory(mut self, probe: bool) -> Self {
+        self.cycle_memory = true;
+        self.cycle_probing = probe;
+        self
     }
 
     fn default_options(&self, num_free: usize, max_iterations: Option<usize>) -> SolveOptions {
@@ -107,7 +129,7 @@ impl MixingCutSDPSolver {
             return Array1::zeros(0);
         }
 
-        let anchor = factor_matrix.row(free_n).to_owned();
+        let anchor = factor_matrix.row(free_n);
         let mut reduced_solution = Array1::zeros(free_n);
 
         for i in 0..free_n {
@@ -134,15 +156,15 @@ impl MixingCutSDPSolver {
         let anchor = factor_matrix.row(free_n);
         let mut best_solution = Array1::zeros(free_n);
         let mut best_objective = f64::INFINITY;
+        let mut direction = Array1::zeros(rank);
+        let mut candidate = Array1::zeros(free_n);
 
         for _ in 0..Self::NUM_HYPERPLANES {
-            let mut direction = Array1::zeros(rank);
             for component in &mut direction {
                 *component = 2.0 * prng.gen_f64() - 1.0;
             }
 
             let anchor_dot = anchor.dot(&direction);
-            let mut candidate = Array1::zeros(free_n);
 
             for i in 0..free_n {
                 let same_side =
@@ -153,7 +175,7 @@ impl MixingCutSDPSolver {
             let objective = reduced_qubo.eval_usize(&candidate);
             if objective < best_objective {
                 best_objective = objective;
-                best_solution = candidate;
+                std::mem::swap(&mut best_solution, &mut candidate);
             }
         }
 
@@ -172,7 +194,8 @@ impl SubProblemSolver for MixingCutSDPSolver {
         node: &QuboBBNode,
         sub_problem_options: Option<SubProblemOptions>,
     ) -> Box<dyn SubProblemResult> {
-        let (sub_qubo, mapping, constant) = make_sub_problem(&bbsolver.qubo, &node.fixed_variables);
+        let (sub_qubo, original, constant) =
+            make_sub_problem_indexed(&bbsolver.qubo, &node.fixed_variables);
 
         if sub_qubo.num_x() == 0 {
             let mut solution = node.solution.clone();
@@ -197,36 +220,68 @@ impl SubProblemSolver for MixingCutSDPSolver {
         let mut conditional_bounds = Vec::new();
         let seconds = bbsolver.time_start + bbsolver.options.max_time
             - crate::branchbound_utils::get_current_time();
-        if bbsolver.options.sdp_dual_fixing
-            && sub_qubo.num_x() <= 128
-            && seconds > 0.0
-            && result.qubo_lower_bound + constant < bbsolver.pruning_upper_bound()
-        {
-            let start = Instant::now();
-            conditional_bounds = dual_fixing::conditional_bounds(
-                &sub_qubo,
-                &result.dual_variables,
-                result.qubo_lower_bound,
-                start + Duration::from_secs_f64(seconds.min(0.005)),
-            );
-            let mut original = vec![0; sub_qubo.num_x()];
-            for (&i, &j) in &mapping {
-                original[j] = i;
+        let mut lower_bound = result.qubo_lower_bound + constant;
+        if bbsolver.options.sdp_cycle_bound && seconds > 0.0 {
+            if let Some(prepared) = &bbsolver.prepared_cycle_bound {
+                if let Some(cycle) = prepared.conditioned_with_strategy(
+                    &original,
+                    &node.fixed_variables,
+                    Duration::from_secs_f64(seconds.min(0.005)),
+                    bbsolver.pruning_upper_bound(),
+                    self.cycle_packing,
+                ) {
+                    // Already in full node-context units: do not add constant again.
+                    lower_bound = lower_bound.max(cycle.lower);
+                }
+                if self.cycle_memory {
+                    if let Some(mut evaluation) = prepared
+                        .retained_certificate()
+                        .and_then(|certificate| certificate.evaluate(&node.fixed_variables))
+                    {
+                        lower_bound = lower_bound.max(evaluation.lower_bound());
+                        if self.cycle_probing && lower_bound < bbsolver.pruning_upper_bound() {
+                            let start = Instant::now();
+                            conditional_bounds
+                                .extend(evaluation.probe(8, Duration::from_millis(1)));
+                            bbsolver.record_conditional_bounds(
+                                start.elapsed(),
+                                conditional_bounds.len(),
+                            );
+                        }
+                    }
+                }
             }
-            for b in &mut conditional_bounds {
-                b.variable = original[b.variable];
-                b.zero = (b.zero + constant).next_down();
-                b.one = (b.one + constant).next_down();
-            }
-            bbsolver.record_sdp_fixing(start.elapsed(), conditional_bounds.len());
         }
         let reduced_relaxed_solution = Self::relaxed_solution_from_factor(&result.factor_matrix);
         let reduced_primal_solution =
             Self::reduced_primal_solution_from_factor(&result.factor_matrix, &sub_qubo);
 
+        let subproblem_state = if bbsolver.options.relation_branching
+            && bbsolver.options.relation_branching_budget > 0
+        {
+            let mut candidates = Vec::new();
+            for (&weight, (i, j)) in &sub_qubo.q {
+                if i >= j || weight == 0.0 {
+                    continue;
+                }
+                let rho = result
+                    .factor_matrix
+                    .row(i)
+                    .dot(&result.factor_matrix.row(j))
+                    .clamp(-1.0, 1.0);
+                let value = weight.abs() * (1.0 - rho * rho).max(0.0).sqrt();
+                candidates.push((original[i], original[j], rho, value));
+            }
+            bbsolver
+                .select_relation(&candidates)
+                .map(|(i, j, rho)| SubProblemNodeState::RelationCandidate(i, j, rho))
+        } else {
+            None
+        };
+
         let mut relaxed_solution = node.solution.clone();
         let mut primal_solution = Array1::zeros(node.solution.len());
-        for (&original_index, &reduced_index) in &mapping {
+        for (reduced_index, &original_index) in original.iter().enumerate() {
             relaxed_solution[original_index] = reduced_relaxed_solution[reduced_index];
             primal_solution[original_index] = reduced_primal_solution[reduced_index];
         }
@@ -236,10 +291,10 @@ impl SubProblemSolver for MixingCutSDPSolver {
         }
 
         Box::new(MixingCutSubProblemResult {
-            lower_bound: result.qubo_lower_bound + constant,
+            lower_bound,
             relaxed_solution,
             candidate_primal_solution: Some(primal_solution),
-            subproblem_state: None,
+            subproblem_state,
             conditional_bounds,
         })
     }
@@ -257,46 +312,48 @@ mod tests {
     use ndarray::Array1;
     use sprs::CsMat;
 
+
     #[test]
-    fn conditional_bounds_include_node_constant_and_original_indices() {
-        let mut q = sprs::TriMat::new((6, 6));
-        for i in 0..6 {
-            q.add_triplet(i, i, 2.0);
-            for j in i + 1..6 {
-                let w = ((i * 7 + j * 3) % 9) as f64 - 4.0;
-                q.add_triplet(i, j, w);
-                q.add_triplet(j, i, w);
-            }
-        }
-        let qubo = Qubo::new_with_c(
-            q.to_csr(),
-            Array1::from_vec(vec![3.0, -5.0, 1.0, 2.0, -3.0, 4.0]),
-        );
-        let mut options = SolverOptions::new();
-        options.sdp_dual_fixing = true;
-        options.verbose = 0;
-        let mut solver = BBSolver::new(qubo.clone(), options);
-        solver.time_start = crate::branchbound_utils::get_current_time();
-        let node = QuboBBNode {
-            fixed_variables: [(1, 1), (4, 0)].into_iter().collect(),
-            lower_bound: f64::NEG_INFINITY,
-            solution: Array1::from_elem(6, 0.5),
-            run_heuristic: false,
-            subproblem_state: None,
+    fn reused_rounding_buffers_match_allocating_reference() {
+        use ndarray::Array2;
+        use smolprng::{JsfLarge, PRNG};
+        let mut data_rng = PRNG {
+            generator: JsfLarge::from(123_u64),
         };
-        let mut result =
-            MixingCutSDPSolver::new(&solver.qubo).solve_lower_bound(&solver, &node, None);
-        let bounds = result.take_conditional_bounds();
-        assert_eq!(bounds.len(), 4);
-        assert!(bounds.iter().all(|b| b.variable != 1 && b.variable != 4));
-        for mask in 0..64 {
-            if (mask >> 1) & 1 != 1 || (mask >> 4) & 1 != 0 {
-                continue;
-            }
-            let x = Array1::from_iter((0..6).map(|i| (mask >> i) & 1));
-            let value = qubo.eval_usize(&x);
-            for b in &bounds {
-                assert!(if x[b.variable] == 0 { b.zero } else { b.one } <= value + 1e-9);
+        for n in [0, 1, 7, 15] {
+            for rank in [2, 5] {
+                let factor =
+                    Array2::from_shape_fn((n + 1, rank), |_| 2.0 * data_rng.gen_f64() - 1.0);
+                let qubo = Qubo::make_random_qubo(n, &mut data_rng, 0.5);
+                let mut rng = PRNG {
+                    generator: JsfLarge::from(7_u64),
+                };
+                let mut best = Array1::zeros(n);
+                let mut value = f64::INFINITY;
+                for _ in 0..MixingCutSDPSolver::NUM_HYPERPLANES {
+                    let direction = Array1::from_iter((0..rank).map(|_| 2.0 * rng.gen_f64() - 1.0));
+                    let anchor = factor.row(n).dot(&direction);
+                    let candidate = Array1::from_iter((0..n).map(|i| {
+                        usize::from((factor.row(i).dot(&direction) >= 0.0) != (anchor >= 0.0))
+                    }));
+                    let objective = qubo.eval_usize(&candidate);
+                    if objective < value {
+                        value = objective;
+                        best = candidate;
+                    }
+                }
+                assert_eq!(
+                    MixingCutSDPSolver::reduced_primal_solution_from_factor(&factor, &qubo),
+                    best
+                );
+                let relaxed = MixingCutSDPSolver::relaxed_solution_from_factor(&factor);
+                let anchor = factor.row(n).to_owned();
+                for i in 0..n {
+                    assert_eq!(
+                        relaxed[i],
+                        0.5 * (1.0 - factor.row(i).dot(&anchor).clamp(-1.0, 1.0))
+                    );
+                }
             }
         }
     }
@@ -342,6 +399,9 @@ mod tests {
                     fixed_variables,
                     run_heuristic: false,
                     subproblem_state: None,
+                    branch_origin: None,
+                    probe_bounds: None,
+                    probe_presolved: None,
                 };
                 for beta in [0.0, 0.5, 0.8] {
                     for limit in [0, 1, 40] {
@@ -376,6 +436,9 @@ mod tests {
             fixed_variables: [(0, 1), (1, 0), (2, 1)].into_iter().collect(),
             run_heuristic: false,
             subproblem_state: None,
+            branch_origin: None,
+            probe_bounds: None,
+            probe_presolved: None,
         };
         let result = MixingCutSDPSolver::with_momentum(0.8).solve_lower_bound(&solver, &node, None);
         let expected = Array1::from_vec(vec![1, 0, 1]);
@@ -395,6 +458,9 @@ mod tests {
             fixed_variables: FixedVarMap::default(),
             run_heuristic: false,
             subproblem_state: None,
+            branch_origin: None,
+            probe_bounds: None,
+            probe_presolved: None,
         };
 
         let mixingcut = MixingCutSDPSolver::new(&solver.qubo);

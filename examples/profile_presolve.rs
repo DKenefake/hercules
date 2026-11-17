@@ -210,10 +210,11 @@ fn main() {
             .get(18)
             .map(|value| value.parse().expect("invalid node reduction flag"))
             .unwrap_or(options.node_structural_reductions);
-        options.small_block_elimination = args
-            .get(19)
-            .map(|value| value.parse().expect("invalid small-block flag"))
-            .unwrap_or(options.small_block_elimination);
+        // Preserve later argument positions for existing scripts.
+        assert!(
+            args.get(19).is_none_or(|value| value == "false"),
+            "argument 19 is reserved and must be false"
+        );
         options.component_cutoff_propagation = args
             .get(20)
             .map(|value| value.parse().expect("invalid component cutoff flag"))
@@ -222,11 +223,6 @@ fn main() {
             .get(21)
             .map(|value| value.parse().expect("invalid root cut dominance flag"))
             .unwrap_or(options.root_cut_dominance);
-        options.sdp_dual_fixing = args
-            .get(22)
-            .map(|value| value.parse().expect("invalid SDP dual fixing flag"))
-            .unwrap_or(options.sdp_dual_fixing);
-        println!("SDP_FIXING_CONFIG enabled={}", options.sdp_dual_fixing);
         options.max_time = args
             .get(3)
             .map(|value| value.parse().expect("invalid time limit"))
@@ -243,13 +239,12 @@ fn main() {
             options.root_complement_symmetry
         );
         println!(
-            "ROOT_REDUCTION_CONFIG low_degree={} dominant_edge={} degree_three={} components={} node_reductions={} small_blocks={} cutoff_propagation={} cut_dominance={}",
+            "ROOT_REDUCTION_CONFIG low_degree={} dominant_edge={} degree_three={} components={} node_reductions={} cutoff_propagation={} cut_dominance={}",
             options.root_low_degree_elimination,
             options.root_dominant_edge_contraction,
             options.root_degree_three_elimination,
             options.component_decomposition,
             options.node_structural_reductions,
-            options.small_block_elimination,
             options.component_cutoff_propagation,
             options.root_cut_dominance
         );
@@ -274,7 +269,6 @@ fn main() {
         println!("NODE_REDUCTION {:?}", solver.node_reduction_statistics());
         println!("DECOMPOSITION {:?}", solver.component_statistics());
         println!("CUTOFF {:?}", solver.cutoff_statistics());
-        println!("SDP_FIXING {:?}", solver.sdp_fixing_statistics());
         let lower_bound = solver
             .nodes
             .iter()

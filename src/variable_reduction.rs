@@ -5,6 +5,8 @@ use crate::FixedVarMap;
 use ndarray::Array1;
 
 mod pair_dominance;
+#[cfg(test)]
+mod closure_audit;
 pub(crate) use pair_dominance::find_pair_dominance;
 
 #[derive(Debug, Clone)]
@@ -141,15 +143,12 @@ fn probe_candidates(
     (ProbedEquationSet { constraints }, new_fixed_vars)
 }
 
-pub(crate) fn select_probe_candidates(
-    qubo: &Qubo,
-    fixed_vars: &FixedVarMap,
-    max_candidates: usize,
-) -> Vec<usize> {
+/// Score only interactions between free variables, not binary-equivalent diagonal shifts.
+pub(crate) fn free_interaction_scores(qubo: &Qubo, fixed_vars: &FixedVarMap) -> Array1<f64> {
     let mut edge_mass = Array1::<f64>::zeros(qubo.num_x());
 
     for (&value, (i, j)) in &qubo.q {
-        if fixed_vars.contains_key(&i) || fixed_vars.contains_key(&j) {
+        if i == j || fixed_vars.contains_key(&i) || fixed_vars.contains_key(&j) {
             continue;
         }
 
@@ -158,16 +157,32 @@ pub(crate) fn select_probe_candidates(
         edge_mass[j] += weight;
     }
 
+    edge_mass
+}
+
+pub(crate) fn select_probe_candidates(
+    qubo: &Qubo,
+    fixed_vars: &FixedVarMap,
+    max_candidates: usize,
+) -> Vec<usize> {
+    if max_candidates == 0 {
+        return Vec::new();
+    }
+    let edge_mass = free_interaction_scores(qubo, fixed_vars);
     let mut candidates = (0..qubo.num_x())
         .filter(|i| !fixed_vars.contains_key(i))
         .collect::<Vec<_>>();
 
-    candidates.sort_by(|&i, &j| {
+    let compare = |&i: &usize, &j: &usize| {
         edge_mass[j]
             .total_cmp(&edge_mass[i])
             .then_with(|| i.cmp(&j))
-    });
-    candidates.truncate(max_candidates.min(candidates.len()));
+    };
+    if max_candidates < candidates.len() {
+        candidates.select_nth_unstable_by(max_candidates, compare);
+        candidates.truncate(max_candidates);
+    }
+    candidates.sort_unstable_by(compare);
     candidates
 }
 
@@ -176,6 +191,34 @@ mod tests {
     use super::ProbedEquationSet;
     use crate::constraint::{Constraint, ConstraintType};
     use crate::FixedVarMap as HashMap;
+
+    #[test]
+    fn probe_shortlists_match_full_sort_for_every_budget() {
+        let mut q = sprs::TriMat::new((20, 20));
+        for i in 0..20 {
+            q.add_triplet(i, i, (20 - i) as f64 * 1000.0);
+            for j in i + 1..20 {
+                let weight = ((i * 7 + j * 3) % 9) as f64 - 4.0;
+                q.add_triplet(i, j, weight);
+                q.add_triplet(j, i, weight);
+            }
+        }
+        let qubo = crate::qubo::Qubo::new(q.to_csr());
+        for fixed in [HashMap::default(), [(0, 1), (7, 0)].into_iter().collect()] {
+            let full = super::select_probe_candidates(&qubo, &fixed, usize::MAX);
+            for budget in 0..=21 {
+                assert_eq!(
+                    super::select_probe_candidates(&qubo, &fixed, budget),
+                    full[..budget.min(full.len())]
+                );
+            }
+            let shifted = crate::preprocess::shift_qubo(&qubo);
+            assert_eq!(
+                full,
+                super::select_probe_candidates(&shifted, &fixed, usize::MAX)
+            );
+        }
+    }
 
     fn assert_all_optima_satisfy_probes(qubo: &crate::qubo::Qubo, fixed: &HashMap) {
         let (relations, deductions) = super::probe(qubo, fixed, false);

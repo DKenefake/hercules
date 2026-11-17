@@ -33,6 +33,16 @@ impl Graph {
     pub(super) fn contract(&mut self, i: usize, j: usize) -> Option<(Elimination, Vec<usize>)> {
         let weight = self.edges[i][&j];
         let complement = weight > 0.0;
+        self.contract_parity(i, j, complement)
+    }
+
+    pub(super) fn contract_parity(
+        &mut self,
+        i: usize,
+        j: usize,
+        complement: bool,
+    ) -> Option<(Elimination, Vec<usize>)> {
+        let weight = self.edges[i].get(&j).copied().unwrap_or(0.0);
         let affected: Vec<_> = self.edges[i].keys().copied().collect();
         if complement {
             // x_i=1-x_j: b_ij*x_i*x_j vanishes identically for binary x_j.

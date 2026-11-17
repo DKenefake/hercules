@@ -139,7 +139,13 @@ impl FlowNetwork {
         components
     }
 
-    fn build_levels(&self, source: usize, levels: &mut [usize], queue: &mut Vec<usize>) {
+    fn build_levels(
+        &self,
+        source: usize,
+        sink: usize,
+        levels: &mut [usize],
+        queue: &mut Vec<usize>,
+    ) {
         levels.fill(NONE);
         queue.clear();
         queue.push(source);
@@ -148,6 +154,11 @@ impl FlowNetwork {
         while cursor < queue.len() {
             let node = queue[cursor];
             cursor += 1;
+            // BFS order guarantees all shortest source-sink paths are labeled.
+            // Deeper levels cannot participate in this blocking-flow phase.
+            if levels[node] >= levels[sink] {
+                break;
+            }
             let mut edge = self.head[node];
             while edge != NONE {
                 let arc = &self.arcs[edge];
@@ -198,7 +209,7 @@ impl FlowNetwork {
             if stop(total) {
                 return None;
             }
-            self.build_levels(source, &mut levels, &mut queue);
+            self.build_levels(source, sink, &mut levels, &mut queue);
             if levels[sink] == NONE {
                 return Some(total);
             }
@@ -281,6 +292,22 @@ mod tests {
     use petgraph::graph::DiGraph;
     use petgraph::visit::EdgeRef;
     use smolprng::{JsfLarge, PRNG};
+
+    #[test]
+    fn levels_stop_after_shortest_paths_but_keep_all_their_parents() {
+        let mut flow = FlowNetwork::new(6, 6);
+        for (u, v) in [(0, 1), (0, 2), (1, 5), (2, 5), (1, 3), (3, 4)] {
+            flow.add_edge(u, v, 1.0);
+        }
+        let mut levels = vec![NONE; 6];
+        let mut queue = Vec::new();
+        flow.build_levels(0, 5, &mut levels, &mut queue);
+        assert_eq!(levels[1], 1);
+        assert_eq!(levels[2], 1);
+        assert_eq!(levels[5], 2);
+        assert_eq!(levels[4], NONE);
+        assert_eq!(flow.max_flow(0, 5), 2.0);
+    }
 
     #[test]
     fn bounded_cut_declines_deadlines_and_flow_limits() {

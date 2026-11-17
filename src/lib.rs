@@ -54,6 +54,7 @@ pub mod variable_reduction;
 // imports to generate the python interface
 
 pub mod subproblemsolvers {
+    pub mod cycle_bound;
     pub mod clarabel_lp;
     pub mod clarabel_qp;
 

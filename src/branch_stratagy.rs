@@ -14,6 +14,10 @@ pub enum BranchStrategy {
     WorstApproximation2,
     MostEdges,
     LargestEdges,
+    /// Rank a LargestEdges shortlist by cheap presolve outcomes, reusing both children.
+    ProbeLargestEdges,
+    /// Learn probe priorities and reduce lookahead when directional history is reliable.
+    AdaptiveProbeLargestEdges,
     MostFixed,
     FullStrongBranching,
     PartialStrongBranching,
@@ -46,7 +50,9 @@ impl BranchStrategy {
             Self::WorstApproximation => worst_approximation(bb_solver, node),
             Self::WorstApproximation2 => worst_approximation_second_order(bb_solver, node),
             Self::MostEdges => most_edges(bb_solver, node),
-            Self::LargestEdges => largest_edges(bb_solver, node),
+            Self::LargestEdges | Self::ProbeLargestEdges | Self::AdaptiveProbeLargestEdges => {
+                largest_edges(bb_solver, node)
+            }
             Self::MostFixed => most_fixed(bb_solver, node),
             Self::FullStrongBranching => full_strong_branching(bb_solver, node),
             Self::PartialStrongBranching => partial_strong_branching(bb_solver, node),
@@ -130,27 +136,12 @@ fn most_edges(solver: &BBSolver, node: &QuboBBNode) -> BranchResult {
     }
 }
 
-/// Branches on the largest edges in the qubo, ones that are most likely to be the largest
-/// determaning factor in the problem
+/// Branch on the largest total interaction with other free variables.
 fn largest_edges(solver: &BBSolver, node: &QuboBBNode) -> BranchResult {
-    // as a QUBO can be viewed as a graph, we can find the variable with the most (remaining) edges
-    let mut edge_count = Array1::<f64>::zeros(solver.qubo.num_x());
-
-    // scan through the Q matrix and count the number of edges
-    for (&value, (i, j)) in &solver.qubo.q {
-        // if we have a fixed variable, then we can skip it
-        if node.fixed_variables.contains_key(&i) {
-            continue;
-        }
-
-        // same again
-        if node.fixed_variables.contains_key(&j) {
-            continue;
-        }
-
-        edge_count[i] += value.abs();
-        edge_count[j] += value.abs();
-    }
+    let edge_count = crate::variable_reduction::free_interaction_scores(
+        &solver.qubo_pp_form,
+        &node.fixed_variables,
+    );
 
     // find the variable with the most edges (fixed variables in the node are not counted)
     let mut min_edge_value = 0.0;
@@ -367,6 +358,9 @@ pub fn full_strong_branching(solver: &BBSolver, node: &QuboBBNode) -> BranchResu
             solution: node.solution.clone(),
             run_heuristic: false,
             subproblem_state: node.subproblem_state.clone(),
+            branch_origin: None,
+            probe_bounds: None,
+            probe_presolved: None,
         };
 
         let node_1 = QuboBBNode {
@@ -375,6 +369,9 @@ pub fn full_strong_branching(solver: &BBSolver, node: &QuboBBNode) -> BranchResu
             solution: node.solution.clone(),
             run_heuristic: false,
             subproblem_state: node.subproblem_state.clone(),
+            branch_origin: None,
+            probe_bounds: None,
+            probe_presolved: None,
         };
 
         // solve for the
@@ -474,6 +471,9 @@ pub fn partial_strong_branching(solver: &BBSolver, node: &QuboBBNode) -> BranchR
             solution: node.solution.clone(),
             run_heuristic: false,
             subproblem_state: node.subproblem_state.clone(),
+            branch_origin: None,
+            probe_bounds: None,
+            probe_presolved: None,
         };
 
         let node_1 = QuboBBNode {
@@ -482,6 +482,9 @@ pub fn partial_strong_branching(solver: &BBSolver, node: &QuboBBNode) -> BranchR
             solution: node.solution.clone(),
             run_heuristic: false,
             subproblem_state: node.subproblem_state.clone(),
+            branch_origin: None,
+            probe_bounds: None,
+            probe_presolved: None,
         };
 
         let bound_0 = solver.solve_node(&node_0);
@@ -689,6 +692,49 @@ mod tests {
     }
 
     #[test]
+    fn largest_edges_matches_probing_and_ignores_diagonal_shifts() {
+        let mut q = sprs::TriMat::new((4, 4));
+        for (i, j, weight) in [(0, 1, 1.0), (1, 2, 8.0), (2, 3, 4.0)] {
+            q.add_triplet(i, j, weight);
+            q.add_triplet(j, i, weight);
+        }
+        let mut solver = make_solver(Qubo::new(q.to_csr()));
+        let mut node = QuboBBNode {
+            lower_bound: f64::NEG_INFINITY,
+            solution: Array1::from_elem(4, 0.5),
+            fixed_variables: FixedVarMap::default(),
+            run_heuristic: false,
+            subproblem_state: None,
+            branch_origin: None,
+            probe_bounds: None,
+            probe_presolved: None,
+        };
+        for diagonal in [Array1::zeros(4), Array1::from_vec(vec![1e6, 1.0, 2.0, 3.0])] {
+            solver.qubo = solver.qubo.make_diag_array_transform(&diagonal);
+            for (fixed, expected) in [
+                (FixedVarMap::default(), 2),
+                ([(2, 1)].into_iter().collect(), 0),
+                ([(0, 0), (1, 1), (2, 1)].into_iter().collect(), 3),
+            ] {
+                node.fixed_variables = fixed;
+                let candidates = crate::variable_reduction::select_probe_candidates(
+                    &solver.qubo,
+                    &node.fixed_variables,
+                    1,
+                );
+                assert_eq!(candidates, vec![expected]);
+                for rule in [
+                    super::BranchStrategy::LargestEdges,
+                    super::BranchStrategy::ProbeLargestEdges,
+                    super::BranchStrategy::AdaptiveProbeLargestEdges,
+                ] {
+                    assert_eq!(rule.make_branch(&solver, &node).branch_variable, expected);
+                }
+            }
+        }
+    }
+
+    #[test]
     fn connected_components_falls_back_to_first_unfixed() {
         let qubo = Qubo::new(CsMat::<f64>::zero((3, 3)));
         let solver = make_solver(qubo);
@@ -701,6 +747,9 @@ mod tests {
             fixed_variables,
             run_heuristic: false,
             subproblem_state: None,
+            branch_origin: None,
+            probe_bounds: None,
+            probe_presolved: None,
         };
 
         let result = connected_components(&solver, &node);
@@ -719,6 +768,9 @@ mod tests {
             fixed_variables,
             run_heuristic: false,
             subproblem_state: None,
+            branch_origin: None,
+            probe_bounds: None,
+            probe_presolved: None,
         };
 
         let result = worst_approximation_second_order(&solver, &node);

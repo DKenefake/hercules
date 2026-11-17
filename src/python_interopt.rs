@@ -358,11 +358,20 @@ pub fn get_qubo_components(
 /// Solves the QUBO using branch and bound, returns the best solution found.
 /// Node probing is controlled by the keyword-only node_probe_candidates,
 /// node_probe_max_free and node_probe_max_seconds options. Zero candidates disables it.
+/// branch_strategy="ProbeLargestEdges" uses completed probes to choose the branch.
+/// "AdaptiveProbeLargestEdges" learns when to reduce that shortlist to one probe.
+/// live_batch_incumbent shares feasible cutoffs within each batch (default true).
+/// reuse_probe_presolve skips unchanged, completed probe presolves (default true).
+/// bounded_width_elimination enables budgeted exact node elimination (default true).
+/// width_region_elimination enables exact small-boundary region reduction (default true).
+/// outcome_probe_selection enables experimental fixed-budget history selection
+/// with AdaptiveProbeLargestEdges (default false).
 /// roof_dual_weak_persistencies enables optional, joint SCC-based roof reductions.
 /// roof_dual_relation_penalties reuses strict root relations in the roof-dual bound.
 /// root_pair_dominance adds a time-capped root-only joint two-variable test.
 /// root_roof_probe_candidates and root_roof_probe_max_seconds control root
-/// roof probing, using compatible weak choices to preserve one global optimum.
+/// roof probing (defaults: 8 candidates, 0.25 seconds), using compatible weak choices
+/// to preserve one global optimum. Zero candidates disables root probing.
 /// root_complement_symmetry chooses one orientation per symmetric component;
 /// it defaults to true and is verified on the original input coefficients.
 ///
@@ -384,7 +393,7 @@ pub fn get_qubo_components(
 ///
 /// This shouldn't error, but if it does, it will abort.
 #[pyfunction]
-#[pyo3(signature = (problem, timeout, warm_start=None, seed=None, branch_strategy=None, sub_problem_solver=None, cheap_lower_bound_problem=None, heuristic_selection = None, threads=None, verbose=None, *, node_probe_candidates=None, node_probe_max_free=None, node_probe_max_seconds=None, roof_dual_weak_persistencies=None, roof_dual_relation_penalties=None, root_pair_dominance=None, root_roof_probe_candidates=None, root_roof_probe_max_seconds=None, root_complement_symmetry=None, root_low_degree_elimination=None, root_dominant_edge_contraction=None, root_degree_three_elimination=None, component_decomposition=None, node_structural_reductions=None, small_block_elimination=None, component_cutoff_propagation=None, root_cut_dominance=None, sdp_dual_fixing=None))]
+#[pyo3(signature = (problem, timeout, warm_start=None, seed=None, branch_strategy=None, sub_problem_solver=None, cheap_lower_bound_problem=None, heuristic_selection = None, threads=None, verbose=None, *, node_probe_candidates=None, node_probe_max_free=None, node_probe_max_seconds=None, roof_dual_weak_persistencies=None, roof_dual_relation_penalties=None, root_pair_dominance=None, root_roof_probe_candidates=None, root_roof_probe_max_seconds=None, root_complement_symmetry=None, root_low_degree_elimination=None, root_dominant_edge_contraction=None, root_degree_three_elimination=None, component_decomposition=None, node_structural_reductions=None, component_cutoff_propagation=None, root_cut_dominance=None, live_batch_incumbent=None, reuse_probe_presolve=None, outcome_probe_selection=None, bounded_width_elimination=None, width_region_elimination=None))]
 pub fn solve_branch_bound(
     problem: QuboData,
     timeout: f64,
@@ -410,10 +419,13 @@ pub fn solve_branch_bound(
     root_degree_three_elimination: Option<bool>,
     component_decomposition: Option<bool>,
     node_structural_reductions: Option<bool>,
-    small_block_elimination: Option<bool>,
     component_cutoff_propagation: Option<bool>,
     root_cut_dominance: Option<bool>,
-    sdp_dual_fixing: Option<bool>,
+    live_batch_incumbent: Option<bool>,
+    reuse_probe_presolve: Option<bool>,
+    outcome_probe_selection: Option<bool>,
+    bounded_width_elimination: Option<bool>,
+    width_region_elimination: Option<bool>,
 ) -> PyResult<(Vec<usize>, f64, f64, usize, usize)> {
     // read in the QUBO
     let p_input = Qubo::from_vec(problem.0, problem.1, problem.2, problem.3, problem.4);
@@ -423,6 +435,10 @@ pub fn solve_branch_bound(
     options.seed = seed.unwrap_or(12_345_679usize);
 
     options.set_branch_strategy(branch_strategy);
+    options.bounded_width_elimination =
+        bounded_width_elimination.unwrap_or(options.bounded_width_elimination);
+    options.width_region_elimination =
+        width_region_elimination.unwrap_or(options.width_region_elimination);
 
     options.set_sub_problem_strategy(sub_problem_solver);
 
@@ -457,12 +473,13 @@ pub fn solve_branch_bound(
         component_decomposition.unwrap_or(options.component_decomposition);
     options.node_structural_reductions =
         node_structural_reductions.unwrap_or(options.node_structural_reductions);
-    options.small_block_elimination =
-        small_block_elimination.unwrap_or(options.small_block_elimination);
     options.component_cutoff_propagation =
         component_cutoff_propagation.unwrap_or(options.component_cutoff_propagation);
     options.root_cut_dominance = root_cut_dominance.unwrap_or(options.root_cut_dominance);
-    options.sdp_dual_fixing = sdp_dual_fixing.unwrap_or(options.sdp_dual_fixing);
+    options.live_batch_incumbent = live_batch_incumbent.unwrap_or(options.live_batch_incumbent);
+    options.reuse_probe_presolve = reuse_probe_presolve.unwrap_or(options.reuse_probe_presolve);
+    options.outcome_probe_selection =
+        outcome_probe_selection.unwrap_or(options.outcome_probe_selection);
     if let Some(seconds) = root_roof_probe_max_seconds {
         if !seconds.is_finite() || seconds < 0.0 {
             return Err(pyo3::exceptions::PyValueError::new_err(

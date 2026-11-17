@@ -13,8 +13,10 @@ use std::time::{Duration, Instant};
 mod cut_dominance;
 mod degree_three;
 mod dominant_edge;
-mod small_block;
+mod subgraph;
+mod width_regions;
 pub use cut_dominance::CutDominanceStatistics;
+pub use width_regions::RegionPersistencyStatistics;
 
 #[derive(Clone, Copy, Debug, Default)]
 pub struct RootReductionStatistics {
@@ -25,6 +27,7 @@ pub struct RootReductionStatistics {
     /// Degree-three attempts skipped for a cubic term or inexact arithmetic.
     pub degree_three_skipped: usize,
     pub contracted: usize,
+    pub subgraph_contracted: usize,
     /// Contractions with a tie in at least one conditional flip-gain bound.
     pub weak_contractions: usize,
     pub additional_fixed: usize,
@@ -33,6 +36,7 @@ pub struct RootReductionStatistics {
     pub blocks_eliminated: usize,
     pub block_variables: usize,
     pub cut_dominance: CutDominanceStatistics,
+    pub region_persistency: RegionPersistencyStatistics,
 }
 
 #[derive(Clone)]
@@ -212,6 +216,44 @@ pub(crate) fn reduce_root(
     reduce(qubo, fixed, options, budget, true)
 }
 
+/// Exact restriction to one side of a parity disjunction, not a persistency.
+pub(crate) fn restrict_relation(
+    qubo: &Qubo,
+    fixed: &FixedVarMap,
+    i: usize,
+    j: usize,
+    complement: bool,
+) -> Option<RootReduction> {
+    if i == j
+        || i >= qubo.num_x()
+        || j >= qubo.num_x()
+        || fixed.contains_key(&i)
+        || fixed.contains_key(&j)
+    {
+        return None;
+    }
+    let mut graph = Graph::new(qubo)?;
+    let mut ordered: Vec<_> = fixed.iter().map(|(&i, &v)| (i, v)).collect();
+    ordered.sort_unstable();
+    for (i, v) in ordered {
+        graph.fix(i, v)?;
+    }
+    let (step, _) = graph.contract_parity(i, j, complement)?;
+    let (qubo, remaining) = graph.compact();
+    Some(RootReduction {
+        original_size: graph.active.len(),
+        constant: graph.constant,
+        statistics: RootReductionStatistics {
+            remaining: remaining.len(),
+            ..Default::default()
+        },
+        qubo,
+        remaining,
+        fixed: fixed.clone(),
+        steps: vec![step],
+    })
+}
+
 fn reduce(
     qubo: &Qubo,
     fixed: &FixedVarMap,
@@ -226,6 +268,7 @@ fn reduce(
         budget,
         presolve,
         &mut CutDominanceStatistics::default(),
+        &mut RegionPersistencyStatistics::default(),
     )
 }
 
@@ -235,8 +278,9 @@ pub(crate) fn reduce_root_with_statistics(
     options: &SolverOptions,
     budget: Duration,
     cut_stats: &mut CutDominanceStatistics,
+    region_stats: &mut RegionPersistencyStatistics,
 ) -> Option<RootReduction> {
-    reduce_tracked(qubo, fixed, options, budget, true, cut_stats)
+    reduce_tracked(qubo, fixed, options, budget, true, cut_stats, region_stats)
 }
 
 fn reduce_tracked(
@@ -246,6 +290,7 @@ fn reduce_tracked(
     budget: Duration,
     presolve: bool,
     cut_stats: &mut CutDominanceStatistics,
+    region_stats: &mut RegionPersistencyStatistics,
 ) -> Option<RootReduction> {
     let start = Instant::now();
     let cut_deadline = start + budget.min(Duration::from_millis(50));
@@ -336,6 +381,17 @@ fn reduce_tracked(
             }
             result.steps.push(step);
         }
+        if options.subgraph_persistency && start.elapsed() < budget.min(Duration::from_millis(10)) {
+            let deadline = (start + budget.min(Duration::from_millis(10)))
+                .min(Instant::now() + Duration::from_millis(1));
+            if let Some((i, j, complement)) = graph.small_subgraph_relation(deadline) {
+                let (step, _) = graph.contract_parity(i, j, complement)?;
+                result.steps.push(step);
+                result.statistics.contracted += 1;
+                result.statistics.subgraph_contracted += 1;
+                continue;
+            }
+        }
         if options.root_cut_dominance && start.elapsed() < budget {
             if let Some((i, j, weak)) = graph.dominant_cut_edge(cut_deadline, cut_stats) {
                 if j == graph.active.len() {
@@ -355,13 +411,33 @@ fn reduce_tracked(
                 continue;
             }
         }
-        if options.small_block_elimination && start.elapsed() < budget {
-            if let Some(steps) = graph.eliminate_small_block(start, budget) {
+        if options.width_region_elimination && start.elapsed() < budget {
+            if let Some(steps) = graph.eliminate_width_region(start, budget) {
                 result.statistics.blocks_eliminated += 1;
                 result.statistics.block_variables += steps.len();
                 result.steps.extend(steps);
-                // The replacement edge/fields can expose new low-degree or
-                // dominance reductions. Recheck them before another block.
+                result.statistics.passes += 1;
+                continue;
+            }
+        }
+        if options.root_region_persistency
+            && start.elapsed() < budget.min(Duration::from_millis(50))
+            && region_stats.attempts < 32
+        {
+            let attempt_start = Instant::now();
+            let fixes = graph.region_persistencies(
+                start,
+                budget.min(Duration::from_millis(50)),
+                region_stats,
+            );
+            region_stats.seconds += attempt_start.elapsed().as_secs_f64();
+            if let Some(fixes) = fixes {
+                for (i, value) in fixes {
+                    graph.fix(i, value)?;
+                    result.fixed.insert(i, value);
+                    result.statistics.additional_fixed += 1;
+                    region_stats.fixed += 1;
+                }
                 result.statistics.passes += 1;
                 continue;
             }
@@ -401,6 +477,7 @@ fn reduce_tracked(
     result.constant = graph.constant;
     result.statistics.remaining = result.remaining.len();
     result.statistics.cut_dominance = *cut_stats;
+    result.statistics.region_persistency = *region_stats;
     Some(result)
 }
 
@@ -518,6 +595,8 @@ mod tests {
         let mut options = SolverOptions::new();
         options.root_dominant_edge_contraction = false;
         options.root_degree_three_elimination = false;
+        // Assert the low-degree/presolve cascade, not the alternative region reduction.
+        options.width_region_elimination = false;
         let r = reduce_root(
             &qubo,
             &FixedVarMap::default(),
