@@ -48,6 +48,7 @@ pub mod preprocess;
 #[cfg(feature = "python")]
 pub mod python_interopt;
 pub mod qubo;
+mod root_tabu;
 pub mod solver_options;
 pub mod utils;
 pub mod variable_reduction;

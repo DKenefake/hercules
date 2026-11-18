@@ -468,7 +468,8 @@ mod tests {
         solver.options.bounded_width_elimination = false;
         let node = presolved_node(&solver, FixedVarMap::default());
         let state = solver.process_node(&node);
-        assert_eq!(state.best_update.as_ref().unwrap().1, -11.0);
+        let objective = state.best_update.as_ref().unwrap().1;
+        assert!((objective + 11.0).abs() < 1e-9, "expected -11, got {objective}");
         assert!(state.branches.is_none());
         let resumed = state.continuation.as_ref().unwrap();
         assert_eq!(resumed.fixed_variables.get(&0), Some(&0));
