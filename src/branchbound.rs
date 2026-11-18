@@ -285,6 +285,7 @@ impl BBSolver {
         self.batch_incumbent = BatchIncumbent::default();
         self.work_counters = std::sync::Arc::default();
         self.presolve_context = std::sync::Arc::new(());
+        self.improve_root_incumbent();
         if let Some(result) = self.initialize_search() {
             return result;
         }
@@ -300,6 +301,41 @@ impl BBSolver {
             self.solver_logger.generate_exit_line(self);
         }
         (self.best_solution.clone(), self.best_solution_value)
+    }
+
+    fn improve_root_incumbent(&mut self) {
+        if self.component_depth != 0
+            || self.structural_root_reduced
+            || !self.options.fixed_variables.is_empty()
+            || !matches!(
+                self.options.heuristic,
+                crate::heuristic_stratagy::HeuristicSelection::LocalSearch
+            )
+        {
+            return;
+        }
+        let remaining = self.options.max_time - (get_current_time() - self.time_start);
+        let seconds = (remaining / 16.0).min(0.25);
+        if remaining.is_nan() || seconds < 0.01 {
+            return;
+        }
+        let start = std::time::Instant::now();
+        if let Some(x) = crate::root_tabu::warm_start(
+            &self.input_qubo,
+            &self.best_solution,
+            self.options.seed,
+            self.options.threads,
+            std::time::Duration::from_secs_f64(seconds),
+        ) {
+            self.warm_start(x);
+            if self.options.verbose >= 2 {
+                println!(
+                    "Root tabu incumbent: {:.9} in {:.6} s",
+                    self.best_solution_value,
+                    start.elapsed().as_secs_f64(),
+                );
+            }
+        }
     }
 
     /// Initialize once. Component searches subsequently advance existing frontiers.
