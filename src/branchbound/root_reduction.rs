@@ -13,6 +13,11 @@ impl BBSolver {
         let bound = self
             .verified_objective_lattice()?
             .certified_grid_point(self.root_cycle_floor)?;
+        let objective = self.native_feasible_incumbent()?;
+        (objective == bound).then_some(objective)
+    }
+
+    fn native_feasible_incumbent(&self) -> Option<f64> {
         let x = &self.best_solution;
         if x.len() != self.input_qubo.num_x()
             || x.iter().any(|&value| value > 1)
@@ -24,9 +29,42 @@ impl BBSolver {
         {
             return None;
         }
-        // On the verified native lattice, both this sum and the rounded bound are exact.
-        let objective = self.input_qubo.eval_usize(x);
-        (objective == bound).then_some(objective)
+        // On the verified native lattice, this objective sum is exact.
+        Some(self.input_qubo.eval_usize(x))
+    }
+
+    pub(super) fn try_layered_root_certificate(&mut self) -> bool {
+        if self.component_depth != 0 || self.structural_root_reduced {
+            return false;
+        }
+        let seconds = self.options.max_time - (get_current_time() - self.time_start);
+        let budget = (seconds / 4.0).min(4.0);
+        if seconds.is_nan() || budget < 0.02 {
+            return false;
+        }
+        let start = std::time::Instant::now();
+        let Some(certificate) = self.prepared_cycle_bound.as_ref().and_then(|model| {
+            model.layered_root_certificate(Duration::from_secs_f64(budget))
+        }) else {
+            return false;
+        };
+        if self.verified_objective_lattice().is_none()
+            || !self.native_feasible_incumbent().is_some_and(|value| certificate.lower <= value)
+        {
+            return false;
+        }
+        self.root_cycle_floor = certificate.lower;
+        if self.options.verbose >= 2 {
+            println!(
+                "Root layered certificate: {:.9}, width {}, entries {}, {:.6} s",
+                certificate.lower,
+                certificate.width,
+                certificate.entries,
+                start.elapsed().as_secs_f64(),
+            );
+        }
+        // This is the exact unconstrained objective, so cycle packing cannot improve it.
+        true
     }
 
     pub(super) fn try_close_native_cycle_root(

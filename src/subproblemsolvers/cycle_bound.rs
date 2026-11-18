@@ -5,6 +5,7 @@ use crate::{qubo::Qubo, FixedVarMap};
 use std::collections::{BTreeMap, VecDeque};
 use std::time::{Duration, Instant};
 mod certificate;
+mod layered;
 mod root;
 pub use root::RootCycleStatistics;
 /// Offline small-region bound screening; not used by the solve path.

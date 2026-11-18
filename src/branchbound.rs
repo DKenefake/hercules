@@ -409,8 +409,11 @@ impl BBSolver {
         if self.component_depth == 0 && !self.structural_root_reduced {
             self.root_cycle_floor = f64::NEG_INFINITY;
             self.root_cycle_stats = None;
+            let layered = fixed_variables.len() < self.qubo.num_x()
+                && self.try_layered_root_certificate();
             let remaining = self.options.max_time - (get_current_time() - self.time_start);
-            if remaining > 0.0
+            if !layered
+                && remaining > 0.0
                 && fixed_variables.len() < self.qubo.num_x()
                 && root_bound < self.pruning_upper_bound()
             {
