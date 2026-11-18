@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1794896954853,
+  "lastUpdate": 1794982276273,
   "repoUrl": "https://github.com/DKenefake/hercules",
   "entries": {
     "hercules-criterion": [
@@ -1643,6 +1643,162 @@ window.BENCHMARK_DATA = {
             "name": "solver/branch_bound_solve/bqp50",
             "value": 36903386,
             "range": "± 36951",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "Dustin.Kenefake@gmail.com",
+            "name": "Dustin Kenefake",
+            "username": "DKenefake"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "fa0f670a458b0f6fcf2f2f1f246476ecd5360d04",
+          "message": "Merge pull request #21 from DKenefake/codex/root-bucket-tabu\n\nWarm start sparse QUBOs with bucketed tabu search",
+          "timestamp": "2026-11-17T22:06:27-08:00",
+          "tree_id": "a187efdb3e9e9f903edb6066903529e3df37e8fc",
+          "url": "https://github.com/DKenefake/hercules/commit/fa0f670a458b0f6fcf2f2f1f246476ecd5360d04"
+        },
+        "date": 1794982275586,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "helpers/eval_usize/128",
+            "value": 1125,
+            "range": "± 2",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "helpers/eval_grad_usize/128",
+            "value": 1357,
+            "range": "± 17",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "helpers/one_flip_objective/64",
+            "value": 627,
+            "range": "± 2",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "helpers/one_step_local_search/64",
+            "value": 674,
+            "range": "± 4",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "preprocess/iterative_persistence/64",
+            "value": 4053,
+            "range": "± 23",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "preprocess/disconnected_graphs/64",
+            "value": 731,
+            "range": "± 1",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "preprocess/solve_small_components/64",
+            "value": 2600,
+            "range": "± 9",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "preprocess/enumerate_solve/10",
+            "value": 6206,
+            "range": "± 7",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "preprocess/preprocess_qubo/64",
+            "value": 7086,
+            "range": "± 8",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "preprocess/probe_limited/test_large/25",
+            "value": 1337522,
+            "range": "± 2608",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "preprocess/probe_limited/test_large/50",
+            "value": 2415885,
+            "range": "± 14624",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "preprocess/probe_limited/test_large/100",
+            "value": 4500091,
+            "range": "± 34009",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "preprocess/preprocess_qubo_heavy/test_large",
+            "value": 3197234,
+            "range": "± 7952",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "solver/process_node/64",
+            "value": 11598,
+            "range": "± 31",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "solver/convex_symmetric_form/random64",
+            "value": 481657,
+            "range": "± 1490",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "solver/convex_symmetric_form/gka6a",
+            "value": 190685,
+            "range": "± 555",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "solver/branch_bound_solve/random96",
+            "value": 101880,
+            "range": "± 7319",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "solver/branch_bound_solve/gka1b",
+            "value": 411004,
+            "range": "± 2241",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "solver/branch_bound_solve/gka2b",
+            "value": 1186386,
+            "range": "± 4897",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "solver/branch_bound_solve/gka6a",
+            "value": 5029909,
+            "range": "± 15827",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "solver/branch_bound_solve/gka7a",
+            "value": 4984017,
+            "range": "± 4561",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "solver/branch_bound_solve/bqp50",
+            "value": 37512683,
+            "range": "± 30769",
             "unit": "ns/iter"
           }
         ]
