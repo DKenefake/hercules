@@ -3,6 +3,86 @@ use crate::preprocess::low_degree::reduce_root_with_statistics;
 use std::time::Duration;
 
 impl BBSolver {
+    fn certified_native_root_objective(&self) -> Option<f64> {
+        if self.component_depth != 0
+            || self.structural_root_reduced
+            || !self.root_cycle_floor.is_finite()
+        {
+            return None;
+        }
+        let bound = self
+            .verified_objective_lattice()?
+            .certified_grid_point(self.root_cycle_floor)?;
+        let objective = self.native_feasible_incumbent()?;
+        (objective == bound).then_some(objective)
+    }
+
+    fn native_feasible_incumbent(&self) -> Option<f64> {
+        let x = &self.best_solution;
+        if x.len() != self.input_qubo.num_x()
+            || x.iter().any(|&value| value > 1)
+            || self
+                .options
+                .fixed_variables
+                .iter()
+                .any(|(&i, &value)| x.get(i) != Some(&value))
+        {
+            return None;
+        }
+        // On the verified native lattice, this objective sum is exact.
+        Some(self.input_qubo.eval_usize(x))
+    }
+
+    pub(super) fn try_layered_root_certificate(&mut self) -> bool {
+        if self.component_depth != 0 || self.structural_root_reduced {
+            return false;
+        }
+        let seconds = self.options.max_time - (get_current_time() - self.time_start);
+        let budget = (seconds / 4.0).min(4.0);
+        if seconds.is_nan() || budget < 0.02 {
+            return false;
+        }
+        let start = std::time::Instant::now();
+        let Some(certificate) = self.prepared_cycle_bound.as_ref().and_then(|model| {
+            model.layered_root_certificate(Duration::from_secs_f64(budget))
+        }) else {
+            return false;
+        };
+        if self.verified_objective_lattice().is_none()
+            || !self.native_feasible_incumbent().is_some_and(|value| certificate.lower <= value)
+        {
+            return false;
+        }
+        self.root_cycle_floor = certificate.lower;
+        if self.options.verbose >= 2 {
+            println!(
+                "Root layered certificate: {:.9}, width {}, entries {}, {:.6} s",
+                certificate.lower,
+                certificate.width,
+                certificate.entries,
+                start.elapsed().as_secs_f64(),
+            );
+        }
+        // This is the exact unconstrained objective, so cycle packing cannot improve it.
+        true
+    }
+
+    pub(super) fn try_close_native_cycle_root(
+        &mut self,
+        remaining: usize,
+    ) -> Option<(Array1<usize>, f64)> {
+        let objective = self.certified_native_root_objective()?;
+        self.best_solution_value = objective;
+        self.root_reduction_statistics.remaining = remaining;
+        self.apply_logging_action(NodeLoggingAction::Visited);
+        self.apply_logging_action(NodeLoggingAction::Processed);
+        self.solver_logger.output_header(self);
+        if !self.suppress_exit_log {
+            self.solver_logger.generate_exit_line(self);
+        }
+        Some((self.best_solution.clone(), objective))
+    }
+
     pub(super) fn try_reduced_root(
         &mut self,
         fixed: &FixedVarMap,
@@ -203,6 +283,63 @@ mod tests {
                 ))
             })
             .fold(f64::INFINITY, f64::min)
+    }
+
+    #[test]
+    fn native_cycle_certificate_closes_root_without_backend() {
+        let n = 36;
+        let mut q = sprs::TriMat::new((n, n));
+        for i in (0..n).step_by(3) {
+            q.add_triplet(i, i + 1, 8.0);
+            q.add_triplet(i, i + 2, 8.0);
+            q.add_triplet(i + 1, i + 2, 8.0);
+        }
+        let qubo = Qubo::new_with_c(q.to_csr(), Array1::from_elem(n, -4.0));
+        let start = Array1::from_iter((0..n).map(|i| usize::from(i % 3 == 0)));
+        let mut options = SolverOptions::new();
+        options.verbose = 0;
+        let mut solver = BBSolver::new(qubo.clone(), options);
+        solver.warm_start(start.clone());
+        let stats = crate::subproblemsolvers::cycle_bound::PreparedCycleBound::new(&qubo)
+            .unwrap()
+            .short_cycle_root_bound(Duration::from_secs(1), Duration::ZERO, |_| None)
+            .unwrap();
+        solver.root_cycle_floor = stats.lower_bound();
+        let (solution, value) = solver.try_close_native_cycle_root(n).unwrap();
+        assert_eq!(solution, start);
+        assert!((value + 48.0).abs() < 1e-9);
+        assert_eq!(solver.root_reduction_statistics.eliminated, 0);
+        assert_eq!(solver.nodes_processed, 1);
+        assert!(solver.nodes.is_empty() && !solver.early_stop);
+        assert_eq!(solver.node_probing_statistics().subproblem_calls, 0);
+    }
+
+    #[test]
+    fn native_certificate_requires_exact_match_and_feasible_incumbent() {
+        let qubo = Qubo::new_with_c(sprs::CsMat::zero((2, 2)), Array1::from_vec(vec![-2.0, 2.0]));
+        let mut solver = BBSolver::new(qubo, SolverOptions::new());
+        solver.warm_start(Array1::from_vec(vec![1, 0]));
+        solver.best_solution_value = (-2.0_f64).next_up();
+        solver.root_cycle_floor = -3.0;
+        assert_eq!(solver.certified_native_root_objective(), Some(-2.0));
+
+        solver.root_cycle_floor = -4.0;
+        assert!(solver.certified_native_root_objective().is_none());
+        solver.root_cycle_floor = -1.0;
+        assert!(solver.certified_native_root_objective().is_none());
+
+        solver.root_cycle_floor = -3.0;
+        solver.options.fixed_variables.insert(0, 0);
+        assert!(solver.certified_native_root_objective().is_none());
+        solver.options.fixed_variables.clear();
+        solver.best_solution[0] = 2;
+        assert!(solver.certified_native_root_objective().is_none());
+        solver.best_solution[0] = 1;
+        solver.options.objective_lattice_pruning = false;
+        assert!(solver.certified_native_root_objective().is_none());
+        solver.options.objective_lattice_pruning = true;
+        solver.structural_root_reduced = true;
+        assert!(solver.certified_native_root_objective().is_none());
     }
 
     #[test]
