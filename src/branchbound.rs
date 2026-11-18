@@ -431,6 +431,11 @@ impl BBSolver {
             }
         }
         root_bound = self.lattice_lower_bound(root_bound.max(self.root_cycle_floor));
+        if let Some(result) =
+            self.try_close_native_cycle_root(self.qubo.num_x() - fixed_variables.len())
+        {
+            return Some(result);
+        }
         if self.options.root_low_degree_elimination
             || (self.options.subgraph_persistency
                 && self.component_depth == 0
