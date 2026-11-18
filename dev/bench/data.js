@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1794982276273,
+  "lastUpdate": 1795015840703,
   "repoUrl": "https://github.com/DKenefake/hercules",
   "entries": {
     "hercules-criterion": [
@@ -1799,6 +1799,162 @@ window.BENCHMARK_DATA = {
             "name": "solver/branch_bound_solve/bqp50",
             "value": 37512683,
             "range": "± 30769",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "Dustin.Kenefake@gmail.com",
+            "name": "Dustin Kenefake",
+            "username": "DKenefake"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "809847837fe9d19b36a2e5fdc699cd43911d79e1",
+          "message": "Merge pull request #22 from DKenefake/codex/early-layered-root\n\nCertify layered QUBOs before root cycle packing",
+          "timestamp": "2026-11-18T07:25:55-08:00",
+          "tree_id": "702d59be86252f654100648133d146f88e1bd149",
+          "url": "https://github.com/DKenefake/hercules/commit/809847837fe9d19b36a2e5fdc699cd43911d79e1"
+        },
+        "date": 1795015840059,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "helpers/eval_usize/128",
+            "value": 954,
+            "range": "± 17",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "helpers/eval_grad_usize/128",
+            "value": 1473,
+            "range": "± 23",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "helpers/one_flip_objective/64",
+            "value": 681,
+            "range": "± 7",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "helpers/one_step_local_search/64",
+            "value": 719,
+            "range": "± 1",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "preprocess/iterative_persistence/64",
+            "value": 4506,
+            "range": "± 46",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "preprocess/disconnected_graphs/64",
+            "value": 918,
+            "range": "± 4",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "preprocess/solve_small_components/64",
+            "value": 2840,
+            "range": "± 10",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "preprocess/enumerate_solve/10",
+            "value": 7204,
+            "range": "± 487",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "preprocess/preprocess_qubo/64",
+            "value": 7847,
+            "range": "± 443",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "preprocess/probe_limited/test_large/25",
+            "value": 1526447,
+            "range": "± 15622",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "preprocess/probe_limited/test_large/50",
+            "value": 2699457,
+            "range": "± 6704",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "preprocess/probe_limited/test_large/100",
+            "value": 5005859,
+            "range": "± 39773",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "preprocess/preprocess_qubo_heavy/test_large",
+            "value": 3611306,
+            "range": "± 3960",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "solver/process_node/64",
+            "value": 12661,
+            "range": "± 395",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "solver/convex_symmetric_form/random64",
+            "value": 511727,
+            "range": "± 2210",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "solver/convex_symmetric_form/gka6a",
+            "value": 205605,
+            "range": "± 385",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "solver/branch_bound_solve/random96",
+            "value": 106269,
+            "range": "± 10395",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "solver/branch_bound_solve/gka1b",
+            "value": 454534,
+            "range": "± 3558",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "solver/branch_bound_solve/gka2b",
+            "value": 1298453,
+            "range": "± 14464",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "solver/branch_bound_solve/gka6a",
+            "value": 5575153,
+            "range": "± 79994",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "solver/branch_bound_solve/gka7a",
+            "value": 5501917,
+            "range": "± 16687",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "solver/branch_bound_solve/bqp50",
+            "value": 38988825,
+            "range": "± 71686",
             "unit": "ns/iter"
           }
         ]
